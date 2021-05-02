@@ -546,3 +546,37 @@ begin
 end 
 
 end nat.rpartrec.code
+
+namespace rpartrec
+open rcomputable nat.rpartrec 
+
+variables {α : Type*} {σ : Type*} {β : Type*} {τ : Type*} 
+variables [primcodable α] [primcodable σ] [primcodable β] [primcodable τ]
+
+def univn (s : ℕ) (f : β → τ) (e : ℕ) : α →. σ := (λ a,
+(code.evaln s 
+  (λ n, (decode β n).bind  (λ a, encode (f a)))
+  (of_nat code e) (encode a))
+.bind (λ x, (decode σ x)))
+
+notation `⟦`e`⟧^`f:max` [`s`]` := univn s f e
+
+def univ (f : β → τ) (e : ℕ) : α →. σ := (λ a,
+(code.eval (λ n, option.bind (decode β n) (λ a, encode (f a))) (of_nat code e) (encode a))
+.bind (λ x, (decode σ x)))
+
+notation `⟦`e`⟧^`f:max := univ f e
+
+theorem evaln_sound {e} {f : β → τ} {x : α} {y : σ} {s : ℕ} :
+  ⟦e⟧^f [s] x = some y → ⟦e⟧^f x = some y := 
+by{ simp[univn, univ, roption.eq_some_iff], 
+    exact λ s h e, ⟨s, code.evaln_sound h, e⟩ }
+
+theorem rpartrec_univ_iff {f : α →. σ} {g : β → τ} :
+  f partrec_in (g : β →. τ) ↔ ∃ e, ⟦e⟧^g = f :=
+begin
+  simp[univn, univ, roption.eq_some_iff], 
+end
+
+
+end rpartrec
