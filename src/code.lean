@@ -2,8 +2,15 @@ import computability.partrec
 import computability.partrec_code
 import data.pfun
 import tactic
+import rpartrec
 
 open encodable denumerable roption
+
+@[simp] lemma eval_eval_opt {α β} (f : α →. β) [D : decidable_pred f.dom] {x} :
+  f.eval_opt x = @roption.to_option _ (f x) (D x) := rfl
+
+@[simp] theorem mem_to_option' {α} {o : roption α} [decidable o.dom] {a : α} :
+  to_option o = some a ↔ a ∈ o := mem_to_option
 
 namespace nat.rpartrec
 
@@ -17,7 +24,6 @@ inductive code : Type
 | comp   : code → code → code
 | prec   : code → code → code
 | rfind' : code → code
-| univn  : code → code
 
 end nat.rpartrec
 
@@ -40,11 +46,10 @@ def encode_code : code → ℕ
 | succ         := 2
 | left         := 3
 | right        := 4
-| (pair cf cg) := (bit0 $ bit0 $ bit0 (mkpair (encode_code cf) (encode_code cg))) + 5
-| (comp cf cg) := (bit0 $ bit0 $ bit1 (mkpair (encode_code cf) (encode_code cg))) + 5
-| (prec cf cg) := (bit0 $ bit1 $ bit0 (mkpair (encode_code cf) (encode_code cg))) + 5
-| (rfind' cf)  := (bit0 $ bit1 $ bit1 (encode_code cf)) + 5
-| (univn cf)   := (bit1 (encode_code cf)) + 5
+| (pair cf cg) := (bit0 $ bit0 (mkpair (encode_code cf) (encode_code cg))) + 5
+| (comp cf cg) := (bit0 $ bit1 (mkpair (encode_code cf) (encode_code cg))) + 5
+| (prec cf cg) := (bit1 $ bit0 (mkpair (encode_code cf) (encode_code cg))) + 5
+| (rfind' cf)  := (bit1 $ bit1 (encode_code cf)) + 5
 
 lemma guygk (n) : n ≤ n+9 := nat.le.intro rfl
 
@@ -55,27 +60,23 @@ def of_nat_code : ℕ → code
 | 3 := left
 | 4 := right
 | (e+5) :=
-  have div8 : e.div2.div2.div2 ≤ e :=
+  have div8 : e.div2.div2 ≤ e :=
     by { simp[nat.div2_val], 
-         exact le_trans (nat.div_le_self (e/2/2) 2) 
-         (le_trans (nat.div_le_self (e/2) 2) (nat.div_le_self e 2)) },
-  have e.div2.div2.div2 < e + 5 := nat.lt_succ_iff.mpr (le_trans div8 (nat.le.intro rfl)),
-  have e.div2.div2.div2.unpair.1 < e + 5 := nat.lt_succ_iff.mpr
+         exact le_trans (nat.div_le_self (e/2) 2) (nat.div_le_self e 2) },
+  have e.div2.div2 < e + 5 := nat.lt_succ_iff.mpr (le_trans div8 (nat.le.intro rfl)),
+  have e.div2.div2.unpair.1 < e + 5 := nat.lt_succ_iff.mpr
     (le_trans (le_trans (nat.unpair_le_left _) div8) (nat.le.intro rfl)),
-  have e.div2.div2.div2.unpair.2 < e + 5 := nat.lt_succ_iff.mpr
+  have e.div2.div2.unpair.2 < e + 5 := nat.lt_succ_iff.mpr
     (le_trans (le_trans (nat.unpair_le_right _) div8) (nat.le.intro rfl)),
-  have e.div2 < e + 5 := nat.lt_succ_iff.mpr
-    (le_trans (by simp[nat.div2_val]; exact nat.div_le_self _ _) (nat.le.intro rfl)),
-  match e.bodd, e.div2.bodd, e.div2.div2.bodd with
-  | ff, ff, ff := pair (of_nat_code e.div2.div2.div2.unpair.1)
-                        (of_nat_code e.div2.div2.div2.unpair.2)
-  | ff, ff, tt := comp (of_nat_code e.div2.div2.div2.unpair.1)
-                        (of_nat_code e.div2.div2.div2.unpair.2)
-  | ff, tt, ff := prec (of_nat_code e.div2.div2.div2.unpair.1)
-                        (of_nat_code e.div2.div2.div2.unpair.2)
-  | ff, tt, tt := rfind' (of_nat_code e.div2.div2.div2)
-  | tt, _,  _  := univn (of_nat_code e.div2)
-end
+  match e.bodd, e.div2.bodd with
+  | ff, ff := pair (of_nat_code e.div2.div2.unpair.1)
+                       (of_nat_code e.div2.div2.unpair.2)
+  | ff, tt := comp (of_nat_code e.div2.div2.unpair.1)
+                       (of_nat_code e.div2.div2.unpair.2)
+  | tt, ff := prec (of_nat_code e.div2.div2.unpair.1)
+                       (of_nat_code e.div2.div2.unpair.2)
+  | tt, tt := rfind' (of_nat_code e.div2.div2)
+  end
 
 private lemma encode_of_nat_code : ∀ e, encode_code (of_nat_code e) = e
 | 0     := rfl
@@ -84,32 +85,25 @@ private lemma encode_of_nat_code : ∀ e, encode_code (of_nat_code e) = e
 | 3     := rfl
 | 4     := rfl
 | (e+5) :=
-  have div8 : e.div2.div2.div2 ≤ e :=
+have div8 : e.div2.div2 ≤ e :=
     by { simp[nat.div2_val], 
-         exact le_trans (nat.div_le_self (e/2/2) 2) 
-         (le_trans (nat.div_le_self (e/2) 2) (nat.div_le_self e 2)) },
-  have e.div2.div2.div2 < e + 5 := nat.lt_succ_iff.mpr (le_trans div8 (nat.le.intro rfl)),
-  have e.div2.div2.div2.unpair.1 < e + 5 := nat.lt_succ_iff.mpr
+         exact le_trans (nat.div_le_self (e/2) 2) (nat.div_le_self e 2) },
+  have e.div2.div2 < e + 5 := nat.lt_succ_iff.mpr (le_trans div8 (nat.le.intro rfl)),
+  have e.div2.div2.unpair.1 < e + 5 := nat.lt_succ_iff.mpr
     (le_trans (le_trans (nat.unpair_le_left _) div8) (nat.le.intro rfl)),
-  have e.div2.div2.div2.unpair.2 < e + 5 := nat.lt_succ_iff.mpr
+  have e.div2.div2.unpair.2 < e + 5 := nat.lt_succ_iff.mpr
     (le_trans (le_trans (nat.unpair_le_right _) div8) (nat.le.intro rfl)),
-  have e.div2 < e + 5 := nat.lt_succ_iff.mpr
-    (le_trans (by simp[nat.div2_val]; exact nat.div_le_self _ _) (nat.le.intro rfl)),
-  have IH₀ : _ := encode_of_nat_code e.div2.div2.div2,
-  have IH₁ : _ := encode_of_nat_code e.div2.div2.div2.unpair.1,
-  have IH₂ : _ := encode_of_nat_code e.div2.div2.div2.unpair.2,
-  have IH₃ : _ := encode_of_nat_code e.div2,
+  have IH : _ := encode_of_nat_code e.div2.div2,
+  have IH1 : _ := encode_of_nat_code e.div2.div2.unpair.1,
+  have IH2 : _ := encode_of_nat_code e.div2.div2.unpair.2,
   begin
     suffices :
       (of_nat_code (e + 5)).encode_code =
-      nat.bit e.bodd (nat.bit e.div2.bodd (nat.bit e.div2.div2.bodd e.div2.div2.div2)) + 5,
+      nat.bit e.bodd (nat.bit e.div2.bodd e.div2.div2) + 5,
     { simp[nat.bit_decomp, this] },
     simp [encode_code, of_nat_code],
-    cases e.bodd; simp [encode_code, of_nat_code, nat.bit, IH₀, IH₁, IH₂],
-    cases e.div2.bodd; cases e.div2.div2.bodd;
-    simp [encode_code, of_nat_code, nat.bit, IH₀, IH₁, IH₂],
-    { have h : ∀ m : ℕ, cond m.bodd bit1 bit0 m.div2 = m,
-      { intros m, exact nat.bit_decomp m }, simp[h, IH₃] }
+    cases e.bodd; cases e.div2.bodd;
+    simp [encode_code, of_nat_code, nat.bit, IH, IH1, IH2],
   end
 
 private lemma of_nat_code_encode : ∀ c, of_nat_code (encode_code c) = c
@@ -125,8 +119,6 @@ private lemma of_nat_code_encode : ∀ c, of_nat_code (encode_code c) = c
 | (prec cf cg) := by { simp[encode_code, of_nat_code],
     exact ⟨of_nat_code_encode cf, of_nat_code_encode cg⟩ }
 | (rfind' cf)  := by { simp[encode_code, of_nat_code],
-    exact of_nat_code_encode cf }
-| (univn cf)   := by { simp[encode_code, of_nat_code],
     exact of_nat_code_encode cf }
 
 instance : denumerable code :=
@@ -155,34 +147,9 @@ def evaln : ℕ → (ℕ → option ℕ) → code → ℕ → option ℕ
     x ← evaln (s+1) f cf (mkpair a m),
     if x = 0 then pure m else
     evaln s f (rfind' cf) (mkpair a (m+1)))
-| (s+1) f (univn cf)       := λ n, guard (n ≤ s) >> 
-    evaln (min s n.unpair.1.unpair.1)
-    (evaln (s+1) f cf) (of_nat _ n.unpair.1.unpair.2) n.unpair.2
 
 def evaln_ropt (s : ℕ) (f : ℕ →. ℕ) [decidable_pred f.dom] : code → ℕ → option ℕ :=
 evaln s f.eval_opt
-
-theorem evaln_univn {s f cf} :
-  evaln (s+1) f (univn cf) = (λ n, guard (n ≤ s) >> 
-  evaln n.unpair.1.unpair.1 (evaln (s+1) f cf) (of_nat _ n.unpair.1.unpair.2) n.unpair.2) :=
-funext $ λ n,
-by { have : n ≤ s ∨ ¬n ≤ s, exact em (n ≤ s), cases this;
-     simp[evaln, (>>), failure, alternative.failure, this],  
-     have : min s n.unpair.fst.unpair.fst = n.unpair.1.unpair.1,
-     { simp, exact le_trans (nat.unpair_le_left  _) (le_trans (nat.unpair_le_left _) this) },
-     rw this }
-
-theorem evaln_univn0 {s f cf} :
-  (λ n, guard (n ≤ s) >> 
-  evaln (min s n.unpair.1.unpair.1) (evaln (s+1) f cf) (of_nat _ n.unpair.1.unpair.2) n.unpair.2) =
-  (λ n, guard (n ≤ s) >> 
-  evaln n.unpair.1.unpair.1 (evaln (s+1) f cf) (of_nat _ n.unpair.1.unpair.2) n.unpair.2) :=
-funext $ λ n,
-by { have : n ≤ s ∨ ¬n ≤ s, exact em (n ≤ s), cases this;
-     simp[evaln, (>>), failure, alternative.failure, this], 
-     have : min s n.unpair.fst.unpair.fst = n.unpair.1.unpair.1,
-     { simp, exact le_trans (nat.unpair_le_left  _) (le_trans (nat.unpair_le_left _) this) },
-     rw this }
 
 theorem evaln_inclusion : ∀ {s c} {f g : ℕ → option ℕ},
   (∀ x y, x < s → f x = some y → g x = some y) → 
@@ -230,12 +197,6 @@ theorem evaln_inclusion : ∀ {s c} {f g : ℕ → option ℕ},
     by { simp[evaln, (>>)], assume e z ez ey,
          refine ⟨e, z, IH₀ _ _ ez, _⟩,
          cases z with z0; simp at ey ⊢, exact ey, exact IH₁ _ _ ey }
-| (s+1) (univn cf)  f g := λ h n y, 
-    have IH₀ : _ := @evaln_inclusion (s+1) cf _ _ h,
-    have IH₀ : _ := @evaln_inclusion
-      (min s n.unpair.fst.unpair.fst) (of_nat code n.unpair.fst.unpair.snd)
-      (evaln (s + 1) f cf) (evaln (s + 1) g cf) (λ x y _, IH₀ x y),
-    by { simp[evaln, (>>)], assume e ey, refine ⟨e, IH₀ _ _ ey⟩ }
 
 theorem evaln_use : ∀ {s c} {f g : ℕ → option ℕ},
   (∀ x, x < s → f x = g x) → evaln s f c = evaln s g c
@@ -274,42 +235,10 @@ theorem evaln_use : ∀ {s c} {f g : ℕ → option ℕ},
     funext $ λ n, 
     by { simp[evaln], have : n ≤ s ∨ ¬ n ≤ s, omega, cases this;
          simp[(>>), this, IH₀, IH₁] }
-| (s+1) (univn cf)   f g := λ h, funext $ λ n,
-    have IH₀ : _ := @evaln_use (s+1) cf _ _ h,
-    have IH₀ : _ := @evaln_use
-      (min s n.unpair.fst.unpair.fst) (of_nat code n.unpair.fst.unpair.snd)
-      (evaln (s + 1) f cf) (evaln (s + 1) g cf) (by simp[IH₀]),
-    by { simp[evaln], have : n ≤ s ∨ ¬ n ≤ s, omega, cases this;
-         simp[(>>), this, IH₀] }
 
 theorem evaln_use' {s} {f g : ℕ → option ℕ} (h : ∀ x, x < s → f x = g x) :
   evaln s f = evaln s g := 
 funext $ λ c, evaln_use h
-
-def evaln_univn_oracle (f) (c : code) {s s' a : ℕ} (h : (s'.mkpair (encode c)).mkpair a < s) :
-  evaln s f (univn oracle) ((s'.mkpair (encode c)).mkpair a) = evaln s' f c a :=
-begin
-  suffices : evaln s f (univn oracle) ((s'.mkpair (encode c)).mkpair a) =
-  evaln s' (λ n, guard (n < s) >> f n) c a,
-  { rw this, 
-    have : ∀ x, x < s' → (λ n, guard (n < s) >> f n) x = f x,
-    { intros x ex, 
-      have : x < s := 
-      lt_trans (lt_of_lt_of_le ex (le_trans (nat.le_mkpair_left _ _) (nat.le_mkpair_left _ _))) h,
-      simp[(>>), this] },
-    have := evaln_use' this, simp[this] },
-  have e0 : s = (s - 1) + 1, omega, rw e0,
-  have e : min (s - 1) s' = s', simp,
-  { suffices : s' < s, omega,
-    exact lt_of_le_of_lt (le_trans (nat.le_mkpair_left _ _) (nat.le_mkpair_left _ _)) h },
-  have : (s'.mkpair (encode c)).mkpair a ≤ s - 1, omega,
-  simp[evaln, this, e, pure],
-  suffices : (λ (n : ℕ), guard (n ≤ s - 1) >> f n) =
-    (λ (n : ℕ), guard (n < s - 1 + 1) >> f n),
-  rw this, simp[this, (>>)], funext x, 
-  have : x ≤ s - 1 ↔ x < s - 1 + 1, from nat.lt_succ_iff.symm,
-  simp[this], congr,
-end
 
 theorem evaln_bound {f} : ∀ {k c n x}, x ∈ evaln k f c n → n < k
 | 0     c n x h := by simp [evaln] at h; cases h
@@ -369,17 +298,6 @@ theorem evaln_mono : ∀ {s₁ s₂ c f n x},
          assume e0 y ey ex,
          refine ⟨by omega, y, IH₀ _ _ ey, _⟩,
          cases y with y0; simp at ex ⊢, exact ex, exact IH₁ _ _ ex }
-| (s₀+1) (s₁+1) (univn cf)   f n x := λ hs,
-    have IH₀ : _ := λ n y, @evaln_mono (s₀+1) (s₁+1) cf f n y hs,
-    have IH₁ : _ := λ n y : ℕ, @evaln_mono
-      (min s₀ n.unpair.1.unpair.1) (min s₁ n.unpair.1.unpair.1)
-      (of_nat code n.unpair.fst.unpair.snd)
-      (evaln (s₀ + 1) f cf) n.unpair.2 y,
-    by { simp[evaln, (>>)], assume e ex,
-         have : min s₀ n.unpair.fst.unpair.fst ≤ min s₁ n.unpair.fst.unpair.fst :=
-         inf_le_inf_right _ (nat.le_of_succ_le_succ hs),
-         have := IH₁ _ _ this ex, refine ⟨by omega, _⟩,
-         exact evaln_inclusion (λ x y _, IH₀ x y) _ _ this }
 
 def eval (f : ℕ → option ℕ) : code → ℕ →. ℕ 
 | oracle := λ n, f n
@@ -394,22 +312,6 @@ def eval (f : ℕ → option ℕ) : code → ℕ →. ℕ
 | (rfind' cf) := nat.unpaired (λ a m,
     (nat.rfind (λ n, (λ m, m = 0) <$>
       eval cf (mkpair a (n + m)))).map (+ m))
-| (univn cf) := λ n, nat.rfind_opt
-    (λ s, guard (n ≤ s) >> evaln n.unpair.1.unpair.1 
-      (evaln (s+1) f cf) (of_nat _ n.unpair.1.unpair.2) n.unpair.2)
-
-lemma eval_univn_evaln_iff {f x n} {cf : code} :
-  x ∈ eval f cf.univn n ↔ (∃ k, evaln (k + 1) f cf.univn n = some x) :=
-begin
-  simp[eval, evaln_univn, (>>)],
-  let f := (λ s, guard (n ≤ s) >> evaln n.unpair.1.unpair.1
-    (evaln (s+1) f cf) (of_nat _ n.unpair.1.unpair.2) n.unpair.2),
-  have : ∀ a m n, m ≤ n → a ∈ f m → a ∈ f n,
-  { simp[f, (>>)], intros a s₀ s₁ e e0 ha, refine ⟨by omega, evaln_inclusion _ _ _ ha⟩, 
-    exact (λ x y _, evaln_mono (by omega)) },
-  have := (@nat.rfind_opt_mono _ _ this) x, simp [f, (>>)] at this, 
-  exact this
-end
 
 theorem evaln_sound {f} : ∀ {s c n x},
   x ∈ evaln s f c n → x ∈ eval f c n
@@ -464,7 +366,6 @@ theorem evaln_sound {f} : ∀ {s c n x},
         have : b0.succ + n.unpair.snd = b0 + (n.unpair.snd + 1), omega,
         rw this, exact hc1 (nat.lt_of_succ_lt_succ eb) } }
   end
-| (s + 1) (univn cf) n x h := eval_univn_evaln_iff.mpr ⟨s, h⟩
 
 theorem evaln_complete {f : ℕ → option ℕ} {c n x} :
   x ∈ eval (λ x, f x) c n ↔ ∃ k, x ∈ evaln k f c n := ⟨λ h,
@@ -528,9 +429,36 @@ begin
         use evaln_mono (nat.succ_le_succ $ nat.le_succ_of_le $ le_max_left _ _) hk₁,
         simpa [nat.succ_eq_add_one, a0, -max_eq_left, -max_eq_right, add_comm, add_left_comm] using
             evaln_mono (nat.succ_le_succ $ le_max_right _ _) hk₂ } },
-    case nat.rpartrec.code.univn : cf hf
-    { have := eval_univn_evaln_iff.mp h, simp[evaln, (>>)] at this, exact this }
 end, λ ⟨k, h⟩, evaln_sound h⟩
+
+
+
+theorem evaln_complete_dec {c f} [D : decidable_pred (eval f c).dom] : ∀ m, ∃ s₀,
+  ∀ n a, n < m → eval f c n = some a → evaln s₀ f c n = some a := λ m,
+begin
+  induction m with m0 ih, simp,
+  rcases ih with ⟨s₀, hs₀⟩,
+  have e : eval f c m0 = none ∨ ∃ v, eval f c m0 = some v := eq_none_or_eq_some (eval f c m0),
+  cases e,
+  { refine ⟨s₀, λ n a en ha, _⟩,
+    have : n < m0 ∨ n = m0, from nat.lt_succ_iff_lt_or_eq.mp en,
+    cases this, { exact hs₀ _ _ this ha },
+    { exfalso, rw this at ha, rw e at ha, exact roption.some_ne_none _ (eq.symm ha) } },
+  { rcases e with ⟨v, e⟩,
+    have : v ∈ eval f c m0, simp[e],
+    have : ∃ k, v ∈ evaln k f c m0 := evaln_complete.mp this, rcases this with ⟨s₁, hs₁⟩,
+    refine ⟨max s₀ s₁, _⟩,
+    intros n a en ha,
+    have en' : n < m0 ∨ n = m0, from nat.lt_succ_iff_lt_or_eq.mp en,
+    cases en', 
+    { have : evaln s₀ f c n = option.some a := hs₀ _ _ en' ha,
+      show evaln (max s₀ s₁) f c n = option.some a,
+        from evaln_mono (le_max_left s₀ s₁) this },
+    { rw en', 
+      have : a = v, from roption.some_inj.mp (by simp only [←e, ←ha, en']),
+      show evaln (max s₀ s₁) f c m0 = option.some a, rw this,
+        from evaln_mono (le_max_right s₀ s₁) hs₁ } }
+end
 
 @[simp] theorem eval_const (f) : ∀ n m, eval f (code.const n) m = roption.some n
 | 0     m := rfl
@@ -540,5 +468,60 @@ end, λ ⟨k, h⟩, evaln_sound h⟩
 
 @[simp] theorem eval_curry (f c n x) : eval f (curry c n) x = eval f c (mkpair n x) :=
 by simp! [(<*>)]
+
+
+theorem rpartrec_rfind' {f} : nat.rpartrec f (nat.unpaired (λ a m,
+  (nat.rfind (λ n, (λ m, m = 0) <$> f (nat.mkpair a (n + m)))).map (+ m))) :=
+rpartrec.nat_iff.mp $
+begin
+  simp,
+  have c₀ : primrec (λ (x : (ℕ × ℕ) × ℕ), x.2 + x.1.2) := 
+  primrec.nat_add.comp primrec.snd (primrec.snd.comp primrec.fst),
+  have c₁ : primrec (λ (m : ((ℕ × ℕ) × ℕ) × ℕ), to_bool (m.2 = 0)) :=
+  primrec₂.comp primrec.eq primrec.snd (primrec.const 0),
+  have c₂ : (λ (x : (ℕ × ℕ) × ℕ), f (x.1.1.mkpair (x.2 + x.1.2))) partrec_in f :=
+  rpartrec.refl.comp (primrec₂.mkpair.comp (primrec.fst.comp primrec.fst) $
+    primrec.nat_add.comp primrec.snd (primrec.snd.comp primrec.fst)).to_comp.to_rpart,
+  have := (rpartrec.rfind.trans (c₂.map c₁.to_comp.to_rcomp)).map c₀.to_comp.to_rcomp,
+  simp at this,
+  exact this.comp primrec.unpair.to_comp.to_rcomp
+end
+
+theorem exists_code {f g : ℕ →. ℕ} [D : decidable_pred g.dom] :
+  nat.rpartrec g f ↔ ∃ c, eval (g.eval_opt) c = f := ⟨λ h,
+begin
+  induction h,
+  case nat.rpartrec.oracle 
+  { exact ⟨oracle, by { simp[eval], funext n, exact of_to_option (g n) }⟩ },  
+  case nat.rpartrec.zero   { exact ⟨zero, rfl⟩ },
+  case nat.rpartrec.succ   { exact ⟨succ, rfl⟩ },
+  case nat.rpartrec.left   { exact ⟨left, rfl⟩ },
+  case nat.rpartrec.right  { exact ⟨right, rfl⟩ },
+  case nat.rpartrec.pair : f₀ f₁ pf₀ pf₁ hf₀ hf₁
+  { rcases hf₀ with ⟨e₀, rfl⟩, rcases hf₁ with ⟨e₁, rfl⟩,
+    exact ⟨pair e₀ e₁, rfl⟩ },
+  case nat.rpartrec.comp : f₀ f₁ pf₀ pf₁ hf₀ hf₁
+  { rcases hf₀ with ⟨e₀, rfl⟩, rcases hf₁ with ⟨e₁, rfl⟩,
+    exact ⟨comp e₀ e₁, rfl⟩ },
+  case nat.rpartrec.prec : f₀ f₁ pf₀ pf₁ hf₀ hf₁
+  { rcases hf₀ with ⟨e₀, rfl⟩, rcases hf₁ with ⟨e₁, rfl⟩,
+    exact ⟨prec e₀ e₁, rfl⟩ },
+  case nat.rpartrec.rfind : f₀ pf₀ hf₀
+  { rcases hf₀ with ⟨e₀, rfl⟩, 
+    refine ⟨comp (rfind' e₀) (pair nat.rpartrec.code.id zero), _⟩,
+    simp [eval, (<*>), pure, pfun.pure, roption.map_id'],  },
+end,λ h, begin
+  rcases h with ⟨c, rfl⟩, induction c,
+  case nat.rpartrec.code.oracle 
+  { simp[eval], unfold_coes, simp, exact nat.rpartrec.oracle },
+  case nat.rpartrec.code.zero { exact nat.rpartrec.zero },
+  case nat.rpartrec.code.succ { exact nat.rpartrec.succ },
+  case nat.rpartrec.code.left { exact nat.rpartrec.left },
+  case nat.rpartrec.code.right { exact nat.rpartrec.right },
+  case nat.rpartrec.code.pair : cf cg pf pg { exact pf.pair pg },
+  case nat.rpartrec.code.comp : cf cg pf pg { exact pf.comp pg },
+  case nat.rpartrec.code.prec : cf cg pf pg { exact pf.prec pg },
+  case nat.rpartrec.code.rfind' : cf pf { exact nat.rpartrec.trans rpartrec_rfind' pf },
+end⟩
 
 end nat.rpartrec.code
