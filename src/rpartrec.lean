@@ -45,6 +45,21 @@ end
 theorem of_primrec {f} (g) (hf : primrec f) : f partrec_in g := 
 of_partrec g (partrec.of_primrec hf)
 
+theorem le_part_part {f g : ℕ →. ℕ} : g partrec_in f → nat.partrec f → nat.partrec g :=
+begin
+  assume rgf pf,
+  induction rgf,
+  case oracle { exact pf },
+  case zero { exact nat.partrec.zero },
+  case succ { exact nat.partrec.succ },
+  case left { exact nat.partrec.left },
+  case right { exact nat.partrec.right },
+  case pair : f g hf hg pf pg { exact nat.partrec.pair pf pg },
+  case comp : f g hf hg pf pg { exact nat.partrec.comp pf pg },
+  case prec : f g hf hg pf pg { exact nat.partrec.prec pf pg },
+  case rfind : f pf hf { exact nat.partrec.rfind hf },
+end
+
 protected theorem some {f} : roption.some partrec_in f := of_primrec f primrec.id
 
 theorem none {f} : (λ n, none) partrec_in f := of_partrec f partrec.none
@@ -127,6 +142,9 @@ nat.rpartrec.trans
 theorem nat_iff {f g} : f partrec_in g ↔ nat.rpartrec.reducible f g  :=
 by simp[rpartrec, encodable.encode, map]
 
+theorem le_part_part {f : α →. σ} {g : β →. τ} : g partrec_in f → partrec f → partrec g :=
+nat.rpartrec.le_part_part
+
 theorem bind {f : α →. β} {g : α × β →. σ} {h : γ →. τ}
   (hf : f partrec_in h) (hg : g partrec_in h) : (λ a, (f a).bind (λ x, g (a, x))) partrec_in h :=
 (nat.rpartrec.comp hg (nat.rpartrec.some.pair hf)).of_eq $
@@ -149,6 +167,17 @@ theorem rfind {p : α × ℕ →. bool} : (λ a, nat.rfind (λ x, p (a, x))) par
   simp [roption.map_map, (∘)],
   apply map_id' (λ b, _),
   cases b; refl })
+
+theorem of_option {f : α → option β} : (λ a, (f a : roption β)) partrec_in (f : α →. option β) :=
+((nat.rpartrec.of_partrec _ nat.partrec.ppred).comp nat.rpartrec.oracle).of_eq $ λ n, begin
+  cases decode α n with a; simp,
+  cases f a with b; simp
+end
+
+theorem rfind_opt {f : α × ℕ → option σ} {g : β →. σ} (hf : f computable_in g) :
+  (λ a, nat.rfind_opt (λ x, f ((a, x)))) partrec_in g :=
+(rfind.trans (primrec.option_is_some.to_comp.to_rcomp.comp hf))
+.bind (of_option.trans hf)
 
 end rpartrec
 
