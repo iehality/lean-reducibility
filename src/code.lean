@@ -313,6 +313,9 @@ def eval (f : ℕ → option ℕ) : code → ℕ →. ℕ
     (nat.rfind (λ n, (λ m, m = 0) <$>
       eval cf (mkpair a (n + m)))).map (+ m))
 
+def eval_ropt (f : ℕ →. ℕ) [decidable_pred f.dom] : code → ℕ →. ℕ :=
+eval f.eval_opt
+
 theorem evaln_sound {f} : ∀ {s c n x},
   x ∈ evaln s f c n → x ∈ eval f c n
 | 0     _ _ _ h := by simp [evaln] at h; cases h
@@ -431,8 +434,6 @@ begin
             evaln_mono (nat.succ_le_succ $ le_max_right _ _) hk₂ } },
 end, λ ⟨k, h⟩, evaln_sound h⟩
 
-
-
 theorem evaln_complete_dec {c f} [D : decidable_pred (eval f c).dom] : ∀ m, ∃ s₀,
   ∀ n a, n < m → eval f c n = some a → evaln s₀ f c n = some a := λ m,
 begin
@@ -524,7 +525,24 @@ end,λ h, begin
   case nat.rpartrec.code.rfind' : cf pf { exact nat.rpartrec.trans rpartrec_rfind' pf },
 end⟩
 
-axiom evaln_computable (f : ℕ →. ℕ) [D : decidable_pred f.dom] : 
+open rcomputable
+
+axiom evaln_computable (f : ℕ →. ℕ) [decidable_pred f.dom] : 
   (λ x : (ℕ × code) × ℕ, evaln_ropt x.1.1 f x.1.2 x.2) computable_in f 
+
+theorem eval_eq_rfind_opt (f : ℕ →. ℕ) [decidable_pred f.dom] (c n) :
+  eval_ropt f c n = nat.rfind_opt (λ k, evaln_ropt k f c n) :=
+roption.ext $ λ x, begin
+  refine evaln_complete.trans (nat.rfind_opt_mono _).symm,
+  intros a m n hl, apply evaln_mono hl,
+end
+
+theorem eval_partrec (f : ℕ →. ℕ) [decidable_pred f.dom] :
+  (λ n : code × ℕ, eval_ropt f n.1 n.2) partrec_in f :=
+begin
+  have := ((evaln_computable f).comp ((snd.pair $ fst.comp fst).pair $ snd.comp fst)),
+  have := rpartrec.rfind_opt this,
+  exact (this.of_eq $ λ n, by simp[eval_eq_rfind_opt])
+end 
 
 end nat.rpartrec.code
