@@ -524,4 +524,7 @@ end,λ h, begin
   case nat.rpartrec.code.rfind' : cf pf { exact nat.rpartrec.trans rpartrec_rfind' pf },
 end⟩
 
+axiom evaln_computable (f : ℕ →. ℕ) [D : decidable_pred f.dom] : 
+  (λ x : (ℕ × code) × ℕ, evaln_ropt x.1.1 f x.1.2 x.2) computable_in f 
+
 end nat.rpartrec.code
