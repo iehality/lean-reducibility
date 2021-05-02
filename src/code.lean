@@ -34,6 +34,10 @@ protected def id : code := pair left right
 def curry (c : code) (n : ℕ) : code :=
 comp c (pair (code.const n) code.id)
 
+def rfind (c : code) : code := c.rfind'.comp (code.id.pair zero)
+
+def univ (c : code) : code := c.univn.rfind 
+
 def encode_code : code → ℕ
 | oracle       := 0
 | zero         := 1
@@ -45,8 +49,6 @@ def encode_code : code → ℕ
 | (prec cf cg) := (bit0 $ bit1 $ bit0 (mkpair (encode_code cf) (encode_code cg))) + 5
 | (rfind' cf)  := (bit0 $ bit1 $ bit1 (encode_code cf)) + 5
 | (univn cf)   := (bit1 (encode_code cf)) + 5
-
-lemma guygk (n) : n ≤ n+9 := nat.le.intro rfl
 
 def of_nat_code : ℕ → code
 | 0 := oracle
@@ -168,18 +170,6 @@ theorem evaln_univn {s f cf} :
 funext $ λ n,
 by { have : n ≤ s ∨ ¬n ≤ s, exact em (n ≤ s), cases this;
      simp[evaln, (>>), failure, alternative.failure, this],  
-     have : min s n.unpair.fst.unpair.fst = n.unpair.1.unpair.1,
-     { simp, exact le_trans (nat.unpair_le_left  _) (le_trans (nat.unpair_le_left _) this) },
-     rw this }
-
-theorem evaln_univn0 {s f cf} :
-  (λ n, guard (n ≤ s) >> 
-  evaln (min s n.unpair.1.unpair.1) (evaln (s+1) f cf) (of_nat _ n.unpair.1.unpair.2) n.unpair.2) =
-  (λ n, guard (n ≤ s) >> 
-  evaln n.unpair.1.unpair.1 (evaln (s+1) f cf) (of_nat _ n.unpair.1.unpair.2) n.unpair.2) :=
-funext $ λ n,
-by { have : n ≤ s ∨ ¬n ≤ s, exact em (n ≤ s), cases this;
-     simp[evaln, (>>), failure, alternative.failure, this], 
      have : min s n.unpair.fst.unpair.fst = n.unpair.1.unpair.1,
      { simp, exact le_trans (nat.unpair_le_left  _) (le_trans (nat.unpair_le_left _) this) },
      rw this }
@@ -398,6 +388,9 @@ def eval (f : ℕ → option ℕ) : code → ℕ →. ℕ
     (λ s, guard (n ≤ s) >> evaln n.unpair.1.unpair.1 
       (evaln (s+1) f cf) (of_nat _ n.unpair.1.unpair.2) n.unpair.2)
 
+def eval_ropt (f : ℕ →. ℕ) [decidable_pred f.dom] : code → ℕ →. ℕ :=
+eval f.eval_opt
+
 lemma eval_univn_evaln_iff {f x n} {cf : code} :
   x ∈ eval f cf.univn n ↔ (∃ k, evaln (k + 1) f cf.univn n = some x) :=
 begin
@@ -540,5 +533,9 @@ end, λ ⟨k, h⟩, evaln_sound h⟩
 
 @[simp] theorem eval_curry (f c n x) : eval f (curry c n) x = eval f c (mkpair n x) :=
 by simp! [(<*>)]
+
+@[simp] theorem eval_rfind {f} (c : code) : 
+  eval f (c.rfind) = λ a, nat.rfind (λ n, (λ m, to_bool (m = 0)) <$> eval f c (a.mkpair n)) :=
+by simp [rfind, eval, (<*>), pure, pfun.pure, roption.map_id']
 
 end nat.rpartrec.code

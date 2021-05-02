@@ -22,7 +22,7 @@ inductive rpartrec (o : ℕ →. ℕ) : (ℕ →. ℕ) → Prop
     n.elim (f a) (λ y IH, do i ← IH, g (mkpair a (mkpair y i)))))
 | rfind {f} : rpartrec f → rpartrec (λ a, rfind (λ n, (λ m, m = 0) <$> f (mkpair a n)))
 | univn {f : ℕ →. ℕ} [decidable_pred f.dom] : rpartrec f → rpartrec (unpaired $ λ a n, 
-    nat.rpartrec.code.evaln a.unpair.1 f.eval_opt (of_nat _ a.unpair.2) n)
+    nat.rpartrec.code.evaln_ropt a.unpair.1 f (of_nat _ a.unpair.2) n)
 
 namespace rpartrec
 
@@ -63,7 +63,6 @@ begin
   assume pgf phg,
   induction pgf,
   case oracle { exact phg },
-  case univn : _ _ _ pf { exactI univn pf },
   case zero { exact zero },
   case succ { exact succ },
   case left { exact left },
@@ -72,6 +71,7 @@ begin
   case comp : _ _ _ _ pf pg { exact comp pf pg },
   case prec : _ _ _ _ pf pg { exact prec pf pg },
   case rfind : _ _ pf { exact rfind pf },
+  case univn : _ _ _ pf { exactI univn pf },  
 end
 
 end rpartrec
@@ -202,33 +202,7 @@ end rcomputable
 
 namespace nat.rpartrec.code
 open nat.rpartrec (code)
---
---private lemma evaln_comp' {c f} {g : ℕ → option ℕ} (h : eval f c = (λ x, g x)) : ∀ m, ∃ s₀,
---  ∀ n a, n < m → g n = some a → evaln s₀ f c n = some a := λ m,
---begin
---  induction m with m0 ih, simp,
---  rcases ih with ⟨s₀, hs₀⟩,
---  cases e : g m0 with v,
---  { refine ⟨s₀, λ n a en ha, _⟩,
---    have : n < m0 ∨ n = m0, from nat.lt_succ_iff_lt_or_eq.mp en,
---    cases this, { exact hs₀ _ _ this ha },
---    { exfalso, rw this at ha, rw e at ha, exact option.not_mem_none a ha } },
---  { unfold_coes at h,
---    have : v ∈ eval f c m0, simp[h, e],
---    have : ∃ k, v ∈ evaln k f c m0 := evaln_complete.mp this, rcases this with ⟨s₁, hs₁⟩,
---    refine ⟨max s₀ s₁, _⟩,
---    intros n a en ha,
---    have en' : n < m0 ∨ n = m0, from nat.lt_succ_iff_lt_or_eq.mp en,
---    cases en', 
---    { have : evaln s₀ f c n = option.some a := hs₀ _ _ en' ha,
---      show evaln (max s₀ s₁) f c n = option.some a,
---        from evaln_mono (le_max_left s₀ s₁) this },
---    { rw en', 
---      have : a = v, from option.some_inj.mp (by simp only [←e, ←ha, en']),
---      show evaln (max s₀ s₁) f c m0 = option.some a, rw this,
---        from evaln_mono (le_max_right s₀ s₁) hs₁ } }
---end
---
+
 @[simp] lemma eval_eval_opt {α β} (f : α →. β) [D : decidable_pred f.dom] {x} :
   f.eval_opt x = @roption.to_option _ (f x) (D x) := rfl
 
@@ -288,29 +262,6 @@ begin
     exact evaln_inclusion hs₀' _ _ ha } 
 end
 
---theorem eval_univn_eq {c f} {g : ℕ → option ℕ} (h : eval f c = (λ x, g x)) : 
---  eval f c.univn = nat.unpaired (λ a n, (evaln a.unpair.fst g (of_nat code a.unpair.snd) n)) :=
---begin
---  unfold_coes at h,
---  funext n, apply roption.ext, intros a,
---  rw eval_univn_evaln_iff, 
---  simp[evaln_univn, (>>)], split,
---  { rintros ⟨s, hs⟩, rcases hs with ⟨e, hs⟩,
---    have : ∀ x y, evaln (s+1) f c x = some y → g x = some y,
---    { intros x y ey, have := evaln_sound ey, simp[h] at this, exact this },    
---    have := evaln_inclusion (λ x y e, this x y) _ _ hs,
---    exact this },
---  { assume ha, 
---    have : ∃ s₀, ∀ m a, m < n.unpair.fst.unpair.fst →
---      g m = option.some a → evaln s₀ f c m = option.some a :=
---    evaln_comp' h n.unpair.1.unpair.1, rcases this with ⟨s₀, hs₀⟩,
---    refine ⟨max n s₀, le_max_left _ _, _⟩, 
---    have hs₀' : ∀ m a, m < n.unpair.fst.unpair.fst →
---      g m = option.some a → evaln (max n s₀ + 1) f c m = option.some a,
---    from λ _ _ em ha, evaln_mono (le_trans (le_max_right n _) (nat.le_succ _)) (hs₀ _ _ em ha),
---    exact evaln_inclusion hs₀' _ _ ha } 
---end
-
 theorem rfind'' {f} : nat.rpartrec f (nat.unpaired (λ a m,
   (nat.rfind (λ n, (λ m, m = 0) <$> f (nat.mkpair a (n + m)))).map (+ m))) :=
 rpartrec.nat_iff.mp $
@@ -327,7 +278,11 @@ begin
   simp at this,
   exact this.comp primrec.unpair.to_comp.to_rcomp
 end
-
+--
+--theorem rpartrec.evaln {f : ℕ →. ℕ} [D : decidable_pred f.dom] :
+--  nat.rpartrec f (nat.unpaired $ λ a n, 
+--    nat.rpartrec.code.evaln_ropt a.unpair.1 f (of_nat _ a.unpair.2) n) := λ h,
+--
 theorem exists_code {f g : ℕ →. ℕ} [D : decidable_pred g.dom] :
   nat.rpartrec g f → ∃ c, eval (g.eval_opt) c = f := λ h,
 begin
@@ -354,12 +309,7 @@ begin
   case nat.rpartrec.univn : f₀ D pf₀ hf₀
   { rcases hf₀ with ⟨e₀, rfl⟩,
     have := by exactI eval_univn_eq_dec e₀ g.eval_opt,
-    refine ⟨e₀.univn, this⟩ 
-    --have : eval g.eval_opt e₀ = λ x, (@pfun.eval_opt _ _ f₀ D) x,
-    --{ unfold_coes, simp, exact h },
-    --have := eval_univn_eq this,
-    --refine ⟨e₀.univn, this⟩ },
-  }
+    refine ⟨e₀.univn, this⟩ }
 end
 
 end nat.rpartrec.code
