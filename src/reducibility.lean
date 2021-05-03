@@ -144,9 +144,7 @@ section classical
 
 open rpartrec
 
---def jump (A : set ℕ) : set ℕ := {x | (rpartrec.code.univ (chrₙ* A) x.unpair.1 x.unpair.2 : roption ℕ).dom}
-
-def jump (A : set ℕ) : set ℕ := {x | (⟦x.unpair.1⟧^(λ x, some $ chr A x) x.unpair.2 : roption ℕ).dom}
+def jump (A : set ℕ) : set ℕ := {x | (⟦x.unpair.1⟧^(chr A) x.unpair.2 : roption ℕ).dom}
 
 notation A`′`:1200 := jump A
 

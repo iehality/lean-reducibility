@@ -223,4 +223,17 @@ theorem refl_in (f : α → β) : f computable_in (f : α →. β) := nat.rpartr
 @[trans] theorem trans {f : α → σ} {g : β → τ} {h : γ →. μ} :
   f computable_in (g : β →. τ)→ g computable_in h → f computable_in h := nat.rpartrec.trans
 
+theorem cond {c : α → bool} {f : α → σ} {g : α → σ} {h : β →. τ}
+  (hc : c computable_in h) (hf : f computable_in h) (hg : g computable_in h) :
+  (λ a, cond (c a) (f a) (g a)) computable_in h :=
+begin
+  let f₀ := (λ a, cond a.1 a.2.1 a.2.2 : bool × σ × σ → σ),
+  let f₁ := (λ a, (c a, f a, g a) : α → bool × σ × σ),
+  have c₀ : computable f₀ := 
+    computable.cond computable.fst 
+      (computable.fst.comp computable.snd) (computable.snd.comp computable.snd),
+  have c₁ : f₁ computable_in h := pair hc (pair hf hg),
+  exact c₀.to_rcomp.comp c₁
+end
+
 end rcomputable

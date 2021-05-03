@@ -637,22 +637,43 @@ def univ (f : β → τ) (e : ℕ) : α →. σ := (λ a,
 
 notation `⟦`e`⟧^`f:max := univ f e
 
+theorem rpartrec.univ (α σ) [primcodable α] [primcodable σ]
+  (f : β → τ) : (λ x, ⟦x.1⟧^f x.2 : ℕ × α →. σ) partrec_in (f : β →. τ) :=
+begin
+  simp[univ],
+  let f0 := (λ (n : ℕ), option.map (λ (a : β), encode (f a)) (decode β n)),
+  have c₁ : (λ n, roption.of_option (f0 n)) partrec_in pfun.lift f,
+  { simp[f0],
+    have e : (λ (n : ℕ), roption.of_option (option.map (λ (a : β), encode (f a)) (decode β n))) =
+      (λ (n : ℕ), roption.bind (decode β n) (λ (a : β), some $ encode (f a))),
+    { funext a, cases decode β a; simp[(>>=), roption.of_option] },
+    rw e,
+    have := computable.encode.to_rcomp.comp (refl_in ↑f),
+    have := (computable.of_option (computable.decode)).to_rpart.bind (this.comp snd),
+    exact this },
+  have c₀ := (code.eval_partrec f0).comp 
+    (((primrec.of_nat code).comp primrec.fst).to_comp.to_rcomp.pair
+    (computable.encode.comp computable.snd).to_rcomp),
+  have c₂ := c₀.trans c₁,
+  have c₃ := computable.of_option computable.decode,
+  have := c₂.bind (c₃.to_rpart.comp snd),
+  exact this,
+end
+
 theorem evaln_sound {e} {f : β → τ} {x : α} {y : σ} {s : ℕ} :
   ⟦e⟧^f [s] x = some y → ⟦e⟧^f x = some y := 
 by{ simp[univn, univ, roption.eq_some_iff], 
     exact λ s h e, ⟨s, code.evaln_sound h, e⟩ }
 
-lemma nhgkjvk : roption.to_option (@roption.none ℕ : roption ℕ)= (none : option ℕ) := rfl
-
 theorem rpartrec_univ_iff {f : α →. σ} {g : β → τ} :
   f partrec_in (g : β →. τ) ↔ ∃ e, ⟦e⟧^g = f :=
 begin
-simp[univn, univ, rpartrec, nat.rpartrec.reducible, roption.eq_some_iff],
-      let g' := (λ n, (decode β n).map (λ a, (encode (g a)))),
-    have : (λ (n : ℕ), roption.bind (decode β n) (λ (a : β), some (encode (g a)))) =
-      (λ x, g' x : ℕ →. ℕ) := funext (λ x, 
-      by { unfold_coes, simp[g'], cases decode β x; simp[roption.of_option, (>>=)] }),
-    simp [this], split,
+  simp[univn, univ, rpartrec, nat.rpartrec.reducible, roption.eq_some_iff],
+  let g' := (λ n, (decode β n).map (λ a, (encode (g a)))),
+  have : (λ (n : ℕ), roption.bind (decode β n) (λ (a : β), some (encode (g a)))) =
+    (λ x, g' x : ℕ →. ℕ) := funext (λ x, 
+  by { unfold_coes, simp[g'], cases decode β x; simp[roption.of_option, (>>=)] }),
+  simp [this], split,
   { assume h, rcases nat.rpartrec.code.exists_code_opt.mp h with ⟨c, hc⟩, 
     refine ⟨encode c, funext $ λ a, _⟩, simp, unfold_coes, simp[roption.of_option,hc] },
   { rintros ⟨e, he⟩, simp[←he, g'], 
@@ -660,10 +681,25 @@ simp[univn, univ, rpartrec, nat.rpartrec.reducible, roption.eq_some_iff],
       ((computable.const (of_nat code e)).to_rcomp.pair computable.encode.to_rcomp),
     have c₁ := (computable.of_option computable.decode).map (computable.encode.comp computable.snd).to₂,
     have c₂ := c₀.bind (c₁.comp computable.snd).to_rpart,
-    have c₃ := computable.of_option computable.decode,
-    have := c₃.to_rpart.bind (c₂.comp rcomputable.snd), 
+    have := computable.of_option computable.decode,
+    have := this.to_rpart.bind (c₂.comp rcomputable.snd), 
     exact rpartrec.nat_iff.mp this }
 end
 
+protected theorem cond {c : α → bool} {f : α →. σ} {g : α →. σ} {h : β → τ}
+  (hc : c computable_in (h : β →. τ)) (hf : f partrec_in (h : β →. τ)) (hg : g partrec_in (h : β →. τ)) :
+  (λ a, cond (c a) (f a) (g a)) partrec_in (h : β →. τ) :=
+let ⟨e, hf⟩ := rpartrec_univ_iff.1 hf,
+    ⟨i, hg⟩ := rpartrec_univ_iff.1 hg in
+begin
+  have c₀ := ((rpartrec.univ α σ h).comp $
+    (cond hc (const e) (const i)).pair id),
+  simp at c₀,
+  exact (c₀.of_eq $ λ x, by cases c x; simp[hg, hf] )
+end
+
+theorem bool_to_roption (c : α → bool):
+  (λ a, cond (c a) (some 0) none : α →. ℕ) partrec_in (c : α →. bool) :=
+rpartrec.cond refl (const 0) partrec.none.to_rpart
 
 end rpartrec
