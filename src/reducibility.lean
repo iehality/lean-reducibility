@@ -28,6 +28,10 @@ decidable.cases_on (classical.dec (p x)) (λ h₁, bool.ff) (λ h₂, bool.tt)
 
 notation `chr* `A := pfun.lift (chr A)
 
+noncomputable def chrₙ (p : ℕ → Prop) : ℕ → ℕ := λ n, (cond (chr p n) 1 0)
+
+notation `chrₙ* `A := pfun.lift (chrₙ A)
+
 @[simp] theorem chr_iff {α} (A : α → Prop) (x : α) : chr A x = tt ↔ A x :=
 by simp[chr]; cases (classical.dec (A x)); simp[h]
 
@@ -140,7 +144,9 @@ section classical
 
 open rpartrec
 
-def jump (A : set ℕ) : set ℕ := {x | (⟦x.unpair.1⟧^(chr A) x.unpair.2 : roption ℕ).dom}
+--def jump (A : set ℕ) : set ℕ := {x | (rpartrec.code.univ (chrₙ* A) x.unpair.1 x.unpair.2 : roption ℕ).dom}
+
+def jump (A : set ℕ) : set ℕ := {x | (⟦x.unpair.1⟧^(λ x, some $ chr A x) x.unpair.2 : roption ℕ).dom}
 
 notation A`′`:1200 := jump A
 
