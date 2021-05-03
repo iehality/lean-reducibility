@@ -568,7 +568,6 @@ end,λ h, begin
   case nat.rpartrec.code.rfind' : cf pf { exact nat.rpartrec.trans rpartrec_rfind' pf },
 end⟩
 
-#check exists_code
 open rcomputable
 
 axiom evaln_ropt_computable (f : ℕ →. ℕ) [decidable_pred f.dom] : 
