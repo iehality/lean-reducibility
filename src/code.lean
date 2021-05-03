@@ -616,11 +616,6 @@ open rcomputable nat.rpartrec
 variables {α : Type*} {σ : Type*} {β : Type*} {τ : Type*} 
 variables [primcodable α] [primcodable σ] [primcodable β] [primcodable τ]
 
-instance (f : β → τ) :
-  decidable_pred (pfun.dom (λ n, roption.of_option ((decode β n).map (λ a, encode (f a))))) := λ a,
-by{ simp[decidable_pred,pfun.dom,set.set_of_app_iff], 
-    exact eq.decidable (option.map (λ (a : β), encode (f a)) (decode β a)).is_some tt }
-
 def univn (s : ℕ) (f : β → τ) (e : ℕ) : α →. σ := (λ a,
 (code.evaln s 
   (λ n, (decode β n).map (λ a, encode (f a)))
@@ -637,8 +632,8 @@ def univ (f : β → τ) (e : ℕ) : α →. σ := (λ a,
 
 notation `⟦`e`⟧^`f:max := univ f e
 
-theorem rpartrec.univ (α σ) [primcodable α] [primcodable σ]
-  (f : β → τ) : (λ x, ⟦x.1⟧^f x.2 : ℕ × α →. σ) partrec_in (f : β →. τ) :=
+theorem rpartrec.univ (α σ) [primcodable α] [primcodable σ] (f : β → τ) :
+  (λ x, ⟦x.1⟧^f x.2 : ℕ × α →. σ) partrec_in (f : β →. τ) :=
 begin
   simp[univ],
   let f0 := (λ (n : ℕ), option.map (λ (a : β), encode (f a)) (decode β n)),
