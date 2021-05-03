@@ -4,21 +4,33 @@ open encodable denumerable roption decidable
 
 namespace Kleene_Post
 
-def extendable (l : list ℕ) (n : ℕ) := {x : ℕ | ∃ f, l ⊂ₘ f ∧ (⟦x⟧^f n : roption bool).dom}
+def extendable_ff (l : list ℕ) (n : ℕ) := λ x : ℕ, ∃ f, l ⊂ₘ f ∧ ⟦x⟧^f n = some ff
+def extendable_tt (l : list ℕ) (n : ℕ) := λ x : ℕ, ∃ f, l ⊂ₘ f ∧ ⟦x⟧^f n = some tt
 
-def extendable_le_0prime (l : list ℕ) (n): 
-  extendable l n ≤ₜ ∅′ :=
+def extendable₀_le_0prime (l : list ℕ) (n): 
+  extendable_ff l n ≤ₜ ∅′ :=
 by sorry
 
-mutual def I₀, I₁
-
-with I₀ : ℕ → list ℕ
+noncomputable mutual def L₀, L₁
+with L₀ : ℕ → list ℕ
 | 0     := []
-| (e+1) := if p : e ∈ extendable (I₁ e) (I₀ e).length then 
-
-with I₁ : ℕ → list ℕ
+| (e+1) := 
+  decidable.cases_on (classical.dec (extendable_ff (L₁ e) (L₀ e).length e))
+    (λ _, L₀ e)
+    (λ _, decidable.cases_on (classical.dec (extendable_tt (L₁ e) (L₀ e).length e))
+      (λ _, (1 :: L₀ e))
+      (λ _, (0 :: L₀ e)))
+with L₁ : ℕ → list ℕ
 | 0     := []
-| (n+1) := ∃ q, sigma0_hie n q ∧ ∀ a, p a ↔ (∀ b, q (a.mkpair b))
+| (e+1) := 
+  decidable.cases_on (classical.dec (extendable_ff (L₀ e) (L₁ e).length e))
+    (λ _, L₁ e)
+    (λ _, decidable.cases_on (classical.dec (extendable_tt (L₀ e) (L₁ e).length e))
+      (λ _, (1 :: L₁ e))
+      (λ _, (0 :: L₁ e)))
+
+def I₀ : set ℕ := {n | ∃ s, n ∈ L₀ s}  
+def I₁ : set ℕ := {n | ∃ s, n ∈ L₁ s}  
 
 def incomparable_sets : ℕ → list ℕ × list ℕ
 | 0     := ([], [])
@@ -28,10 +40,6 @@ theorem Kleene_Post : ∃ (A B : set ℕ), (A ≤ₜ ∅′) ∧ (B ≤ₜ ∅�
 by sorry
 
 end Kleene_Post
-
-
-theorem Kleene_Post0 : ∃ (A : set ℕ), ((∅ : set ℕ) <ₜ A) ∧ (A <ₜ ∅′) :=
-by sorry
 
 theorem Friedberg_Muchnik : ∃ (A B : set ℕ), re_pred A ∧ re_pred B ∧ (A ≰ₜ B) ∧ (B ≰ₜ A) :=
 by sorry
