@@ -525,9 +525,50 @@ end,λ h, begin
   case nat.rpartrec.code.rfind' : cf pf { exact nat.rpartrec.trans rpartrec_rfind' pf },
 end⟩
 
+theorem exists_code_opt {f : ℕ →. ℕ} {g : ℕ → option ℕ} :
+  nat.rpartrec (λ x, g x) f ↔ ∃ c, eval g c = f := ⟨λ h,
+begin
+  induction h,
+  case nat.rpartrec.oracle 
+  { exact ⟨oracle, rfl⟩ },  
+  case nat.rpartrec.zero   { exact ⟨zero, rfl⟩ },
+  case nat.rpartrec.succ   { exact ⟨succ, rfl⟩ },
+  case nat.rpartrec.left   { exact ⟨left, rfl⟩ },
+  case nat.rpartrec.right  { exact ⟨right, rfl⟩ },
+  case nat.rpartrec.pair : f₀ f₁ pf₀ pf₁ hf₀ hf₁
+  { rcases hf₀ with ⟨e₀, rfl⟩, rcases hf₁ with ⟨e₁, rfl⟩,
+    exact ⟨pair e₀ e₁, rfl⟩ },
+  case nat.rpartrec.comp : f₀ f₁ pf₀ pf₁ hf₀ hf₁
+  { rcases hf₀ with ⟨e₀, rfl⟩, rcases hf₁ with ⟨e₁, rfl⟩,
+    exact ⟨comp e₀ e₁, rfl⟩ },
+  case nat.rpartrec.prec : f₀ f₁ pf₀ pf₁ hf₀ hf₁
+  { rcases hf₀ with ⟨e₀, rfl⟩, rcases hf₁ with ⟨e₁, rfl⟩,
+    exact ⟨prec e₀ e₁, rfl⟩ },
+  case nat.rpartrec.rfind : f₀ pf₀ hf₀
+  { rcases hf₀ with ⟨e₀, rfl⟩, 
+    refine ⟨comp (rfind' e₀) (pair nat.rpartrec.code.id zero), _⟩,
+    simp [eval, (<*>), pure, pfun.pure, roption.map_id'],  },
+end,λ h, begin
+  rcases h with ⟨c, rfl⟩, induction c,
+  case nat.rpartrec.code.oracle 
+  { simp[eval], exact nat.rpartrec.oracle },
+  case nat.rpartrec.code.zero { exact nat.rpartrec.zero },
+  case nat.rpartrec.code.succ { exact nat.rpartrec.succ },
+  case nat.rpartrec.code.left { exact nat.rpartrec.left },
+  case nat.rpartrec.code.right { exact nat.rpartrec.right },
+  case nat.rpartrec.code.pair : cf cg pf pg { exact pf.pair pg },
+  case nat.rpartrec.code.comp : cf cg pf pg { exact pf.comp pg },
+  case nat.rpartrec.code.prec : cf cg pf pg { exact pf.prec pg },
+  case nat.rpartrec.code.rfind' : cf pf { exact nat.rpartrec.trans rpartrec_rfind' pf },
+end⟩
+
+#check exists_code
 open rcomputable
 
 axiom evaln_computable (f : ℕ →. ℕ) [decidable_pred f.dom] : 
+  (λ x : (ℕ × code) × ℕ, evaln_ropt x.1.1 f x.1.2 x.2) computable_in f 
+
+axiom evaln_ropt_computable (f : ℕ →. ℕ) [decidable_pred f.dom] : 
   (λ x : (ℕ × code) × ℕ, evaln_ropt x.1.1 f x.1.2 x.2) computable_in f 
 
 theorem eval_eq_rfind_opt (f : ℕ →. ℕ) [decidable_pred f.dom] (c n) :
@@ -553,29 +594,58 @@ open rcomputable nat.rpartrec
 variables {α : Type*} {σ : Type*} {β : Type*} {τ : Type*} 
 variables [primcodable α] [primcodable σ] [primcodable β] [primcodable τ]
 
-def univn (s : ℕ) (f : β → τ) (e : ℕ) : α →. σ := (λ a,
-(code.evaln s 
-  (λ n, (decode β n).bind  (λ a, encode (f a)))
+instance (f : β →. τ) [D : decidable_pred f.dom] :
+  decidable_pred (pfun.dom (λ n, (roption.bind (decode β n) (λ a, (f a).map encode)))) := λ a,
+by{ simp[decidable_pred,pfun.dom,set.set_of_app_iff], cases decode β a with b; simp[roption.none, roption.some],
+    exact decidable.false, exact D b }
+
+def univn (s : ℕ) (f : β →. τ) [decidable_pred f.dom] (e : ℕ) : α →. σ := (λ a,
+(code.evaln_ropt s 
+  (λ n, (roption.bind (decode β n) (λ a, (f a).map encode)))
   (of_nat code e) (encode a))
 .bind (λ x, (decode σ x)))
 
 notation `⟦`e`⟧^`f:max` [`s`]` := univn s f e
 
-def univ (f : β → τ) (e : ℕ) : α →. σ := (λ a,
-(code.eval (λ n, option.bind (decode β n) (λ a, encode (f a))) (of_nat code e) (encode a))
+def univ (f : β →. τ) [decidable_pred f.dom] (e : ℕ) : α →. σ := (λ a,
+(code.eval_ropt 
+  (λ n, (roption.bind (decode β n) (λ a, (f a).map encode)))
+  (of_nat code e) (encode a))
 .bind (λ x, (decode σ x)))
 
 notation `⟦`e`⟧^`f:max := univ f e
 
-theorem evaln_sound {e} {f : β → τ} {x : α} {y : σ} {s : ℕ} :
+theorem evaln_sound {e} {f : β →. τ} [decidable_pred f.dom] {x : α} {y : σ} {s : ℕ} :
   ⟦e⟧^f [s] x = some y → ⟦e⟧^f x = some y := 
 by{ simp[univn, univ, roption.eq_some_iff], 
     exact λ s h e, ⟨s, code.evaln_sound h, e⟩ }
 
-theorem rpartrec_univ_iff {f : α →. σ} {g : β → τ} :
+#check code.eval_partrec
+
+theorem rpartrec_univ_iff {f : α →. σ} {g : β →. τ} [decidable_pred g.dom] :
   f partrec_in (g : β →. τ) ↔ ∃ e, ⟦e⟧^g = f :=
 begin
-  simp[univn, univ, roption.eq_some_iff], 
+  simp[univn, univ, rpartrec, nat.rpartrec.reducible, roption.eq_some_iff],
+      let g' := (λ (n : ℕ), option.bind (decode β n) (λ (a : β), some (encode (g a)))),
+    have : (λ (n : ℕ), roption.bind (decode β n) (λ (a : β), some (encode (g a)))) =
+      (λ x, g' x : ℕ →. ℕ) := funext (λ x, 
+      by { unfold_coes, simp[g'], cases decode β x; simp[roption.of_option, (>>=)] }),
+    rw [this],
+  split,
+  { simp only [nat.rpartrec.code.exists_code_opt], 
+    rintros ⟨c, hc⟩, refine ⟨encode c, funext $ λ a, _⟩, simp, unfold_coes, simp[roption.of_option,hc] },
+  { rintros ⟨e, he⟩, simp[←he], unfold_coes, 
+    have : (λ a : α,
+      (code.eval g' (of_nat code e) (encode a)).bind
+      (λ y, roption.map encode (roption.of_option (decode σ y)))) partrec_in (λ (x : ℕ), roption.of_option (g' x)),
+        }
+  --{ assume h,
+  --  rcases nat.rpartrec.code.exists_code_opt.mp h with ⟨c, hc⟩, 
+  --  refine ⟨encode c, funext $ λ a, _⟩, simp, simp[g'] at hc, unfold_coes, simp[roption.of_option,hc] },
+  --{ rintros ⟨e, he⟩,
+  --  
+  --  }
+  
 end
 
 
