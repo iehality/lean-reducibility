@@ -166,7 +166,7 @@ theorem lt_jump (A : set ℕ) : A <ₜ A′ :=
     let f := λ x, chr A′ (e.mkpair x),
     have hi : ∃ i, ⟦i⟧^(chr A′) = (f : ℕ →. bool) :=
       rpartrec_univ_iff.mp 
-        ((rcomputable.refl0 (chr A′)).comp $ (rcomputable.const e).pair rcomputable.id),
+        ((rcomputable.refl_in (chr A′)).comp $ (rcomputable.const e).pair rcomputable.id),
     rcases hi with ⟨i, hi⟩,
     have l1 : f = chr A,
     { funext x, simp[f, jump, chr_ext, set.set_of_app_iff, he] },
