@@ -615,24 +615,55 @@ open rcomputable nat.rpartrec
 variables {α : Type*} {σ : Type*} {β : Type*} {τ : Type*} 
 variables [primcodable α] [primcodable σ] [primcodable β] [primcodable τ]
 
-def univn (s : ℕ) (f : β → τ) (e : ℕ) : α →. σ := (λ a,
+def univn (s : ℕ) (f : β → option τ) (e : ℕ) : α →. σ := (λ a,
 (code.evaln s 
-  (λ n, (decode β n).map (λ a, encode (f a)))
+  (λ n, (decode β n).bind (λ a, (f a).map encode ))
   (of_nat code e) (encode a))
 .bind (λ x, (decode σ x)))
 
 notation `⟦`e`⟧^`f:max` [`s`]` := univn s f e
 
-def univ (f : β → τ) (e : ℕ) : α →. σ := (λ a,
+def univ (f : β → option τ) (e : ℕ) : α →. σ := (λ a,
 (code.eval
-  (λ n, (decode β n).map (λ a, encode (f a)))
+  (λ n, (decode β n).bind (λ a, (f a).map encode))
+  (of_nat code e) (encode a))
+.bind (λ x, (decode σ x)))
+
+def univl (l : list β) (e : ℕ) : α →. σ := (λ a,
+(code.eval
+  (λ n, (l.nth n).map encode)
   (of_nat code e) (encode a))
 .bind (λ x, (decode σ x)))
 
 notation `⟦`e`⟧^`f:max := univ f e
 
-theorem rpartrec.univ (α σ) [primcodable α] [primcodable σ] (f : β → τ) :
-  (λ x, ⟦x.1⟧^f x.2 : ℕ × α →. σ) partrec_in (f : β →. τ) :=
+theorem rpartrec.univ (α σ) [primcodable α] [primcodable σ] (f : β → option τ) :
+  (λ x, ⟦x.1⟧^f x.2 : ℕ × α →. σ) partrec_in (λ x, f x) :=
+begin
+  simp[univ], unfold_coes,
+  let f0 := (λ (n : ℕ), option.map (λ (a : β), encode (f a)) (decode β n)),
+  let f1 := (λ (n : ℕ), (decode β n).bind (λ (a : β), option.map encode (f a))),
+  have c₁ : (λ n, roption.of_option (f1 n)) partrec_in (λ x, roption.of_option (f x)),
+  { simp[f1],
+    have e : (λ (n : ℕ), roption.of_option ((decode β n).bind (λ (a : β), (f a).map encode ))) =
+      (λ (n : ℕ), roption.bind (decode β n) (λ (a : β), roption.map encode (f a))),
+    { funext a, cases decode β a with v; simp[roption.of_option],
+      cases f v; simp[(>>=), roption.of_option], },
+    rw e,
+    have := (refl_in (λ (x : β), roption.of_option (f x))).map (computable.encode.to_rcomp.comp snd), 
+    have := (computable.of_option (computable.decode)).to_rpart.bind (this.comp snd), simp at this,
+    exact this },
+  have c₀ := (code.eval_partrec f1).comp 
+    (((primrec.of_nat code).comp primrec.fst).to_comp.to_rcomp.pair
+    (computable.encode.comp computable.snd).to_rcomp),
+  have c₂ := c₀.trans c₁,
+  have c₃ := computable.of_option computable.decode,
+  have := c₂.bind (c₃.to_rpart.comp snd),
+  exact this,
+end
+
+theorem rpartrec.univ (α σ) [primcodable α] [primcodable σ] (f : β → option τ) :
+  (λ x, ⟦x.1⟧^f x.2 : ℕ × α →. σ) partrec_in (λ x, f x) :=
 begin
   simp[univ],
   let f0 := (λ (n : ℕ), option.map (λ (a : β), encode (f a)) (decode β n)),

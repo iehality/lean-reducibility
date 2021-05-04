@@ -41,7 +41,7 @@ def initial_code {α β} [encodable α] [encodable β] [inhabited α] (f : α �
 
 def list.rnth {α} (l : list α) := l.reverse.nth 
 
-def graph {α β} (f : α → β) [∀ x y, decidable (@eq β x y)] : α × β → bool :=
+def graph {α β} [decidable_eq β] (f : α → β) : α × β → bool :=
 λ x, to_bool (f x.1 = x.2)
 
 theorem list.rnth_ext {α} {l₁ l₂ : list α} (h : ∀ n, l₁.rnth n = l₂.rnth n) : l₁ = l₂ :=
@@ -52,7 +52,7 @@ by { simp[list.rnth],
      have : l.length = l.reverse.length, simp,
      simp only [this, list.nth_concat_length], refl }
 
-def list.subseq (f : ℕ → ℕ) : list ℕ → bool
+def list.subseq {α} [decidable_eq α] (f : ℕ → α) : list α → bool
 | []      := tt
 | (x::xs) := to_bool (x = f xs.length) && list.subseq xs
 
@@ -159,22 +159,22 @@ theorem foldr0 [inhabited α] (f : α × β → β) (b : β) :
   (λ x, list.foldr (λ y z, f (y, z)) b x : list α → β) computable_in (f : α × β →. β) := 
 (foldr f).comp (pair (const b) id)
 
-theorem graph_rcomp (f : α → β) [∀ x y, decidable (@eq β x y)] : graph f computable_in (f : α →. β) :=
+theorem graph_rcomp [decidable_eq β] (f : α → β)  : graph f computable_in (f : α →. β) :=
   have c₀ : (λ x, to_bool (x.1 = x.2) : β × β → bool) computable_in (f : α →. β) := primrec.eq.to_comp.to_rcomp,
   have c₂ : (λ x, (f x.1, x.2) : α × β → β × β) computable_in (f : α →. β) := rcomputable.pair 
   (rcomputable.refl.comp rcomputable.fst) rcomputable.snd,
 c₀.comp c₂
 
-theorem subseq_rcomputable (f : ℕ → ℕ) : list.subseq f computable_in (f : ℕ →. ℕ) :=
+theorem subseq_rcomputable [decidable_eq α] [inhabited α] (f : ℕ → α) : list.subseq f computable_in (f : ℕ →. α) :=
 begin
-  let g := (λ x, (x.2.1 + 1, x.2.2 && graph f (x.2.1, x.1)) : ℕ × ℕ × bool → ℕ × bool),
-  let subseq0 := (λ x, (list.foldr (λ y z, g (y, z)) (0, tt) x) : list ℕ → ℕ × bool),
+  let g := (λ x, (x.2.1 + 1, x.2.2 && graph f (x.2.1, x.1)) : α × ℕ × bool → ℕ × bool),
+  let subseq0 := (λ x, (list.foldr (λ y z, g (y, z)) (0, tt) x) : list α → ℕ × bool),
   let subseq1 := (λ x, (subseq0 x).2),
-  have cg : g computable_in (f : ℕ →. ℕ) := ((computable.succ.to_rcomp).comp (fst.comp snd)).pair 
+  have cg : g computable_in (f : ℕ →. α) := ((computable.succ.to_rcomp).comp (fst.comp snd)).pair 
   (((primrec.dom_bool₂ band).to_comp.to_rcomp).comp $
     (snd.comp snd).pair $
       (rcomputable.graph_rcomp f).comp ((fst.comp snd).pair fst)),
-  have cic : subseq1 computable_in (f : ℕ →. ℕ) := rcomputable.snd.comp ((rcomputable.foldr0 g (0, tt)).trans cg),
+  have cic : subseq1 computable_in (f : ℕ →. α) := rcomputable.snd.comp ((rcomputable.foldr0 g (0, tt)).trans cg),
   have e : ∀ l, subseq0 l = (l.length, list.subseq f l),
   { intros l, simp[subseq0], induction l with ld ll ihl; simp[list.subseq,graph],
     rw ihl, simp, rw bool.band_comm, simp [eq_comm], congr },
