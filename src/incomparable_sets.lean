@@ -6,23 +6,25 @@ namespace t_reducible
 
 namespace Kleene_Post
 
-def extendable_ff (l : list bool) (n : ℕ) := λ x : ℕ, ∃ f : ℕ → bool, l ⊂ₘ f ∧ ⟦x⟧^f n = some ff
-def extendable_tt (l : list bool) (n : ℕ) := λ x : ℕ, ∃ f : ℕ → bool, l ⊂ₘ f ∧ ⟦x⟧^f n = some tt
+def extendable (l₀ l : list bool) (n e : ℕ) := (⟦e⟧^((l₀ ++ l).nth) n : roption bool).dom
 
-def extendable₀_le_0prime (l : list bool) (n): 
-  extendable_ff l n ≤ₜ ∅′ :=
+def extendable₀_le_0prime (l₀ : list bool) (n): 
+  {e | ∃ l, extendable l₀ l n e} ≤ₜ ∅′ :=
 by sorry
 
 noncomputable mutual def L₀, L₁
-with L₀ : ℕ → list bool
-| 0     := []
-| (e+1) := 
-  decidable.cases_on (classical.dec (extendable_ff (L₁ e) (L₀ e).length e))
-    (λ _, L₀ e)
-    (λ _, decidable.cases_on (classical.dec (extendable_tt (L₁ e) (L₀ e).length e))
-      (λ _, tt :: L₀ e)
-      (λ _, ff :: L₀ e))
-with L₁ : ℕ → list bool
+with L₀ : ℕ →. list bool
+| 0     := some []
+| (e+1) := do
+  σ₀ <- L₀ e,
+  σ₁ <- L₁ e,
+  decidable.cases_on (classical.dec $ ∃ l, extendable σ₁ l σ₀.length e)
+    (λ _, some $ ff :: σ₀)
+    (λ _, do
+    l₂ <- nat.rfind (λ l, chr $ extendable σ₁ (of_nat (list bool) l) σ₀ e),
+    
+    some $ σ₀)
+with L₁ : ℕ →. list bool
 | 0     := []
 | (e+1) := 
   decidable.cases_on (classical.dec (extendable_ff (L₀ e) (L₁ e).length e))
