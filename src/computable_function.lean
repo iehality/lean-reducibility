@@ -32,6 +32,26 @@ begin
   exact ((c₀.bind (c₁.to_rpart)).of_eq $ λ a, by simp[encode2])
 end
 
+def graph {α β} [decidable_eq β] (f : α → β) : α × β → bool :=
+λ x, to_bool (f x.1 = x.2)
+
+def ε_operator_r {β} [primcodable β] [inhabited β] (p : β →. bool) : roption β := 
+  ((nat.rfind $ λ x, p ((decode β x).get_or_else (default β))).map 
+    (λ x, (decode β x).get_or_else (default β)))
+
+def ε_operator {β} [primcodable β] [inhabited β] (p : β → bool) : roption β :=
+ε_operator_r (p : β →. bool)
+
+theorem ε_witness {β} [primcodable β] [inhabited β] {p : β → bool} {b : β} :
+  b ∈ ε_operator p → p b = tt :=
+by { simp[ε_operator,ε_operator_r], intros x h hl he, rw he at h, simp[←h] }
+
+@[simp] theorem exists_ε_iff {β} [primcodable β] [inhabited β] {p : β → bool} :
+  (ε_operator p).dom ↔ (∃ b, p b = tt) := by { split,
+{ intros w, use (ε_operator p).get w, exact ε_witness ⟨w, rfl⟩ },
+{ rintros ⟨b, hb⟩, simp[ε_operator,ε_operator_r, roption.map, roption.some],
+  use (encode b), simp[hb], use trivial} }
+
 @[simp] def nat.initial_code (f : ℕ → ℕ) : ℕ → list ℕ
 | 0            := []
 | (nat.succ n) := f n :: nat.initial_code n
@@ -40,10 +60,6 @@ def initial_code {α β} [encodable α] [encodable β] [inhabited α] (f : α �
 λ s, nat.initial_code (λ a, encode (f ((decode α a).get_or_else (default α)))) s
 
 def list.rnth {α} (l : list α) := l.reverse.nth 
-
-def graph {α β} [decidable_eq β] (f : α → β) : α × β → bool :=
-λ x, to_bool (f x.1 = x.2)
-
 theorem list.rnth_ext {α} {l₁ l₂ : list α} (h : ∀ n, l₁.rnth n = l₂.rnth n) : l₁ = l₂ :=
 list.reverse_inj.mp (list.ext h)
 
@@ -182,3 +198,21 @@ begin
 end
 
 end rcomputable
+
+namespace rpartrec
+
+variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
+variables [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ] [primcodable μ]
+
+theorem ε_operator_rpartrec [inhabited β] {p : α × β →. bool} : (λ a, ε_operator_r (λ x, p (a, x))) partrec_in p :=
+  have c₀ : (λ x, p (x.1, (decode β x.2).get_or_else (default β)) : α × ℕ →. bool) partrec_in p :=
+  rpartrec.refl.comp $ (computable.pair computable.fst 
+    ((computable.decode.comp computable.snd).option_get_or_else (computable.const (default β))))
+    .to_rpart,
+  have c₁ : computable (λ x, (decode β x.2).get_or_else (default β) : α × ℕ → β) :=
+  (computable.decode.comp computable.snd).option_get_or_else (computable.const (default β)),
+  have c₂ : (λ a, nat.rfind $ λ x, p (a, (decode β x).get_or_else (default β))) partrec_in p :=
+  rpartrec.rfind.trans c₀,
+c₂.map c₁.to_rpart
+
+end rpartrec
