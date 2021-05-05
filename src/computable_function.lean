@@ -52,12 +52,7 @@ by { simp[ε_operator,ε_operator_r], intros x h hl he, rw he at h, simp[←h] }
 { rintros ⟨b, hb⟩, simp[ε_operator,ε_operator_r, roption.map, roption.some],
   use (encode b), simp[hb], use trivial} }
 
-@[simp] def nat.initial_code (f : ℕ → ℕ) : ℕ → list ℕ
-| 0            := []
-| (nat.succ n) := f n :: nat.initial_code n
 
-def initial_code {α β} [encodable α] [encodable β] [inhabited α] (f : α → β) : ℕ → list ℕ :=
-λ s, nat.initial_code (λ a, encode (f ((decode α a).get_or_else (default α)))) s
 
 def list.rnth {α} (l : list α) := l.reverse.nth 
 theorem list.rnth_ext {α} {l₁ l₂ : list α} (h : ∀ n, l₁.rnth n = l₂.rnth n) : l₁ = l₂ :=
@@ -67,6 +62,37 @@ lemma list.rnth_concat_length {α} (n : α) (l : list α) : (n :: l).rnth l.leng
 by { simp[list.rnth], 
      have : l.length = l.reverse.length, simp,
      simp only [this, list.nth_concat_length], refl }
+
+@[simp] def initial_code {α} (f : ℕ → α) : ℕ → list α
+| 0            := []
+| (nat.succ n) := f n :: initial_code n
+
+@[simp] theorem nat.initial_code_length {α} (f : ℕ → α) (s) : (initial_code f s).length = s :=
+by { induction s with m ih; simp, simp [ih] }
+
+lemma nat.initial_code_nth0 {α} (f : ℕ → α) (s n) : (initial_code f (n + s + 1)).rnth n = f n :=
+begin
+  induction s with n0 ihn0,
+  { simp[list.rnth],
+    suffices a : ((initial_code f n).reverse ++ [f n]).nth (initial_code f n).reverse.length = ↑(f n),
+    { simp at a, exact a },
+    { rw list.nth_concat_length, refl } },
+  { simp[list.rnth] at ihn0,
+    suffices a : ((initial_code f (n + n0)).reverse ++ [f (n + n0)] ++ [f (n + n0.succ)]).nth n = ↑(f n),
+    { simp[list.rnth], simp at a, exact a },
+  { rw list.nth_append, exact ihn0, simp, linarith }},
+end
+
+@[simp] theorem nat.initial_code_nth {s n} (h : n < s) {α} (f : ℕ → α): (initial_code f s).rnth n = f n :=
+by { have e : s = n + (s - n - 1) + 1, omega, rw e, exact nat.initial_code_nth0 _ _ _ }
+
+@[simp] theorem nat.initial_code_rnth_none {s n} (h : s ≤ n) {α} (f : ℕ → α)  : (initial_code f s).rnth n = none :=
+list.nth_len_le (by simp; from h)
+
+theorem initial_code_some {α} {f : ℕ → α} {s n a} :
+  (initial_code f s).rnth n = some a → f n = a :=
+by { have : n < s ∨ s ≤ n := lt_or_ge n s, cases this; simp[this], unfold_coes, simp }
+
 
 def list.subseq {α} [decidable_eq α] (f : ℕ → α) : list α → bool
 | []      := tt
@@ -106,23 +132,15 @@ namespace rcomputable
 variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
 variables [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ] [primcodable μ]
 
-theorem nat_initial_code {f : ℕ → ℕ} : nat.initial_code f computable_in (f : ℕ →. ℕ) :=
-let inif := (λ n, n.elim [] (λ y IH, f y :: IH) : ℕ → list ℕ) in
-have c₀ : computable (λ x, [] : ℕ → list ℕ) := computable.const [],
-have c₁ : (λ x, f x.2.1 :: x.2.2 : ℕ × ℕ × list ℕ → list ℕ) computable_in (f : ℕ →. ℕ) :=
-  computable.list_cons.to_rcomp.comp
-    (rcomputable.pair (rcomputable.refl.comp $ rcomputable.fst.comp rcomputable.snd)
-      (rcomputable.snd.comp rcomputable.snd)),
-((rcomputable.id.nat_elim c₀.to_rcomp c₁).of_eq $ λ n, 
-by { simp, induction n with _ ih; simp, exact ih })
-
-theorem initial_code [inhabited α] (f : α → β) :
-  initial_code f computable_in (f : α →. β) :=
-have l0 : (λ n, encode (f ((decode α n).get_or_else (default α)))) computable_in (f : α →. β) :=
-  rpartrec.encode2_rpartrec_in (f : α →. β),
-have l1 : initial_code f computable_in (λ n, encode (f ((decode α n).get_or_else (default α))) : ℕ →. ℕ) :=
-  rcomputable.nat_initial_code,
-l1.trans l0
+theorem initial_code {f : ℕ → α} : initial_code f computable_in (f : ℕ →. α) :=
+begin
+  have c₀ := computable.const [],
+  have c₁ := computable.list_cons.to_rcomp.comp
+      (rcomputable.pair (rcomputable.refl.comp $ rcomputable.fst.comp rcomputable.snd)
+        (rcomputable.snd.comp rcomputable.snd)),
+  exact ((rcomputable.id.nat_elim c₀.to_rcomp c₁).of_eq $ λ n, 
+  by { simp, induction n with _ ih; simp, exact ih })
+end
 
 private lemma list.concat_induction {α} {C : list α → Sort*} :
   C [] → (Π l t, C l → C (l.concat t)) → Π l, C l :=

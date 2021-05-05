@@ -159,7 +159,7 @@ evaln s f.eval_opt
 
 theorem evaln_inclusion : ∀ {s c} {f g : ℕ → option ℕ},
   (∀ x y, x < s → f x = some y → g x = some y) → 
-  ∀ x y, evaln s f c x = some y →  evaln s g c x = some y
+  ∀ {x y}, evaln s f c x = some y →  evaln s g c x = some y
 | 0 c _ _ := by simp[evaln]
 | (s+1) oracle f g := λ h n y, 
     by { simp[evaln], have : n ≤ s ∨ ¬ n ≤ s, omega,
@@ -175,16 +175,16 @@ theorem evaln_inclusion : ∀ {s c} {f g : ℕ → option ℕ},
     by { simp[evaln, (>>)], assume e hf,
          have : ∃ y, evaln (s + 1) f cf n = some y, 
          { cases evaln (s + 1) f cf n; simp, simp[(<*>), hf] at hf ⊢, exact hf },
-         rcases this with ⟨y0, hy0⟩, have IH₀' := IH₀ _ _ hy0,
+         rcases this with ⟨y0, hy0⟩, have IH₀' := IH₀ hy0,
           have : ∃ y, evaln (s + 1) f cg n = some y, 
          { cases evaln (s + 1) f cg n; simp, simp[(<*>), hf] at hf ⊢, exact hf },
-         rcases this with ⟨y1, hy1⟩, have IH₁' := IH₁ _ _ hy1,
+         rcases this with ⟨y1, hy1⟩, have IH₁' := IH₁ hy1,
          simp[hy0, hy1, IH₀', IH₁'] at hf ⊢, exact ⟨e, hf⟩ }
 | (s+1) (comp cf cg) f g := λ h n y,
     have IH₀ : _ := @evaln_inclusion (s+1) cf _ _ h,
     have IH₁ : _ := @evaln_inclusion (s+1) cg _ _ h,
     by { simp[evaln, (>>)], assume e z hz hy,
-         refine ⟨e, z, IH₁ _ _ hz, IH₀ _ _ hy⟩ }
+         refine ⟨e, z, IH₁ hz, IH₀ hy⟩ }
 | (s+1) (prec cf cg) f g := λ h n y,
     have l0 : ∀ x y, x < s → f x = some y → g x = some y :=
       λ x y e, h x y (nat.lt.step e),
@@ -192,17 +192,17 @@ theorem evaln_inclusion : ∀ {s c} {f g : ℕ → option ℕ},
     have IH₁ : _ := @evaln_inclusion (s+1) cf _ _ h,
     have IH₂ : _ := @evaln_inclusion (s+1) cg _ _ h,
     by { simp[evaln, (>>)], assume e hf,
-         cases n.unpair.snd with n0; simp at hf ⊢, exact ⟨e, IH₁ _ _ hf⟩,
+         cases n.unpair.snd with n0; simp at hf ⊢, exact ⟨e, IH₁ hf⟩,
          rcases hf with ⟨z, hz0, hz1⟩,
-         refine ⟨e, z, IH₀ _ _ hz0, IH₂ _ _ hz1⟩ }
+         refine ⟨e, z, IH₀ hz0, IH₂ hz1⟩ }
 | (s+1) (rfind' cf)  f g := λ h n y, 
     have l0 : ∀ x y, x < s → f x = some y → g x = some y :=
       λ x y e, h x y (nat.lt.step e),
     have IH₀ : _ := @evaln_inclusion (s+1) cf _ _ h, 
     have IH₁ : _ := @evaln_inclusion s cf.rfind' _ _ l0,
     by { simp[evaln, (>>)], assume e z ez ey,
-         refine ⟨e, z, IH₀ _ _ ez, _⟩,
-         cases z with z0; simp at ey ⊢, exact ey, exact IH₁ _ _ ey }
+         refine ⟨e, z, IH₀ ez, _⟩,
+         cases z with z0; simp at ey ⊢, exact ey, exact IH₁ ey }
 
 theorem evaln_use : ∀ {s c} {f g : ℕ → option ℕ},
   (∀ x, x < s → f x = g x) → evaln s f c = evaln s g c
@@ -467,6 +467,11 @@ begin
         from evaln_mono (le_max_right s₀ s₁) hs₁ } }
 end
 
+theorem eval_inclusion {c x y} {f : ℕ → option ℕ} (h : y ∈ eval f c x) : ∃ s, ∀ {g : ℕ → option ℕ},
+  (∀ x y, x < s → f x = some y → g x = some y) → y ∈ eval g c x :=
+by { have : ∃ s, y ∈ evaln s f c x := evaln_complete.mp h, rcases this with ⟨s, hs⟩,
+     refine ⟨s, λ g h, evaln_complete.mpr ⟨s, evaln_inclusion h hs⟩⟩ }
+
 @[simp] theorem eval_const (f) : ∀ n m, eval f (code.const n) m = roption.some n
 | 0     m := rfl
 | (n+1) m := by simp! *
@@ -692,6 +697,14 @@ end
 theorem rpartrec_univ_iff_total {f : α →. σ} {g : β → τ} :
   f partrec_in pfun.lift g ↔ ∃ e, ⟦e⟧^(λ x, some $ g x) = f :=
 by { rw ← rpartrec_univ_iff, simp[roption.of_option], refl }
+
+theorem eval_inclusion {e} {x : α} {y : σ} {f : ℕ → option τ} (h : ⟦e⟧^f x = some y) : ∃ s, ∀ {g : ℕ → option τ},
+  (∀ x y, x < s → f x = some y → g x = some y) → ⟦e⟧^g x = some y := 
+by { simp [roption.eq_some_iff, univ] at h ⊢, rcases h with ⟨a, h, e⟩,
+     rcases nat.rpartrec.code.eval_inclusion h with ⟨s, hs⟩,
+     refine ⟨s, λ g h, ⟨a, hs (λ x y e ey, _), e⟩⟩, simp at ey, rcases ey with ⟨a, ea, ey⟩,
+     have := h _ _ e ea, simp[this, ey] }
+
 
 protected theorem cond {c : α → bool} {f : α →. σ} {g : α →. σ} {h : β → τ}
   (hc : c computable_in (h : β →. τ)) (hf : f partrec_in (h : β →. τ)) (hg : g partrec_in (h : β →. τ)) :
