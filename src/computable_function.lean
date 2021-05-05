@@ -52,9 +52,8 @@ by { simp[ε_operator,ε_operator_r], intros x h hl he, rw he at h, simp[←h] }
 { rintros ⟨b, hb⟩, simp[ε_operator,ε_operator_r, roption.map, roption.some],
   use (encode b), simp[hb], use trivial} }
 
-
-
 def list.rnth {α} (l : list α) := l.reverse.nth 
+
 theorem list.rnth_ext {α} {l₁ l₂ : list α} (h : ∀ n, l₁.rnth n = l₂.rnth n) : l₁ = l₂ :=
 list.reverse_inj.mp (list.ext h)
 
@@ -62,6 +61,10 @@ lemma list.rnth_concat_length {α} (n : α) (l : list α) : (n :: l).rnth l.leng
 by { simp[list.rnth], 
      have : l.length = l.reverse.length, simp,
      simp only [this, list.nth_concat_length], refl }
+
+lemma list.rnth_append {α} {l₀ l₁ : list α} {n : ℕ} (hn : n < l₀.length) :
+  (l₁ ++ l₀).rnth n = l₀.rnth n :=
+by { simp[list.rnth], exact list.nth_append (by simp; exact hn) }
 
 @[simp] def initial_code {α} (f : ℕ → α) : ℕ → list α
 | 0            := []
