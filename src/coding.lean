@@ -698,8 +698,9 @@ theorem rpartrec_univ_iff_total {f : α →. σ} {g : β → τ} :
   f partrec_in pfun.lift g ↔ ∃ e, ⟦e⟧^(λ x, some $ g x) = f :=
 by { rw ← rpartrec_univ_iff, simp[roption.of_option], refl }
 
-theorem eval_inclusion {e} {x : α} {y : σ} {f : ℕ → option τ} (h : ⟦e⟧^f x = some y) : ∃ s, ∀ {g : ℕ → option τ},
-  (∀ x y, x < s → f x = some y → g x = some y) → ⟦e⟧^g x = some y := 
+theorem eval_inclusion {e} {x : α} {y : σ}
+  {f : ℕ → option τ} (h : y ∈ (⟦e⟧^f x : roption σ)) : ∃ s, ∀ {g : ℕ → option τ},
+  (∀ x y, x < s → f x = some y → g x = some y) → y ∈ (⟦e⟧^g x : roption σ) := 
 by { simp [roption.eq_some_iff, univ] at h ⊢, rcases h with ⟨a, h, e⟩,
      rcases nat.rpartrec.code.eval_inclusion h with ⟨s, hs⟩,
      refine ⟨s, λ g h, ⟨a, hs (λ x y e ey, _), e⟩⟩, simp at ey, rcases ey with ⟨a, ea, ey⟩,
