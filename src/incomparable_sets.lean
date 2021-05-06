@@ -196,10 +196,10 @@ noncomputable def L : ℕ →. list bool × list bool
   | ff := do
     σ ← L s,
     cond (chr {e | ∃ l, extendable σ.1 l σ.2.length e} e)
-          (do l ← ε_operator (chr $ λ l, extendable σ.1 l σ.2.length e),
-              b ← (⟦e⟧^((l ++ σ.1).rnth) σ.2.length : roption bool),
-              some (l ++ σ.1, !b :: σ.2))
-          (some (σ.1, ff :: σ.2))
+      (do l ← ε_operator (chr $ λ l, extendable σ.1 l σ.2.length e),
+          b ← (⟦e⟧^((l ++ σ.1).rnth) σ.2.length : roption bool),
+          some (l ++ σ.1, !b :: σ.2))
+      (some (σ.1, ff :: σ.2))
   end
 
 theorem I_defined : ∀ s, (L s).dom 
@@ -328,38 +328,13 @@ begin
       simp only [list.append_nth_some ec] } }
 end
 
-  
+theorem requirement₀ (e) : ∃ w : ℕ,
+  (⟦e⟧^(chr* I₁) w : roption bool).dom → !chr I₀ w ∈ (⟦e⟧^(chr* I₁) w : roption bool) := by sorry
 
-lemma preservation₀ {e l₀ b₀} (hl : l₀ ∈ ε_operator (chr (λ l, extendable (L' e).2 l (L' e).1.length e))) :
-  b₀ ∈ (⟦e⟧^((l₀ ++ (L' e).2).rnth) (L' e).1.length : roption bool) →
-  b₀ ∈ (⟦e⟧^(chr* I₁) (L' e).1.length : roption bool) := λ hb,
-begin
-  suffices : 
-    b₀ ∈ (⟦e⟧^(L' (e + 1)).2.rnth (L' e).1.length : roption bool),
-  { exact oracle_initial_limit L₁_fis this },
-  have hl' := ε_witness hl, simp at hl',
-  have := rpartrec.eval_inclusion hb, rcases this with ⟨s, hs⟩,
-  apply hs, intros x c ex ec,
-  simp[L', L], simp[show L e = some (L' e), by simp[L']],
-  have : chr {i | ∃ l, extendable (L' e).2 l (L' e).1.length i} e = tt,
-  { simp [set.set_of_app_iff], exact ⟨l₀, hl'⟩ },
-  simp [roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb, this],
-  cases C : chr {i : ℕ | ∃ l, extendable (!b₀ :: (L' e).1) l (l₀.length + (L' e).2.length) i} e; simp[C],
-  { simp [list.rnth, -list.append_assoc] at ec ⊢, 
-    simp only [list.append_nth_some ec] },
-  { let p := λ l, extendable (!b₀ :: (L' e).1) l (l₀.length + (L' e).2.length) e,
-    simp [set.set_of_app_iff] at C,
-    have : ∃ l, l ∈ ε_operator (chr p), { simp[←roption.dom_iff_mem], exact C }, 
-    rcases this with ⟨l₁, hl₁⟩, simp[p] at hl₁, 
-    have := ε_witness hl₁, simp only [chr_iff, extendable, roption.dom_iff_mem] at this,
-    rcases this with ⟨b₁, hb₁⟩,
-    simp[roption.eq_some_iff.mpr hl₁, roption.eq_some_iff.mpr hb₁],
-    show (!b₁ :: (l₀ ++ (L' e).2)).rnth x = some c,
-    { simp[list.rnth, -list.append_assoc] at ec ⊢,
-      simp only [list.append_nth_some ec] } }
-end
+theorem requirement₁ (e) : ∃ w : ℕ,
+  (⟦e⟧^(chr* I₀) w : roption bool).dom → !chr I₁ w ∈ (⟦e⟧^(chr* I₀) w : roption bool) := by sorry
 
-
+lemma bnot_ne (b) : b ≠ !b := by cases b; simp
 
 lemma incomparable₀ : I₀ ≰ₜ I₁ :=
 begin
@@ -367,28 +342,26 @@ begin
   have l0 : ↑(chr I₀) partrec_in ↑(chr I₁) := classical_iff.mp h,
   have : ∃ e, ⟦e⟧^(chr* I₁) = ↑(chr I₀) := rpartrec.rpartrec_univ_iff_total.mp l0,
   rcases this with ⟨e, he⟩,
-  let n := (L' e).1.length,
-  have E : (chr I₀ n) ∈ (⟦e⟧^(chr* I₁ ) n : roption bool), simp[he],
-  let p := λ l, extendable (L' e).2 l (L' e).1.length e,
-  cases C₀ : chr {e | ∃ l, extendable (L' e).2 l (L' e).1.length e} e,
-  { have l0 : ¬∃ l b, b ∈ (⟦e⟧^((l ++ (L' e).2).rnth) (L' e).1.length : roption bool),
-    { simp only [chr_ff_iff, set.set_of_app_iff, extendable, 
-      roption.dom_iff_mem] at C₀, exact C₀ },
-    have := oracle_limit_extendable L₁_fis E e, rcases this with ⟨l, hl⟩,
-    exact l0 ⟨l, chr I₀ n, hl⟩ },
-  have : ∃ (l : list bool), extendable (L' e).2 l (L' e).1.length e,
-  { simp only [chr_iff, set.set_of_app_iff, roption.dom_iff_mem] at C₀, exact C₀ },
-  have : ∃ l, l ∈ ε_operator (chr p), { simp[←roption.dom_iff_mem], exact this },
-  rcases this with ⟨l₀, hl₀⟩, simp[p] at hl₀, 
-  have hb := ε_witness hl₀, simp only [chr_iff, extendable, roption.dom_iff_mem] at hb,
-  rcases hb with ⟨b₀, hb₀⟩,
-  have preserve := preservation₀ hl₀ hb₀,
-  have : chr I₀ n = !b₀,
-  { suffices : (L' (e + 1)).1.rnth n = some (!b₀),
-    { have := chr_limit_fis1 L'₀_fis _ _ ⟨_, this⟩, exact this },
-    simp[L', L],
-    simp[show L e = some (L' e), by simp[L']],
-     }
+  have E : ∀ n, (chr I₀ n) ∈ (⟦e⟧^(chr* I₁ ) n : roption bool), simp[he],
+  rcases requirement₀ e with ⟨w, hw⟩,
+  have : (⟦e⟧^(chr* I₁) w).dom, { rcases E w with ⟨h, _⟩, exact h },
+  have : !chr I₀ w ∈ ⟦e⟧^(chr* I₁) w := hw this,
+  have : chr I₀ w = !chr I₀ w := roption.mem_unique (E w) this,
+  exact bnot_ne _ this
+end
+
+lemma incomparable₁ : I₁ ≰ₜ I₀ :=
+begin
+  assume h : I₁ ≤ₜ I₀,
+  have l0 : ↑(chr I₁) partrec_in ↑(chr I₀) := classical_iff.mp h,
+  have : ∃ e, ⟦e⟧^(chr* I₀) = ↑(chr I₁) := rpartrec.rpartrec_univ_iff_total.mp l0,
+  rcases this with ⟨e, he⟩,
+  have E : ∀ n, (chr I₁ n) ∈ (⟦e⟧^(chr* I₀ ) n : roption bool), simp[he],
+  rcases requirement₁ e with ⟨w, hw⟩,
+  have : (⟦e⟧^(chr* I₀) w).dom, { rcases E w with ⟨h, _⟩, exact h },
+  have : !chr I₁ w ∈ ⟦e⟧^(chr* I₀) w := hw this,
+  have : chr I₁ w = !chr I₁ w := roption.mem_unique (E w) this,
+  exact bnot_ne _ this
 end
 
 theorem Kleene_Post : ∃ (A B : set ℕ), (A ≤ₜ ∅′) ∧ (B ≤ₜ ∅′) ∧ (A ≰ₜ B) ∧ (B ≰ₜ A) :=
