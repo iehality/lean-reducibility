@@ -46,7 +46,7 @@ def limit (L : ℕ → list bool) := {n | ∃ s, (L s).rnth n = tt}
 -- finite initial segments
 def fis (L : ℕ → list bool) := ∀ s, L s ≺ L (s + 1)
 
-def total {α} (L : ℕ → list α) := ∀ n, ∃ s, n < (L s).length
+def total {α} (L : ℕ → list α) := ∀ n, ∃ s, ∀ u, s < u → n < (L u).length
 
 lemma total_limit_dom {α} {L : ℕ → list α} (T : total L) (n) : ∃ s a, (L s).rnth n = some a :=
 by { rcases T n with ⟨s, hs⟩, refine ⟨s, (L s).reverse.nth_le _ _, list.nth_le_nth _⟩, simp, exact hs }
@@ -65,6 +65,28 @@ begin
   have : t = s + (t - s), omega,
   rw this, exact l0 _ _,
 end 
+
+def proper (P : (ℕ → option bool) → Prop) := ∃ C : ℕ → option bool,
+  ∀ B : ℕ → option bool, P B ↔ (∀ n b, C n = some b → B n = some b)
+
+def proper_subset {P} (p : proper P) {A B : ℕ → option bool} :
+  (∀ n b, A n = some b → B n = some b) → P A → P B := λ h pa,
+by { rcases p with ⟨f, hf⟩, exact (hf B).mpr (λ n b e, h _ _ $ ((hf A).mp pa) _ _ e) }
+
+theorem proper_limit {L : ℕ → list bool} {P : (ℕ → option bool) → Prop} (p : proper P) :
+  (∃ s, ∀ u, s < u → P (L u).rnth) → P (chr* limit L) := λ h,
+begin
+  rcases h with ⟨s, hs⟩,
+  rcases p with ⟨c, hc⟩,
+  simp[hc, limit], unfold_coes, 
+  intros n b eb, cases b; simp [set.set_of_app_iff],
+  { intros m, refine ⟨(max s m) + 1, nat.lt_succ_iff.mpr (le_max_right _ _), _⟩,
+    intros h0,
+    have : P (L (max s m + 1)).rnth := hs _ (nat.lt_succ_iff.mpr (le_max_left s m)),
+    have := (hc _).1 this _ _ eb, simp [h0] at this,
+    exact this },
+  { refine ⟨s, λ u e, (hc _).1 (hs u e) _ _ eb⟩ }
+end
 
 theorem initial_limit {L : ℕ → list bool} (h : fis L)
   {s n b} : (L s).rnth n = some b → chr (limit L) n = b := λ eb,
@@ -142,6 +164,13 @@ begin
     simp [list.drop_nth, this], exact ec }
 end
 
+theorem oracle_proper {L : ℕ → list bool} (B : ℕ → option bool)
+  {e} {n : ℕ} {b : bool} :
+  proper (λ A, b ∈ (⟦e⟧^A n : roption bool)) :=
+begin
+  simp[proper],
+end
+
 theorem oracle_initial_limit {L : ℕ → list bool} (H : fis L)
   {e s} {n : ℕ} {b : bool} :
   b ∈ (⟦e⟧^(L s).rnth n : roption bool) → 
@@ -160,7 +189,10 @@ by { have := roption.dom_iff_mem.mp hs, rcases this with ⟨b, hb⟩,
 theorem oracle_initial_limit_dom_neg {L : ℕ → list bool} (H : fis L)
   {e} {n : ℕ} {b : bool} :
   (∃ u, ∀ s, u < s → ¬(⟦e⟧^(L s).rnth n : roption bool).dom) → 
-  ¬(⟦e⟧^(chr* (limit L)) n : roption bool).dom := 
+  ¬(⟦e⟧^(chr* (limit L)) n : roption bool).dom := λ ⟨u, hu⟩ h,
+begin
+
+end
 
 theorem oracle_limit_extendable {L : ℕ → list bool} (H : fis L)
   {e} {n : ℕ} {b : bool} :
