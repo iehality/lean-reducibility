@@ -2,7 +2,7 @@ import reducibility computable_function
 
 open encodable denumerable roption
 
-
+local attribute [simp] set.set_of_app_iff
 
 lemma list.append_nth_some {α} {l₀ : list α} {n a} (h : l₀.nth n = some a) (l₁) :
   (l₀ ++ l₁).nth n = some a :=
@@ -30,34 +30,34 @@ begin
 end
 
 def list.initial (l₀ l₁ : list bool) := ∀ n, l₀.rnth n = some tt → l₁.rnth n = some tt
-infix ` ≺ `:50 := list.initial
+infix ` ≼ `:50 := list.initial
 
-@[simp] theorem initial_refl (l : list bool) : l ≺ l :=
+@[simp] theorem initial_refl (l : list bool) : l ≼ l :=
 by simp[list.initial]
 
-@[simp] theorem initial_append (l l₀ : list bool) : l ≺ l₀ ++ l := λ n h,
+@[simp] theorem initial_append (l l₀ : list bool) : l ≼ l₀ ++ l := λ n h,
 by { simp[list.initial, list.rnth] at h ⊢, simp only [list.append_nth_some h] } 
 
-@[simp] theorem initial_cons (a) (l : list bool) : l ≺ a :: l := λ n h,
+@[simp] theorem initial_cons (a) (l : list bool) : l ≼ a :: l := λ n h,
 by { simp[list.initial, list.rnth] at h ⊢, simp only [list.append_nth_some h] } 
 
 def limit (L : ℕ → list bool) := {n | ∃ s, (L s).rnth n = tt}
 
 -- finite initial segments
-def fis (L : ℕ → list bool) := ∀ s, L s ≺ L (s + 1)
+def fis (L : ℕ → list bool) := ∀ s, L s ≼ L (s + 1)
 
 def total {α} (L : ℕ → list α) := ∀ n, ∃ s, ∀ u, s < u → n < (L u).length
 
 lemma total_limit_dom {α} {L : ℕ → list α} (T : total L) (n) : ∃ s a, (L s).rnth n = some a :=
 by { rcases T n with ⟨s, hs⟩, refine ⟨s, (L s).reverse.nth_le _ _, list.nth_le_nth _⟩, simp, exact hs }
 
-theorem initial_trans {l₀ l₁ l₂ : list bool} : l₀ ≺ l₁ → l₁ ≺ l₂ → l₀ ≺ l₂ :=
+theorem initial_trans {l₀ l₁ l₂ : list bool} : l₀ ≼ l₁ → l₁ ≼ l₂ → l₀ ≼ l₂ :=
  λ h01 h12 _ e, h12 _ (h01 _ e)
 
 theorem initial_le {L : ℕ → list bool} (h : fis L) :
-  ∀ {s t}, s ≤ t → L s ≺ L t :=
+  ∀ {s t}, s ≤ t → L s ≼ L t :=
 begin
-  have l0 : ∀ s t, L s ≺ L (s + t),
+  have l0 : ∀ s t, L s ≼ L (s + t),
   { intros s t, induction t with s0 ih generalizing s, simp[list.initial],
     simp[show s + s0.succ = (s + s0) + 1, from nat.add_succ _ _],
     exact initial_trans (ih _) (h _) },
@@ -69,23 +69,72 @@ end
 def proper (P : (ℕ → option bool) → Prop) := ∃ C : ℕ → option bool,
   ∀ B : ℕ → option bool, P B ↔ (∀ n b, C n = some b → B n = some b)
 
+def proper' (P : (ℕ → option bool) → Prop) := ∀ {A : ℕ → option bool},
+P A → ∃ C : ℕ → option bool, (∀ n b, C n = some b → A n = some b) ∧
+∀ {B : ℕ → option bool}, (∀ n b, C n = some b → B n = some b) → P B
+
 def proper_subset {P} (p : proper P) {A B : ℕ → option bool} :
   (∀ n b, A n = some b → B n = some b) → P A → P B := λ h pa,
 by { rcases p with ⟨f, hf⟩, exact (hf B).mpr (λ n b e, h _ _ $ ((hf A).mp pa) _ _ e) }
 
-theorem proper_limit {L : ℕ → list bool} {P : (ℕ → option bool) → Prop} (p : proper P) :
-  (∃ s, ∀ u, s < u → P (L u).rnth) → P (chr* limit L) := λ h,
+theorem fis_limit_eq {L : ℕ → list bool} (F : fis L) (m) :
+  limit L = limit (λ x, L (x + m)) := funext $ λ n,
 begin
-  rcases h with ⟨s, hs⟩,
-  rcases p with ⟨c, hc⟩,
+  simp[limit, set.set_of_app_iff], split,
+  { rintros ⟨s, hs⟩, have : s ≤ m ∨ m < s, from le_or_lt s m,
+    cases this,
+    refine ⟨0, _⟩, simp,
+    exact initial_le F this _ hs,
+    refine ⟨s-m, _⟩,  have : s - m + m = s, omega, simp[this],
+    exact hs },
+  { rintros ⟨s, hs⟩, refine ⟨s+m, hs⟩ }
+end
+
+def pfun_subseteq (A B : ℕ → option bool) := ∀ n b, A n = some b → B n = some b
+
+infix ` ⊆. `:50 := pfun_subseteq
+
+theorem proper_limit (C : ℕ → option bool) :
+  ∀ {L : ℕ → list bool}, (∃ s, ∀ u, s ≤ u → C ⊆. (L u).rnth) → C ⊆. chr* limit L := 
+begin
+  intros L h n b, 
+  cases b; simp [limit]; unfold_coes,
+  { intros hn s hs, have := h s _ _ hn, simp [hs] at this,  exact this },
+  { intros hn, refine ⟨0, h 0 _ _ hn⟩ }
+end
+
+theorem proper_limit (C : ℕ → option bool) :
+  ∀ {L : ℕ → list bool}, fis L → (∃ s, ∀ u, s ≤ u → C ⊆. (L u).rnth) → C ⊆. chr* limit L := 
+begin
+  suffices : 
+    ∀ {L : ℕ → list bool}, (∀ u, C ⊆. (L u).rnth) → C ⊆. chr* limit L,
+  { rintros L F ⟨s, hs⟩, 
+     rw fis_limit_eq F s,
+     apply this, intros u,
+     apply hs, omega },
+  intros L h n b, 
+  cases b; simp [limit]; unfold_coes,
+  { intros hn s hs, have := h s _ _ hn, simp [hs] at this,  exact this },
+  { intros hn, refine ⟨0, h 0 _ _ hn⟩ }
+end
+
+theorem proper_limit {P : (ℕ → option bool) → Prop} (p : proper P) :
+  ∀ {L : ℕ → list bool}, fis L → (∃ s, ∀ u, s ≤ u → P (L u).rnth) → P (chr* limit L) := 
+begin
+  suffices : 
+    ∀ {L : ℕ → list bool}, (∀ u, P (L u).rnth) → P (chr* limit L),
+  { rintros L F ⟨s, hs⟩, 
+     rw fis_limit_eq F s,
+     apply this, intros u,
+     apply hs, omega },
+  intros L h, rcases p with ⟨c, hc⟩, 
   simp[hc, limit], unfold_coes, 
   intros n b eb, cases b; simp [set.set_of_app_iff],
-  { intros m, refine ⟨(max s m) + 1, nat.lt_succ_iff.mpr (le_max_right _ _), _⟩,
-    intros h0,
-    have : P (L (max s m + 1)).rnth := hs _ (nat.lt_succ_iff.mpr (le_max_left s m)),
+  { intros m h0,
+    have : P (L m).rnth := h _,
     have := (hc _).1 this _ _ eb, simp [h0] at this,
     exact this },
-  { refine ⟨s, λ u e, (hc _).1 (hs u e) _ _ eb⟩ }
+  { refine ⟨0, (hc _).1 (h 0) _ _ eb⟩ }
 end
 
 theorem initial_limit {L : ℕ → list bool} (h : fis L)
@@ -148,7 +197,7 @@ begin
 end
 
 lemma initial_extendable {L : ℕ → list bool} (H : fis L) (s u) :
-  ∃ l₀, initial_code (chr (limit L)) s ≺ l₀ ++ L u :=
+  ∃ l₀, initial_code (chr (limit L)) s ≼ l₀ ++ L u :=
 begin
   refine ⟨((initial_code (chr (limit L)) s).reverse.drop (L u).length).reverse, _⟩,
   simp[list.initial, list.rnth], intros m c ec,
