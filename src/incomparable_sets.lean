@@ -29,16 +29,16 @@ begin
 
 end
 
-def list.initial {α} (l₀ l₁ : list α) := ∀ n a, l₀.rnth n = some a → l₁.rnth n = some a
+def list.initial (l₀ l₁ : list bool) := ∀ n, l₀.rnth n = some tt → l₁.rnth n = some tt
 infix ` ≺ `:50 := list.initial
 
-@[simp] theorem initial_refl {α} (l : list α) : l ≺ l :=
+@[simp] theorem initial_refl (l : list bool) : l ≺ l :=
 by simp[list.initial]
 
-@[simp] theorem initial_append {α} (l l₀ : list α) : l ≺ l₀ ++ l := λ n b h,
+@[simp] theorem initial_append (l l₀ : list bool) : l ≺ l₀ ++ l := λ n h,
 by { simp[list.initial, list.rnth] at h ⊢, simp only [list.append_nth_some h] } 
 
-@[simp] theorem initial_cons {α} (a) (l : list α) : l ≺ a :: l := λ n b h,
+@[simp] theorem initial_cons (a) (l : list bool) : l ≺ a :: l := λ n h,
 by { simp[list.initial, list.rnth] at h ⊢, simp only [list.append_nth_some h] } 
 
 def limit (L : ℕ → list bool) := {n | ∃ s, (L s).rnth n = tt}
@@ -51,8 +51,8 @@ def total {α} (L : ℕ → list α) := ∀ n, ∃ s, ∀ u, s < u → n < (L u)
 lemma total_limit_dom {α} {L : ℕ → list α} (T : total L) (n) : ∃ s a, (L s).rnth n = some a :=
 by { rcases T n with ⟨s, hs⟩, refine ⟨s, (L s).reverse.nth_le _ _, list.nth_le_nth _⟩, simp, exact hs }
 
-theorem initial_trans {α} {l₀ l₁ l₂ : list α} : l₀ ≺ l₁ → l₁ ≺ l₂ → l₀ ≺ l₂ :=
- λ h01 h12 _ _ e, h12 _ _ (h01 _ _ e)
+theorem initial_trans {l₀ l₁ l₂ : list bool} : l₀ ≺ l₁ → l₁ ≺ l₂ → l₀ ≺ l₂ :=
+ λ h01 h12 _ e, h12 _ (h01 _ e)
 
 theorem initial_le {L : ℕ → list bool} (h : fis L) :
   ∀ {s t}, s ≤ t → L s ≺ L t :=
