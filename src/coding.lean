@@ -751,6 +751,7 @@ begin
         } }
 end
 -/
+
 theorem rpartrec.univ (α σ) [primcodable α] [primcodable σ] (f : β → option τ) :
   (λ x, ⟦x.1⟧^f x.2 : ℕ × α →. σ) partrec_in (λ x, f x) :=
 begin
