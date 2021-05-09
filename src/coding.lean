@@ -729,7 +729,8 @@ def oracle_of (e i : ℕ) : ℕ := encode (code.oracle_of (of_nat _ e) (of_nat _
 @[simp] theorem eval_curry (α β σ) [primcodable α] [primcodable β] [primcodable σ] (f : β → option τ) 
   (e n x) : univ α σ f (curry _ e n) x = univ (β × α) σ f e (n, x) :=
 by { simp[curry, univ] }
-#check code.oracle_of_eq
+
+/--
 @[simp] theorem eval_oracle_of {β} [denumerable β] 
   {h : γ → option μ} {g : β → option τ} {eg : ℕ}
   (hg : univ β τ h eg = λ x, g x) :
@@ -749,7 +750,7 @@ begin
 
         } }
 end
-
+-/
 theorem rpartrec.univ (α σ) [primcodable α] [primcodable σ] (f : β → option τ) :
   (λ x, ⟦x.1⟧^f x.2 : ℕ × α →. σ) partrec_in (λ x, f x) :=
 begin

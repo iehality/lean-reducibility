@@ -41,6 +41,11 @@ by { simp[list.initial, list.rnth] at h ⊢, simp only [list.append_nth_some h] 
 @[simp] theorem initial_cons (a) (l : list bool) : l ≼ a :: l := λ n h,
 by { simp[list.initial, list.rnth] at h ⊢, simp only [list.append_nth_some h] } 
 
+theorem suffix_initial {l₀ l₁ : list bool} : l₀ <:+ l₁ → l₀ ≼ l₁ :=
+by { simp[list.is_suffix], intros l hl s h₀,
+     simp[←hl, list.rnth] at h₀ ⊢, rcases list.nth_eq_some.mp h₀ with ⟨e, _⟩,
+     simp [list.nth_append e, h₀] }
+
 def limit (L : ℕ → list bool) := {n | ∃ s, (L s).rnth n = tt}
 
 -- finite initial segments
@@ -66,17 +71,6 @@ begin
   rw this, exact l0 _ _,
 end 
 
-def proper (P : (ℕ → option bool) → Prop) := ∃ C : ℕ → option bool,
-  ∀ B : ℕ → option bool, P B ↔ (∀ n b, C n = some b → B n = some b)
-
-def proper' (P : (ℕ → option bool) → Prop) := ∀ {A : ℕ → option bool},
-P A → ∃ C : ℕ → option bool, (∀ n b, C n = some b → A n = some b) ∧
-∀ {B : ℕ → option bool}, (∀ n b, C n = some b → B n = some b) → P B
-
-def proper_subset {P} (p : proper P) {A B : ℕ → option bool} :
-  (∀ n b, A n = some b → B n = some b) → P A → P B := λ h pa,
-by { rcases p with ⟨f, hf⟩, exact (hf B).mpr (λ n b e, h _ _ $ ((hf A).mp pa) _ _ e) }
-
 theorem fis_limit_eq {L : ℕ → list bool} (F : fis L) (m) :
   limit L = limit (λ x, L (x + m)) := funext $ λ n,
 begin
@@ -90,20 +84,11 @@ begin
   { rintros ⟨s, hs⟩, refine ⟨s+m, hs⟩ }
 end
 
-def pfun_subseteq (A B : ℕ → option bool) := ∀ n b, A n = some b → B n = some b
+def pfun_subseteq (A B : ℕ → option bool) := ∀ {n b}, A n = some b → B n = some b
 
 infix ` ⊆. `:50 := pfun_subseteq
 
-theorem proper_limit (C : ℕ → option bool) :
-  ∀ {L : ℕ → list bool}, (∃ s, ∀ u, s ≤ u → C ⊆. (L u).rnth) → C ⊆. chr* limit L := 
-begin
-  intros L h n b, 
-  cases b; simp [limit]; unfold_coes,
-  { intros hn s hs, have := h s _ _ hn, simp [hs] at this,  exact this },
-  { intros hn, refine ⟨0, h 0 _ _ hn⟩ }
-end
-
-theorem proper_limit (C : ℕ → option bool) :
+theorem subset_limit (C : ℕ → option bool) :
   ∀ {L : ℕ → list bool}, fis L → (∃ s, ∀ u, s ≤ u → C ⊆. (L u).rnth) → C ⊆. chr* limit L := 
 begin
   suffices : 
@@ -114,27 +99,8 @@ begin
      apply hs, omega },
   intros L h n b, 
   cases b; simp [limit]; unfold_coes,
-  { intros hn s hs, have := h s _ _ hn, simp [hs] at this,  exact this },
-  { intros hn, refine ⟨0, h 0 _ _ hn⟩ }
-end
-
-theorem proper_limit {P : (ℕ → option bool) → Prop} (p : proper P) :
-  ∀ {L : ℕ → list bool}, fis L → (∃ s, ∀ u, s ≤ u → P (L u).rnth) → P (chr* limit L) := 
-begin
-  suffices : 
-    ∀ {L : ℕ → list bool}, (∀ u, P (L u).rnth) → P (chr* limit L),
-  { rintros L F ⟨s, hs⟩, 
-     rw fis_limit_eq F s,
-     apply this, intros u,
-     apply hs, omega },
-  intros L h, rcases p with ⟨c, hc⟩, 
-  simp[hc, limit], unfold_coes, 
-  intros n b eb, cases b; simp [set.set_of_app_iff],
-  { intros m h0,
-    have : P (L m).rnth := h _,
-    have := (hc _).1 this _ _ eb, simp [h0] at this,
-    exact this },
-  { refine ⟨0, (hc _).1 (h 0) _ _ eb⟩ }
+  { intros hn s hs, have := h s hn, simp [hs] at this,  exact this },
+  { intros hn, refine ⟨0, h 0 hn⟩ }
 end
 
 theorem initial_limit {L : ℕ → list bool} (h : fis L)
@@ -329,8 +295,8 @@ noncomputable def L₁ (s) := ((L s).get (I_defined s)).2
 def I₀ : set ℕ := limit L₀
 def I₁ : set ℕ := limit L₁
 
-theorem L₀_fis :
-  fis L₀ := λ s,
+theorem L₀_suffix (s) :
+  (L₀ s) <:+ (L₀ (s+1)) :=
 begin
   let e := s.div2,
   simp[fis, L₀, L], cases M : s.bodd; simp [M, L, show L s = some (L₀ s, L₁ s), by simp[L₀, L₁]],
@@ -341,7 +307,7 @@ begin
     rcases this with ⟨l, hl⟩,
     have hb := ε_witness hl, simp only [chr_iff, extendable, roption.dom_iff_mem] at hb,
     rcases hb with ⟨b, hb⟩,
-    simp [roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb] },
+    simp [roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb], },
   { cases C : chr {e | ∃ l, extendable (L₁ s) l (L₀ s).length e} e; simp [C],
     simp [set.set_of_app_iff] at C,
     have : ∃ l, l ∈ ε_operator (chr $ λ l, extendable (L₁ s) l (L₀ s).length e),
@@ -352,8 +318,10 @@ begin
     simp [roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb] }
 end
 
-theorem L₁_fis :
-  fis L₁ := λ s,
+theorem L₀_fis : fis L₀ := λ s, suffix_initial (L₀_suffix s)
+
+theorem L₁_suffix (s) :
+  (L₁ s) <:+ (L₁ (s+1)) :=
 begin
   let e := s.div2,
   simp[fis, L₁, L], cases M : s.bodd; simp [M, L, show L s = some (L₀ s, L₁ s), by simp[L₀, L₁]],
@@ -374,6 +342,8 @@ begin
     rcases hb with ⟨b, hb⟩,
     simp [roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb] }
 end
+
+theorem L₁_fis : fis L₁ := λ s, suffix_initial (L₁_suffix s)
 
 /--
 theorem TT {e l₀ b₀ l₁ b₁}
@@ -424,11 +394,11 @@ begin
       simp only [list.append_nth_some ec] } }
 end
 --/
-theorem requirement₀ (e) (J₀ J₁ : set ℕ) : ∃ w : ℕ,
-  ¬(⟦e⟧^(chr* J₀) w : roption bool).dom ∨ !chr J₀ w ∈ (⟦e⟧^(chr* J₁) w : roption bool) := by sorry
+lemma requirement₀ (e) : ∃ w : ℕ,
+  ¬(⟦e⟧^(chr* I₁) w : roption bool).dom ∨ !chr I₀ w ∈ (⟦e⟧^(chr* I₁) w : roption bool) := by sorry
 
-theorem requirement₁ (e) : ∃ w : ℕ,
-  (⟦e⟧^(chr* I₀) w : roption bool).dom → !chr I₁ w ∈ (⟦e⟧^(chr* I₀) w : roption bool) := by sorry
+lemma requirement₁ (e) : ∃ w : ℕ,
+  ¬(⟦e⟧^(chr* I₀) w : roption bool).dom ∨ !chr I₁ w ∈ (⟦e⟧^(chr* I₀) w : roption bool) := by sorry
 
 lemma bnot_ne (b) : b ≠ !b := by cases b; simp
 
@@ -439,10 +409,10 @@ begin
   have : ∃ e, ⟦e⟧^(chr* I₁) = ↑(chr I₀) := rpartrec.rpartrec_univ_iff_total.mp l0,
   rcases this with ⟨e, he⟩,
   have E : ∀ n, (chr I₀ n) ∈ (⟦e⟧^(chr* I₁ ) n : roption bool), simp[he],
-  rcases requirement₀ e with ⟨w, hw⟩,
-  have : (⟦e⟧^(chr* I₁) w).dom, { rcases E w with ⟨h, _⟩, exact h },
-  have : !chr I₀ w ∈ ⟦e⟧^(chr* I₁) w := hw this,
-  have : chr I₀ w = !chr I₀ w := roption.mem_unique (E w) this,
+  rcases requirement₀ e with ⟨w, hw⟩, cases hw,
+  { have : (⟦e⟧^(chr* I₁) w).dom, { rcases E w with ⟨h, _⟩, exact h },
+    contradiction },
+    have : chr I₀ w = !chr I₀ w := roption.mem_unique (E w) hw,
   show false, from bnot_ne _ this
 end
 
@@ -453,10 +423,10 @@ begin
   have : ∃ e, ⟦e⟧^(chr* I₀) = ↑(chr I₁) := rpartrec.rpartrec_univ_iff_total.mp l0,
   rcases this with ⟨e, he⟩,
   have E : ∀ n, (chr I₁ n) ∈ (⟦e⟧^(chr* I₀ ) n : roption bool), simp[he],
-  rcases requirement₁ e with ⟨w, hw⟩,
-  have : (⟦e⟧^(chr* I₀) w).dom, { rcases E w with ⟨h, _⟩, exact h },
-  have : !chr I₁ w ∈ ⟦e⟧^(chr* I₀) w := hw this,
-  have : chr I₁ w = !chr I₁ w := roption.mem_unique (E w) this,
+ rcases requirement₁ e with ⟨w, hw⟩, cases hw,
+  { have : (⟦e⟧^(chr* I₀) w).dom, { rcases E w with ⟨h, _⟩, exact h },
+    contradiction },
+    have : chr I₁ w = !chr I₁ w := roption.mem_unique (E w) hw,
   show false, from bnot_ne _ this
 end
 

@@ -236,4 +236,37 @@ theorem ε_operator_rpartrec [inhabited β] {p : α × β →. bool} : (λ a, ε
   rpartrec.rfind.trans c₀,
 c₂.map c₁.to_rpart
 
+open nat.rpartrec
+
+theorem eval_list_partrec :
+  partrec (λ x : (code × list ℕ) × ℕ, code.eval x.1.2.rnth x.1.1 x.2) :=
+begin
+  have := primrec.list_nth.comp (primrec.list_reverse.comp $
+    (primrec.of_nat (list ℕ)).comp $ primrec.fst.comp primrec.unpair)
+    (primrec.snd.comp primrec.unpair),
+  have := this.to_comp.of_option, simp at this,
+  let N : ℕ → option ℕ := λ x, none,
+  have := this.to_rpart_in (λ x, N x),
+  have := nat_iff.mp this,
+  rcases code.exists_code_opt.mp this with ⟨c, hc⟩,
+  let i := code.curry c, 
+  let T := (λ x : ℕ, (i x.unpair.1).oracle_of (of_nat _ x.unpair.2)),
+  have E : ∀ (l : list ℕ) d, code.eval N (T ((encode l).mkpair (encode d))) = code.eval l.rnth d,
+  { intros l e, simp[T], simp,
+    have : code.eval N (i (encode l)) = (λ x, l.rnth x),
+    { funext n, simp[i, hc], refl },
+    simp[code.oracle_of_eq this] },
+  have ip : primrec i := code.curry_prim.comp (primrec.const c) (primrec.id), 
+  have Tp : primrec T := code.oracle_of_prim.comp (ip.comp $ primrec.fst.comp primrec.unpair)
+    ((primrec.of_nat code).comp $ primrec.snd.comp primrec.unpair), 
+  suffices :
+    (λ x : (code × list ℕ) × ℕ, code.eval x.1.2.rnth x.1.1 x.2) partrec_in (λ x, N x),
+  from le_part_part this partrec.none,
+  { simp [←E],
+    have := primrec.pair (Tp.comp $
+      primrec₂.mkpair.comp (primrec.encode.comp $ primrec.snd.comp primrec.fst) 
+      (primrec.encode.comp $ primrec.fst.comp primrec.fst)) primrec.snd,
+    exact (code.eval_partrec N).comp this.to_comp.to_rcomp }
+end
+
 end rpartrec
