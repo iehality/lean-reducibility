@@ -46,6 +46,17 @@ protected def id : code := pair left right
 def curry (c : code) (n : ℕ) : code :=
 comp c (pair (code.const n) code.id)
 
+def oracle_of (c : code) : code → code
+| oracle       := c
+| zero         := zero
+| succ         := succ
+| left         := left
+| right        := right
+| (pair cf cg) := pair (oracle_of cf) (oracle_of cg)
+| (comp cf cg) := comp (oracle_of cf) (oracle_of cg)
+| (prec cf cg) := prec (oracle_of cf) (oracle_of cg)
+| (rfind' cf)  := rfind' (oracle_of cf)
+
 def encode_code : code → ℕ
 | oracle       := 0
 | zero         := 1
@@ -481,6 +492,75 @@ by { have : ∃ s, y ∈ evaln s f c x := evaln_complete.mp h, rcases this with 
 @[simp] theorem eval_curry (f c n x) : eval f (curry c n) x = eval f c (mkpair n x) :=
 by simp! [(<*>)]
 
+@[simp] theorem oracle_of_eq {g h : ℕ → option ℕ} {cg : code} (hg : eval h cg = λ x, g x) :
+  ∀ cf, eval h (oracle_of cg cf) = eval g cf
+| oracle := by simp[eval, oracle_of, hg]
+| zero   := by simp[eval, oracle_of]
+| succ   := by simp[eval, oracle_of]
+| left   := by simp[eval, oracle_of]
+| right   := by simp[eval, oracle_of]
+| (pair cff cfg) := by {
+    have IH₀ := oracle_of_eq cff,
+    have IH₁ := oracle_of_eq cfg,
+    simp[eval, oracle_of, IH₀, IH₁] }
+| (comp cff cfg) := by {
+    have IH₀ := oracle_of_eq cff,
+    have IH₁ := oracle_of_eq cfg,
+    simp[eval, oracle_of, IH₀, IH₁] }
+| (prec cff cfg) := by {
+    have IH₀ := oracle_of_eq cff,
+    have IH₁ := oracle_of_eq cfg,
+    simp[eval, oracle_of, IH₀, IH₁] }
+| (rfind' cff) := by {
+    have IH₀ := oracle_of_eq cff,
+    simp[eval, oracle_of, IH₀] }
+
+section
+open primrec
+
+theorem pair_prim : primrec₂ pair :=
+primrec₂.of_nat_iff.2 $ primrec₂.encode_iff.1 $ nat_add.comp
+  (nat_bit0.comp $ nat_bit0.comp $
+    primrec₂.mkpair.comp
+      (encode_iff.2 $ (primrec.of_nat code).comp fst)
+      (encode_iff.2 $ (primrec.of_nat code).comp snd))
+  (primrec₂.const 5)
+
+theorem comp_prim : primrec₂ comp :=
+primrec₂.of_nat_iff.2 $ primrec₂.encode_iff.1 $ nat_add.comp
+  (nat_bit0.comp $ nat_bit1.comp $
+    primrec₂.mkpair.comp
+      (encode_iff.2 $ (primrec.of_nat code).comp fst)
+      (encode_iff.2 $ (primrec.of_nat code).comp snd))
+  (primrec₂.const 5)
+
+theorem prec_prim : primrec₂ prec :=
+primrec₂.of_nat_iff.2 $ primrec₂.encode_iff.1 $ nat_add.comp
+  (nat_bit1.comp $ nat_bit0.comp $
+    primrec₂.mkpair.comp
+      (encode_iff.2 $ (primrec.of_nat code).comp fst)
+      (encode_iff.2 $ (primrec.of_nat code).comp snd))
+  (primrec₂.const 5)
+
+theorem rfind_prim : primrec rfind' :=
+of_nat_iff.2 $ encode_iff.1 $ nat_add.comp
+  (nat_bit1.comp $ nat_bit1.comp $
+    encode_iff.2 $ primrec.of_nat code)
+  (const 5)
+
+theorem const_prim : primrec code.const :=
+(primrec.id.nat_iterate (primrec.const zero)
+  (comp_prim.comp (primrec.const succ) primrec.snd).to₂).of_eq $
+λ n, by simp; induction n; simp [*, code.const, function.iterate_succ']
+
+theorem curry_prim : primrec₂ curry :=
+comp_prim.comp primrec.fst $
+pair_prim.comp (const_prim.comp primrec.snd) (primrec.const code.id)
+
+theorem oracle_of_prim : primrec₂ oracle_of :=
+by sorry
+
+end
 
 theorem rpartrec_rfind' {f} : nat.rpartrec f (nat.unpaired (λ a m,
   (nat.rfind (λ n, (λ m, m = 0) <$> f (nat.mkpair a (n + m)))).map (+ m))) :=
@@ -617,18 +697,18 @@ end nat.rpartrec.code
 namespace rpartrec
 open rcomputable nat.rpartrec 
 
-variables {α : Type*} {σ : Type*} {β : Type*} {τ : Type*} 
-variables [primcodable α] [primcodable σ] [primcodable β] [primcodable τ]
+variables {α : Type*} {σ : Type*} {β : Type*} {τ : Type*} {γ : Type*} {μ : Type*} 
+variables [primcodable α] [primcodable σ] [primcodable β] [primcodable τ] [primcodable γ] [primcodable μ]
 
-def univn (s : ℕ) (f : β → option τ) (e : ℕ) : α →. σ := (λ a,
+def univn (α σ) [primcodable α] [primcodable σ] (s : ℕ) (f : β → option τ) (e : ℕ) : α →. σ := (λ a,
 (code.evaln s 
   (λ n, (decode β n).bind (λ a, (f a).map encode ))
   (of_nat code e) (encode a))
 .bind (λ x, (decode σ x)))
 
-notation `⟦`e`⟧^`f:max` [`s`]` := univn s f e
+notation `⟦`e`⟧^`f:max` [`s`]` := univn _ _ s f e
 
-def univ (f : β → option τ) (e : ℕ) : α →. σ := (λ a,
+def univ (α σ) [primcodable α] [primcodable σ] (f : β → option τ) (e : ℕ) : α →. σ := (λ a,
 (code.eval
   (λ n, (decode β n).bind (λ a, (f a).map encode))
   (of_nat code e) (encode a))
@@ -640,7 +720,35 @@ def univl (l : list β) (e : ℕ) : α →. σ := (λ a,
   (of_nat code e) (encode a))
 .bind (λ x, (decode σ x)))
 
-notation `⟦`e`⟧^`f:max := univ f e
+notation `⟦`e`⟧^`f:max := univ _ _ f e
+
+def curry (α) [primcodable α] (e : ℕ) (n : α) : ℕ := encode (code.curry (of_nat _ e) (encode n))
+
+def oracle_of (e i : ℕ) : ℕ := encode (code.oracle_of (of_nat _ e) (of_nat _ i))
+
+@[simp] theorem eval_curry (α β σ) [primcodable α] [primcodable β] [primcodable σ] (f : β → option τ) 
+  (e n x) : univ α σ f (curry _ e n) x = univ (β × α) σ f e (n, x) :=
+by { simp[curry, univ] }
+#check code.oracle_of_eq
+@[simp] theorem eval_oracle_of {β} [denumerable β] 
+  {h : γ → option μ} {g : β → option τ} {eg : ℕ}
+  (hg : univ β τ h eg = λ x, g x) :
+  ∀ ef, univ α σ h (oracle_of eg ef) = univ α σ g ef := λ ef, funext $ λ a,
+begin
+  have hg' : ∀ n, univ β τ h eg n = g n ,
+  { intros n, simp[hg] },
+  simp[oracle_of, univ] at hg' ⊢, 
+  let h' := (λ n, (decode γ n).bind (λ c, option.map encode (h c))),
+  let g' := (λ n, (decode β n).bind (λ b, option.map encode (g b))),
+  have : code.eval h' ((of_nat code eg).oracle_of (of_nat code ef)) (encode a) = 
+    code.eval g' (of_nat code ef) (encode a),
+  { have : code.eval h' (of_nat code eg) = λ x, encode (g (of_nat _ x)),
+    { simp[h'], funext n,
+      have := hg' (of_nat β n), simp at this,
+      have : n = (encode (of_nat β n)), simp, rw this, 
+
+        } }
+end
 
 theorem rpartrec.univ (α σ) [primcodable α] [primcodable σ] (f : β → option τ) :
   (λ x, ⟦x.1⟧^f x.2 : ℕ × α →. σ) partrec_in (λ x, f x) :=
