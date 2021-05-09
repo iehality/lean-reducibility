@@ -15,19 +15,7 @@ lemma list.drop_nth {α} : ∀ (l : list α) (k n), (l.drop k).nth n = l.nth (n 
 | (l :: ls) (k + 1) n := 
     by { simp [list.drop], have := list.drop_nth ls k n, simp [this], exact rfl }
 
-inductive list.is_initial {α} : list α → list α → Prop
-| refl {l}   : list.is_initial l l
-| cons {l₀ l₁ a} : list.is_initial l₀ l₁ → list.is_initial l₀ (a :: l₁)
-| trans {l₀ l₁ l₂} : list.is_initial l₀ l₁ → list.is_initial l₁ l₂ → list.is_initial l₀ l₂
-
 namespace t_reducible
-
-
-theorem gfeg {α} (l₀ l₁ : list α) :
-  list.is_initial l₀ l₁ ↔ (∀ n a, l₀.rnth n = some a → l₁.rnth n = some a) :=
-begin
-
-end
 
 def list.initial (l₀ l₁ : list bool) := ∀ n, l₀.rnth n = some tt → l₁.rnth n = some tt
 infix ` ≼ `:50 := list.initial
@@ -52,9 +40,6 @@ def limit (L : ℕ → list bool) := {n | ∃ s, (L s).rnth n = tt}
 def fis (L : ℕ → list bool) := ∀ s, L s ≼ L (s + 1)
 
 def total {α} (L : ℕ → list α) := ∀ n, ∃ s, ∀ u, s < u → n < (L u).length
-
-lemma total_limit_dom {α} {L : ℕ → list α} (T : total L) (n) : ∃ s a, (L s).rnth n = some a :=
-by { rcases T n with ⟨s, hs⟩, refine ⟨s, (L s).reverse.nth_le _ _, list.nth_le_nth _⟩, simp, exact hs }
 
 theorem initial_trans {l₀ l₁ l₂ : list bool} : l₀ ≼ l₁ → l₁ ≼ l₂ → l₀ ≼ l₂ :=
  λ h01 h12 _ e, h12 _ (h01 _ e)
@@ -114,7 +99,6 @@ begin
   { intros hn, refine ⟨0, h 0 _ _ hn⟩ }
 end
 
-
 lemma initial_subseq {l : list bool} {A : ℕ → bool} (hl : l.rnth ⊆. (λ x, A x)) (s) :
   ∃ l₀, (initial_code A s).rnth ⊆. (l₀ ++ l).rnth :=
 begin
@@ -130,30 +114,6 @@ begin
   { simp [list.nth_append_right em], 
     have : m - l.length + l.length = m, { simp at em, omega },
     simp [list.drop_nth, this], exact ec }
-end
-
-lemma initial_extendable {L : ℕ → list bool} (H : fis L) (s u) :
-  ∃ l₀, (initial_code (chr (limit L)) s).rnth ⊆. (l₀ ++ L u).rnth :=
-begin
-  refine ⟨((initial_code (chr (limit L)) s).reverse.drop (L u).length).reverse, _⟩,
-  simp[list.rnth], intros m c ec,
-  have := initial_code_some ec, 
-  have em : m < (L u).reverse.length ∨ (L u).reverse.length ≤ m, exact lt_or_ge _ _, 
-  cases em,
-  { simp[list.nth_append em], cases c,
-    { have clff := (chr_limit_ff _).mp this u,
-      cases clff, exfalso, simp at em, exact nat.lt_le_antisymm em clff,
-      exact clff },
-    { simp at em, exact chr_limit_tt H this _ em } },
-  { simp [list.nth_append_right em], have : m - (L u).length + (L u).length = m, { simp at em, omega },
-    simp [list.drop_nth, this], exact ec }
-end
-
-theorem oracle_proper {L : ℕ → list bool} (B : ℕ → option bool)
-  {e} {n : ℕ} {b : bool} :
-  proper (λ A, b ∈ (⟦e⟧^A n : roption bool)) :=
-begin
-  simp[proper],
 end
 
 namespace Kleene_Post
@@ -175,22 +135,10 @@ begin
   have : (initial_code (λ (x : ℕ), A x) s).rnth m = c, simp[em, hc],
   exact hl _ _ this
 end
-  
 
 def extendable₀_le_0prime (l₀ : list bool) (n): 
   {e | ∃ l, extendable l₀ l n e} ≤ₜ ∅′ :=
 by sorry
-
-@[simp] theorem ε_operator_chr_Prop {β} [primcodable β] [inhabited β]
-  (p : β → Prop) (h : (ε_operator (chr p)).dom) :
-  p ((ε_operator (chr p)).get h) :=
-by { have := roption.get_mem h, have := ε_witness this, simp at this, exact this }
-
-
-theorem ε_operator_chr_Prop_iff {β} [primcodable β] [inhabited β]
-  (p : β → Prop) :
-  (∃ a, p a) ↔ (∃ a, a ∈ ε_operator (chr p)) :=
-by simp[←roption.dom_iff_mem]
 
 noncomputable def L : ℕ →. list bool × list bool
 | 0     := some ([], [])
