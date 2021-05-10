@@ -92,7 +92,7 @@ variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ :
 variables [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ] [primcodable μ]
 
 theorem classical_iff {A : α → Prop} {B : β → Prop} :
-  A ≤ₜ B ↔ chr A computable_in (chr B : β →. bool) :=
+  A ≤ₜ B ↔ chr A computable_in (chr* B) :=
 by simp[t_reducible, to_bool_chr_eq]; exact
   ⟨λ ⟨_, _, h⟩, h, λ h, ⟨classical.dec_pred _, classical.dec_pred _, h⟩⟩
 

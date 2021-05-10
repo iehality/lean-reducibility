@@ -225,16 +225,23 @@ namespace rpartrec
 variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
 variables [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ] [primcodable μ]
 
-theorem ε_operator_rpartrec [inhabited β] {p : α × β →. bool} : (λ a, ε_operator_r (λ x, p (a, x))) partrec_in p :=
+theorem ε_operator_r_rpartrec [inhabited β] (p : α × β →. bool) :
+  (λ a, ε_operator_r (λ x, p (a, x))) partrec_in p :=
+begin
   have c₀ : (λ x, p (x.1, (decode β x.2).get_or_else (default β)) : α × ℕ →. bool) partrec_in p :=
-  rpartrec.refl.comp $ (computable.pair computable.fst 
+  (rpartrec.refl.comp $ (computable.pair computable.fst 
     ((computable.decode.comp computable.snd).option_get_or_else (computable.const (default β))))
-    .to_rpart,
+    .to_rpart),
   have c₁ : computable (λ x, (decode β x.2).get_or_else (default β) : α × ℕ → β) :=
   (computable.decode.comp computable.snd).option_get_or_else (computable.const (default β)),
   have c₂ : (λ a, nat.rfind $ λ x, p (a, (decode β x).get_or_else (default β))) partrec_in p :=
   rpartrec.rfind.trans c₀,
-c₂.map c₁.to_rpart
+  exact c₂.map c₁.to_rpart
+end
+
+theorem ε_operator_rpartrec [inhabited β] (p : α × β → bool) :
+  (λ a, ε_operator (λ x, p (a, x))) partrec_in (λ x, some $ p x) :=
+ε_operator_r_rpartrec _  
 
 open nat.rpartrec
 

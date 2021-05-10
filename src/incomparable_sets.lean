@@ -17,6 +17,20 @@ lemma list.drop_nth {α} : ∀ (l : list α) (k n), (l.drop k).nth n = l.nth (n 
 | (l :: ls) (k + 1) n := 
     by { simp [list.drop], have := list.drop_nth ls k n, simp [this], exact rfl }
 
+lemma relation_path_le {α} {p : ℕ → α} (R : α → α → Prop)
+  (r : ∀ a, R a a) (t : ∀ a b c, R a b → R b c → R a c)
+  (i : ∀ n, R (p n) (p (n+1))) : 
+  ∀ s t, s ≤ t → R (p s) (p t) :=
+begin
+  have l0 : ∀ s t, R (p s) (p (s + t)),
+  { intros s t, induction t with s0 ih generalizing s, simp[r],
+    simp[show s + s0.succ = (s + s0) + 1, from nat.add_succ _ _],
+    exact t _ _ _ (ih _) (i _) },
+  intros s t e,
+  have : t = s + (t - s), omega,
+  rw this, exact l0 _ _,
+end
+
 namespace t_reducible
 
 def list.initial (l₀ l₁ : list bool) := ∀ n, l₀.rnth n = some tt → l₁.rnth n = some tt
@@ -46,19 +60,6 @@ def total {α} (L : ℕ → list α) := ∀ n, ∃ s, ∀ u, s < u → n < (L u)
 theorem initial_trans {l₀ l₁ l₂ : list bool} : l₀ ≼ l₁ → l₁ ≼ l₂ → l₀ ≼ l₂ :=
  λ h01 h12 _ e, h12 _ (h01 _ e)
 
-lemma relation_path_le {α} {p : ℕ → α} (R : α → α → Prop)
-  (r : ∀ a, R a a) (t : ∀ a b c, R a b → R b c → R a c)
-  (i : ∀ n, R (p n) (p (n+1))) : 
-  ∀ s t, s ≤ t → R (p s) (p t) :=
-begin
-  have l0 : ∀ s t, R (p s) (p (s + t)),
-  { intros s t, induction t with s0 ih generalizing s, simp[list.initial, r],
-    simp[show s + s0.succ = (s + s0) + 1, from nat.add_succ _ _],
-    exact t _ _ _ (ih _) (i _) },
-  intros s t e,
-  have : t = s + (t - s), omega,
-  rw this, exact l0 _ _,
-end
 
 theorem initial_le {L : ℕ → list bool} (h : fis L) :
   ∀ {s t}, s ≤ t → L s ≼ L t := 
@@ -118,6 +119,8 @@ begin
     simp [list.drop_nth, this], exact ec }
 end
 
+ segments_computable
+
 namespace Kleene_Post
 
 def extendable (l₀ l : list bool) (n e : ℕ) := (⟦e⟧^((l ++ l₀).rnth) n : roption bool).dom
@@ -163,6 +166,10 @@ noncomputable def L : ℕ →. list bool × list bool
       (some (σ.1, ff :: σ.2))
   end
 
+theorem L_rcomp_0prime : L partrec_in (chr* ∅′) :=
+begin
+end
+
 theorem I_defined : ∀ s, (L s).dom 
 | 0     := by simp[L]
 | (s+1) :=
@@ -196,6 +203,46 @@ noncomputable def L₁ (s) := ((L s).get (I_defined s)).2
 def I₀ : set ℕ := limit L₀
 def I₁ : set ℕ := limit L₁
 
+lemma zeroprime_computable₀ : I₀ ≤ₜ ∅′ :=
+classical_iff.mpr $
+begin
+
+end
+
+lemma zeroprime_computable₁ : I₁ ≤ₜ ∅′ :=
+classical_iff.mpr $
+begin
+  
+end
+
+theorem L₀_length (e) :
+  (L₀ (bit0 e)).length < (L₀ (bit0 e + 1)).length :=
+begin
+  simp[fis, L₀, L], simp [L, show ∀ s, L s = some (L₀ s, L₁ s), by simp[L₀, L₁]],
+  { cases C : chr {i | ∃ l, extendable (L₁ (bit0 e)) l (L₀ (bit0 e)).length i} e; simp [C],
+    simp [set.set_of_app_iff] at C,
+    have : ∃ l, l ∈ ε_operator (chr $ λ l, extendable (L₁ (bit0 e)) l (L₀ (bit0 e)).length e),
+    { simp[←roption.dom_iff_mem], exact C },
+    rcases this with ⟨l, hl⟩,
+    have hb := ε_witness hl, simp only [chr_iff, extendable, roption.dom_iff_mem] at hb,
+    rcases hb with ⟨b, hb⟩,
+    simp [roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb ] }
+end
+
+theorem L₁_length (e) :
+  (L₁ (bit1 e)).length < (L₁ (bit1 e + 1)).length :=
+begin
+  simp[fis, L₁, L], simp [L, show ∀ s, L s = some (L₀ s, L₁ s), by simp[L₀, L₁]],
+  { cases C : chr {i | ∃ l, extendable (L₀ (bit1 e)) l (L₁ (bit1 e)).length i} e; simp [C],
+    simp [set.set_of_app_iff] at C,
+    have : ∃ l, l ∈ ε_operator (chr $ λ l, extendable (L₀ (bit1 e)) l (L₁ (bit1 e)).length e),
+    { simp[←roption.dom_iff_mem], exact C },
+    rcases this with ⟨l, hl⟩,
+    have hb := ε_witness hl, simp only [chr_iff, extendable, roption.dom_iff_mem] at hb,
+    rcases hb with ⟨b, hb⟩,
+    simp [roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb ] }
+end
+
 theorem L₀_suffix (s) :
   (L₀ s) <:+ (L₀ (s+1)) :=
 begin
@@ -218,8 +265,6 @@ begin
     rcases hb with ⟨b, hb⟩,
     simp [roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb] }
 end
-
-theorem L₀_fis : fis L₀ := λ s, suffix_initial (L₀_suffix s)
 
 theorem L₁_suffix (s) :
   (L₁ s) <:+ (L₁ (s+1)) :=
@@ -244,13 +289,39 @@ begin
     simp [roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb] }
 end
 
-theorem L₁_fis : fis L₁ := λ s, suffix_initial (L₁_suffix s)
-
 theorem initial_suffix₀ : ∀ {s t}, s ≤ t → L₀ s <:+ L₀ t := 
 relation_path_le (<:+) list.suffix_refl (λ a b c, list.is_suffix.trans) L₀_suffix
 
 theorem initial_suffix₁ : ∀ {s t}, s ≤ t → L₁ s <:+ L₁ t := 
 relation_path_le (<:+) list.suffix_refl (λ a b c, list.is_suffix.trans) L₁_suffix
+
+theorem L₀_length_lt (e) :
+  e < (L₀ (bit0 e + 1)).length :=
+begin
+  induction e with e0 ih,
+  exact L₀_length 0, 
+  have eq0 : (L₀ (bit0 e0 + 1)).length ≤ (L₀ (bit0 e0 + 1 + 1)).length,
+    from list.length_le_of_infix (list.infix_of_suffix $ L₀_suffix $ bit0 e0 + 1),
+  have : bit0 e0 + 1 + 1 = bit0 (e0 + 1), { simp [bit0], omega }, rw this at eq0,
+  have eq1 : (L₀ (bit0 (e0 + 1))).length < (L₀ (bit0 (e0 + 1) + 1)).length,
+    from L₀_length (e0 + 1), omega,
+end
+
+theorem L₁_length_lt (e) :
+  e < (L₁ (bit1 e + 1)).length :=
+begin
+  induction e with e0 ih,
+  { exact pos_of_gt (L₁_length 0) }, 
+  have : bit1 e0 + 1 ≤ bit1 e0.succ, { simp [bit1, bit0], omega },
+  have eq0 : (L₁ (bit1 e0 + 1)).length ≤ (L₁ (bit1 e0.succ)).length,
+    from list.length_le_of_infix (list.infix_of_suffix $ initial_suffix₁ this),
+  have eq1 : (L₁ (bit1 (e0 + 1))).length < (L₁ (bit1 (e0 + 1) + 1)).length,
+    from L₁_length (e0 + 1), omega,
+end
+
+theorem L₀_fis : fis L₀ := λ s, suffix_initial (L₀_suffix s)
+
+theorem L₁_fis : fis L₁ := λ s, suffix_initial (L₁_suffix s)
 
 lemma L₀_subseq (s) : (L₀ s).rnth ⊆. chr* I₀ :=
 begin
@@ -361,9 +432,9 @@ begin
   show false, from bnot_ne _ this
 end
 
-theorem Kleene_Post : ∃ (I₀ I₁ : set ℕ), (I₀ ≤ₜ ∅′) ∧ (I₁ ≤ₜ ∅′) ∧ (I₀ ≰ₜ I₁) ∧ (I₁ ≰ₜ I₀) :=
-by sorry
-
+theorem Kleene_Post : ∃ I₀ I₁ : set ℕ, (I₀ ≤ₜ ∅′) ∧ (I₁ ≤ₜ ∅′) ∧ (I₀ ≰ₜ I₁) ∧ (I₁ ≰ₜ I₀) :=
+⟨I₀, I₁, zeroprime_computable₀, zeroprime_computable₁, incomparable₀, incomparable₁⟩
+#check Kleene_Post
 end Kleene_Post
 
 theorem Friedberg_Muchnik : ∃ (A B : set ℕ), re_pred A ∧ re_pred B ∧ (A ≰ₜ B) ∧ (B ≰ₜ A) :=
