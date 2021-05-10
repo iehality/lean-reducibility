@@ -1,4 +1,4 @@
-import coding
+import coding computable_function partrec_eval
 open encodable denumerable roption
 
 local attribute [simp] set.set_of_app_iff
@@ -238,6 +238,19 @@ begin
   have := pf.map ((computable.const ()).comp computable.snd).to₂,
   exact (this.of_eq $ λ x, by { rw set.set_of_app_iff, simp, 
     apply roption.ext, intros a, simp [dom_iff_mem] })
+end
+#check ε_operator
+
+open nat.partrec
+
+theorem partrec_dom_exists_0prime [inhabited β] {f : α → β →. σ} (pf : partrec₂ f) :
+  {x | ∃ y, (f x y).dom} ≤ₜ ∅′ := 
+let ⟨e, hf⟩ := exists_index.1 pf in
+begin
+  have : ∀ x, (∃ y, (f x y).dom) ↔ (nat.rfind (λ u, 
+  (⟦e⟧₀ [u.unpair.2] (x, (decode β u.unpair.1).get_or_else (default β)) : option σ).is_some)).dom,
+  { intros x, split; simp [roption.some],
+    { intros b hb,  } }
 end
 
 end classical

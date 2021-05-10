@@ -276,6 +276,21 @@ begin
 end
 
 theorem eval_list_partrec (α σ) [primcodable α] [primcodable σ]:
+  partrec (λ x : ℕ × list β × α, (⟦x.1⟧^x.2.1.rnth x.2.2 : roption σ)) :=
+begin
+  simp [univ],
+  have el : ∀ l : list β, (λ n, option.map encode (l.rnth n)) = (list.map encode l).rnth,
+  { intros l, funext n, simp [list.rnth, ←list.map_reverse] },
+  let f := (λ x : ℕ × list β × α, ((of_nat code x.1, list.map encode x.2.1), encode x.2.2)),
+  have pf : primrec f := (((primrec.of_nat code).comp $ primrec.fst).pair 
+    (primrec.list_map (primrec.fst.comp primrec.snd) (primrec.encode.comp primrec.snd).to₂)).pair
+    (primrec.encode.comp $ primrec.snd.comp primrec.snd),
+  have := (code.eval_list_partrec.comp pf.to_comp).bind 
+    (primrec.decode.comp primrec.snd).to_comp.of_option.to₂,
+  exact (this.of_eq $ by simp [el]),
+end
+
+theorem eval_list_partrec' (α σ) [primcodable α] [primcodable σ]:
   partrec (λ x : (ℕ × list β) × α, (⟦x.1.1⟧^x.1.2.rnth x.2 : roption σ)) :=
 begin
   simp [univ],
