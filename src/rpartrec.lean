@@ -236,4 +236,93 @@ begin
   exact c₀.to_rcomp.comp c₁
 end
 
+theorem encode_iff {f : α → σ} {g : β →. τ}: (λ a, encodable.encode (f a)) computable_in g ↔ f computable_in g :=
+iff.rfl
+
+theorem option_some_iff {f : α → σ} {g : β →. τ} : (λ a, some (f a)) computable_in g ↔ f computable_in g :=
+⟨λ h, encode_iff.1 $ primrec.pred.to_comp.to_rcomp.comp $ encode_iff.2 h,
+ computable.option_some.to_rcomp.comp⟩
+#check nat.elim
+
+
+end rcomputable
+
+namespace rpartrec
+open rcomputable
+
+variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
+variables [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ] [primcodable μ]
+
+theorem nat_cases_right
+  {f : α → ℕ} {g : α → σ} {h : α × ℕ →. σ} {o : γ →. τ}
+  (hf : (f : α →. ℕ) partrec_in o) (hg : (g : α →. σ) partrec_in o) (hh : h partrec_in o) :
+  (λ a, (f a).cases (some (g a)) (λ x, h (a, x))) partrec_in o :=
+(nat_elim hf hg (hh.comp $ fst.pair (computable.pred.to_rpart.comp $ hf.comp fst))).of_eq $
+λ a, begin
+  simp, cases f a; simp,
+  refine ext (λ b, ⟨λ H, _, λ H, _⟩),
+  { rcases mem_bind_iff.1 H with ⟨c, h₁, h₂⟩, exact h₂ },
+  { have : ∀ m, (nat.elim (roption.some (g a))
+      (λ y IH, IH.bind (λ _, h (a, n))) m).dom,
+    { intro, induction m; simp [*, H.fst] },
+    exact ⟨⟨this n, H.fst⟩, H.snd⟩ }
+end
+
+
+end rpartrec
+
+namespace rcomputable
+open rpartrec
+
+variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
+variables [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ] [primcodable μ]
+
+theorem nat_cases {f : α → ℕ} {g : α → σ} {h : α × ℕ → σ} {o : β →. τ}
+  (hf : f computable_in o) (hg : g computable_in o) (hh : h computable_in o) :
+  (λ a, (f a).cases (g a) (λ x, h (a, x))) computable_in o :=
+nat_elim hf hg (hh.comp $ fst.pair $ fst.comp snd)
+
+theorem bind_decode_iff {f : α × β → option σ} {h : γ →. τ} : 
+  (λ x : α × ℕ, (decode β x.2).bind (λ y, f (x.1, y))) computable_in h ↔ f computable_in h :=
+⟨λ hf, nat.rpartrec.of_eq
+    (((partrec.nat_iff.2 (nat.partrec.ppred.comp $
+        nat.partrec.of_primrec $ primcodable.prim β)).comp computable.snd).to_rpart.bind
+      (hf.comp fst)) $
+  λ n, by simp;
+    cases decode α n.unpair.1; simp;
+    cases decode β n.unpair.2; simp,
+λ hf, begin
+  have : (λ a : α × ℕ, (encode (decode β a.2)).cases
+    (some option.none) (λ n, roption.map (λ x, f (a.1, x)) (decode β n))) partrec_in (h : γ →. τ) :=
+  nat_cases_right (primrec.encdec.to_comp.comp computable.snd).to_rpart
+    (const option.none) ((computable.of_option (computable.decode.comp computable.snd)).to_rpart.map
+      (hf.comp ((fst.comp $ fst.comp fst).pair snd))),
+  refine this.of_eq (λ a, _),
+  simp, cases decode β a.2; simp [encodek]
+end⟩
+
+theorem map_decode_iff {f : α × β → σ} {h : γ →. τ} : 
+  (λ x : α × ℕ, (decode β x.2).map (λ y, f (x.1, y))) computable_in h ↔ f computable_in h :=
+have this : (λ x : α × ℕ, (decode β x.2).bind (λ y, some $ f (x.1, y))) computable_in h ↔ f computable_in h :=
+  (bind_decode_iff.trans option_some_iff), this
+
+theorem option_cases {o : α → option β} {f : α → σ} {g : α × β → σ} {h : γ →. τ}
+  (ho : o computable_in h) (hf : f computable_in h) (hg : g computable_in h) :
+  @rcomputable _ _ σ _ _ _ _ _ (λ a, option.cases_on (o a) (f a) (λ x, g (a, x))) h :=
+option_some_iff.1 $
+(nat_cases (encode_iff.2 ho) (option_some_iff.2 hf)
+    (map_decode_iff.2 hg)).of_eq $
+λ a, by cases o a; simp [encodek]; refl
+
+theorem option_bind {f : α → option β} {g : α × β → option σ} {h : γ →. τ}
+  (hf : f computable_in h) (hg : g computable_in h) :
+  (λ a, (f a).bind (λ x, g (a, x))) computable_in h :=
+(option_cases hf (const option.none) hg).of_eq $
+λ a, by cases f a; refl
+
+theorem option_map {f : α → option β} {g : α × β → σ} {h : γ →. τ}
+  (hf : f computable_in h) (hg : g computable_in h) :
+  (λ a, (f a).map (λ x, g (a, x))) computable_in h :=
+option_bind hf (primrec.option_some.to_comp.to_rcomp.comp hg)
+
 end rcomputable

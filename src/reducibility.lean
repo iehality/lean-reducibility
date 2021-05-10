@@ -229,19 +229,34 @@ end
 theorem re_le_0prime {A : set α} : re_pred A → A ≤ₜ ∅′ := 
 λ h, rre_tred (show A re_in (∅ : set ℕ), from h.to_rpart)
 
-theorem partrec_dom_0prime {f : α →. σ} (pf : partrec f) :
-  {x | (f x).dom} ≤ₜ ∅′ := 
-re_le_0prime
+theorem rpartrec_dom_prime {f : α →. σ} {A : set ℕ} (pf : f partrec_in chr* A) :
+  {x | (f x).dom} ≤ₜ A′ := 
+rre_tred
 begin
   simp [re_pred],
   let g := (λ a, (f a).map (λ x, ())),
-  have := pf.map ((computable.const ()).comp computable.snd).to₂,
+  have := pf.map ((computable.const ()).comp computable.snd).to_rcomp,
   exact (this.of_eq $ λ x, by { rw set.set_of_app_iff, simp, 
     apply roption.ext, intros a, simp [dom_iff_mem] })
 end
+
+theorem partrec_dom_0prime {f : α →. σ} (pf : partrec f) :
+  {x | (f x).dom} ≤ₜ ∅′ := 
+rpartrec_dom_prime (pf.to_rpart_in chr* (∅ : set ℕ))
+
 #check ε_operator
 
 open nat.partrec
+
+theorem partrec_dom_exists_0prime [inhabited β] {f : α × β →. σ} {A : set ℕ} (pf : f partrec_in chr* A) :
+  {x | ∃ y, (f (x, y)).dom} ≤ₜ A′ := 
+let ⟨e, hf⟩ := rpartrec.rpartrec_univ_iff_total.mp pf in
+begin
+  have : ∀ x, (∃ y, (f (x, y)).dom) ↔ (nat.rfind (λ u, (⟦e⟧^(chr* A) [u.unpair.2]
+    (x, (decode β u.unpair.1).get_or_else (default β)) : option σ).is_some)).dom,
+  { intros x, split; simp [roption.some],
+    { intros b hb,  } }
+end
 
 theorem partrec_dom_exists_0prime [inhabited β] {f : α → β →. σ} (pf : partrec₂ f) :
   {x | ∃ y, (f x y).dom} ≤ₜ ∅′ := 
