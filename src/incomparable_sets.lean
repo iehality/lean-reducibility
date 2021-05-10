@@ -4,6 +4,8 @@ open encodable denumerable roption
 
 local attribute [simp] set.set_of_app_iff
 
+lemma bnot_ne (b) : b ≠ !b := by cases b; simp
+
 lemma list.append_nth_some {α} {l₀ : list α} {n a} (h : l₀.nth n = some a) (l₁) :
   (l₀ ++ l₁).nth n = some a :=
 by { have := list.nth_eq_some.mp h, rcases this with ⟨en, _⟩,
@@ -287,11 +289,11 @@ begin
         roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb] },
     rcases this with ⟨nL₀, nL₁⟩,
     have lmm0 : chr I₀ (L₀ (2 * e)).length = !b,
-    { have := L₀_subseq (2*e + 1) ((L₀ (2 * e)).length) (!b),
+    { have := L₀_subseq (2*e + 1) ((L₀ (2*e)).length) (!b),
       simp [nL₀, list.rnth] at this, apply this,
-      rw (show (L₀ (2 * e)).length = (L₀ (2 * e)).reverse.length, by simp),
+      rw (show (L₀ (2*e)).length = (L₀ (2*e)).reverse.length, by simp),
       simp only [list.nth_concat_length] },
-    have lmm1 : b ∈ (⟦e⟧^(chr* I₁) (L₀ (2 * e)).length : roption bool),
+    have lmm1 : b ∈ (⟦e⟧^(chr* I₁) (L₀ (2*e)).length : roption bool),
     { rcases rpartrec.eval_inclusion hb with ⟨s, hs⟩, apply hs, simp,
       have := L₁_subseq (2*e + 1), simp[nL₁, subseq] at this,
       exact (λ n c _, this n c) },
@@ -331,8 +333,6 @@ begin
     simp[lmm0, lmm1] }
 end
 
-lemma bnot_ne (b) : b ≠ !b := by cases b; simp
-
 lemma incomparable₀ : I₀ ≰ₜ I₁ :=
 begin
   assume h : I₀ ≤ₜ I₁,
@@ -361,7 +361,7 @@ begin
   show false, from bnot_ne _ this
 end
 
-theorem Kleene_Post : ∃ (A B : set ℕ), (A ≤ₜ ∅′) ∧ (B ≤ₜ ∅′) ∧ (A ≰ₜ B) ∧ (B ≰ₜ A) :=
+theorem Kleene_Post : ∃ (I₀ I₁ : set ℕ), (I₀ ≤ₜ ∅′) ∧ (I₁ ≤ₜ ∅′) ∧ (I₀ ≰ₜ I₁) ∧ (I₁ ≰ₜ I₀) :=
 by sorry
 
 end Kleene_Post
