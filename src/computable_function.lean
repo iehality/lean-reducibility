@@ -275,7 +275,7 @@ begin
     exact (code.eval_partrec N).comp this.to_comp.to_rcomp }
 end
 
-theorem eval_list_partrec :
+theorem eval_list_partrec (α σ) [primcodable α] [primcodable σ]:
   partrec (λ x : (ℕ × list β) × α, (⟦x.1.1⟧^x.1.2.rnth x.2 : roption σ)) :=
 begin
   simp [univ],

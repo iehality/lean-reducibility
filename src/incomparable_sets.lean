@@ -119,8 +119,6 @@ begin
     simp [list.drop_nth, this], exact ec }
 end
 
- segments_computable
-
 namespace Kleene_Post
 
 def extendable (l₀ l : list bool) (n e : ℕ) := (⟦e⟧^((l ++ l₀).rnth) n : roption bool).dom
@@ -171,10 +169,102 @@ lemma extendable_exists_comp0 : (λ (a : ℕ × list bool × ℕ),
   chr {e | ∃ l, extendable a.snd.fst l a.snd.snd e} a.fst.div2)
   computable_in chr* ∅′ :=
 by sorry
-#check @rpartrec.bind
+
+section
+open primrec
+
+def K_string := {x : ℕ × list bool × ℕ | (⟦x.1⟧^x.2.1.rnth x.2.2 : roption bool).dom}
+
+lemma K_str_0prime_comp : K_string ≤ₜ ∅′ := classical_iff.mpr 
+begin
+  have : partrec (λ (x : (ℕ × list bool) × ℕ), ⟦x.fst.fst⟧^(x.fst.snd.rnth) x.snd) :=
+    rpartrec.eval_list_partrec ℕ bool,
+  have := this.to_rpart_in chr* (∅ : set ℕ),
+  rcases rpartrec.rpartrec_univ_iff_total.mp this with ⟨e, he⟩,
+  simp [K_string],
+end
+
+lemma L_rcomp_0prime'₀ :
+  (λ (a : ℕ × list bool × list bool),
+    ε_operator (chr (λ l, extendable a.2.1 l a.2.2.length a.1.div2)) >>=
+    λ l, (⟦a.1.div2⟧^((l ++ a.2.1).rnth) a.2.2.length >>=
+    λ b, some (l ++ a.2.1, !b :: a.2.2))) partrec_in chr* ∅′ :=
+begin
+  let p := (λ x : (ℕ × list bool × list bool) × list bool,
+    chr K_string (x.1.1.div2, x.2 ++ x.1.2.1, x.1.2.2.length)),
+  have : ∀ a : ℕ × list bool × list bool,
+    chr (λ l, (⟦a.1.div2⟧^((l ++ a.2.1).rnth) a.2.2.length : roption bool).dom) =
+    λ l, p (a, l),
+  { intros a, funext x, apply chr_ext.mpr, simp [K_string] }, simp [this],
+  have lmm0 : (λ a, ε_operator (λ x, p (a, x))) partrec_in chr* ∅′,
+  { have := (nat_div2.comp $ fst.comp fst).pair 
+      ((list_append.comp snd (fst.comp $ snd.comp fst)).pair 
+      (list_length.comp $ snd.comp $ snd.comp fst)),
+    have := (classical_iff.mp K_str_0prime_comp).comp this.to_comp.to_rcomp,
+    have : p computable_in chr* ∅′ := this,
+    exact (rpartrec.ε_operator_rpartrec p).trans this },
+  let g := λ x : (ℕ × list bool × list bool) × list bool,
+    (⟦x.1.1.div2⟧^((x.2 ++ x.1.2.1).rnth) x.1.2.2.length).bind
+    (λ b, some (x.2 ++ x.1.2.1, !b :: x.1.2.2)),
+  have lmm1 : partrec g,
+  { let m := (λ x : (ℕ × list bool × list bool) × list bool,
+      ((x.1.1.div2, x.2 ++ x.1.2.1), x.1.2.2.length)),
+    have pm : primrec m := ((nat_div2.comp $ fst.comp fst).pair
+      (list_append.comp snd (fst.comp $ snd.comp fst))).pair
+      (list_length.comp $ snd.comp $ snd.comp fst),
+    have lmm1 := (rpartrec.eval_list_partrec ℕ bool).comp pm.to_comp, simp [m] at lmm1,
+    let h := (λ (x : (ℕ × list bool × list bool) × list bool) (b : bool),
+      (x.2 ++ x.1.2.1, !b :: x.1.2.2)),
+    have ph : primrec₂ h := (list_append.comp (snd.comp fst) 
+      (fst.comp $ snd.comp $ fst.comp fst)).pair 
+      (list_cons.comp (primrec.bnot.comp snd) (snd.comp $ snd.comp $ fst.comp fst)),
+    exact lmm1.bind ph.to_comp.part },
+  have := lmm0.bind lmm1.to_rpart, simp [g] at this,
+  exact this
+end
+
+lemma L_rcomp_0prime'₁ :
+  (λ (a : ℕ × list bool × list bool),
+    ε_operator (chr (λ l, extendable a.2.2 l a.2.1.length a.1.div2)) >>=
+    λ l, ⟦a.1.div2⟧^((l ++ a.2.2).rnth) a.2.1.length >>=
+    λ b, some (!b :: a.2.1, l ++ a.2.2)) partrec_in chr* ∅′ :=
+begin
+  simp [extendable],
+  let p := (λ x : (ℕ × list bool × list bool) × list bool,
+    chr K_string (x.1.1.div2, x.2 ++ x.1.2.2, x.1.2.1.length)),
+  have : ∀ a : ℕ × list bool × list bool,
+    chr (λ l, (⟦a.1.div2⟧^((l ++ a.2.2).rnth) a.2.1.length : roption bool).dom) =
+    λ l, p (a, l),
+  { intros a, funext x, apply chr_ext.mpr, simp [K_string] },
+  have lmm0 : (λ a, ε_operator (λ x, p (a, x))) partrec_in chr* ∅′,
+  { have := (nat_div2.comp $ fst.comp fst).pair 
+      ((list_append.comp snd (snd.comp $ snd.comp fst)).pair 
+      (list_length.comp $ fst.comp $ snd.comp fst)),
+    have := (classical_iff.mp K_str_0prime_comp).comp this.to_comp.to_rcomp,
+    have : p computable_in chr* ∅′ := this,
+    exact (rpartrec.ε_operator_rpartrec p).trans this },
+  let g := λ x : (ℕ × list bool × list bool) × list bool,
+    (⟦x.1.1.div2⟧^((x.2 ++ x.1.2.2).rnth) x.1.2.1.length).bind
+    (λ b, some (!b :: x.1.2.1, x.2 ++ x.1.2.2)),
+  have lmm1 : partrec g,
+  { let m := (λ x : (ℕ × list bool × list bool) × list bool,
+      ((x.1.1.div2, x.2 ++ x.1.2.2), x.1.2.1.length)),
+    have pm : primrec m := ((nat_div2.comp $ fst.comp fst).pair
+      (list_append.comp snd (snd.comp $ snd.comp fst))).pair
+      (list_length.comp $ fst.comp $ snd.comp fst),
+    have lmm1 := (rpartrec.eval_list_partrec ℕ bool).comp pm.to_comp, simp [m] at lmm1,
+    let h := (λ (x : (ℕ × list bool × list bool) × list bool) (b : bool),
+      (!b :: x.1.2.1, x.2 ++ x.1.2.2)),
+    have ph : primrec₂ h := 
+      (list_cons.comp (primrec.bnot.comp snd) (fst.comp $ snd.comp $ fst.comp fst)).pair
+      (list_append.comp (snd.comp fst) (snd.comp $ snd.comp $ fst.comp fst)),
+    exact lmm1.bind ph.to_comp.part },
+  have := lmm0.bind lmm1.to_rpart, simp [g] at this,
+  exact this
+end
+
 theorem L_rcomp_0prime : L partrec_in (chr* ∅′) :=
 begin
-  let f := (λ n : ℕ, n),
   let h : ℕ × ℕ × (list bool × list bool) →. list bool × list bool := λ x,
     let s := x.2.1,
         σ := x.2.2,
@@ -198,16 +288,26 @@ begin
           (primrec.list_length.comp $ primrec.snd.comp primrec.snd)),
         have := extendable_exists_comp0.comp (this.comp primrec.snd).to_comp.to_rcomp,
         exact this },
-      { simp, 
-        let g := λ x : list bool × (ℕ × ℕ × list bool × list bool),
-        (⟦x.2.2.1.div2⟧^((x.1 ++ x.2.2.2.1).rnth) x.2.2.2.2.length).bind
-          (λ b, some (x.1 ++ x.2.2.2.1, !b :: x.2.2.2.2)),
-          sorry }, { sorry } }, sorry },
+      { exact L_rcomp_0prime'₀.comp rcomputable.snd }, 
+      { have := (fst.comp $ snd.comp snd).pair 
+          (list_cons.comp (const ff) (snd.comp $ snd.comp snd)),
+        exact this.to_comp.to_rcomp } },
+    { apply rpartrec.cond,
+      { have := primrec.fst.pair ((primrec.snd.comp primrec.snd).pair 
+          (primrec.list_length.comp $ primrec.fst.comp primrec.snd)),
+        have := extendable_exists_comp0.comp (this.comp primrec.snd).to_comp.to_rcomp,
+        exact this },
+      { exact L_rcomp_0prime'₁.comp rcomputable.snd },
+      { have := (list_cons.comp (const ff) (fst.comp $ snd.comp snd)).pair
+          (snd.comp $ snd.comp snd),
+        exact this.to_comp.to_rcomp } } },
   have := rpartrec.nat_elim (rcomputable.id)
     (rcomputable.const (([], []) : list bool × list bool)) this,
   exact (this.of_eq $ λ s, by 
-  { simp, induction s with s0 ih; simp[L],
+  { simp, induction s with s0 ih; simp [L],
     cases C : s0.bodd; simp [C, L, h] at ih ⊢; rw ih; congr; funext; simp [C] })
+end
+
 end
 
 theorem I_defined : ∀ s, (L s).dom 
@@ -241,39 +341,9 @@ noncomputable def L₀ (s) := ((L s).get (I_defined s)).1
 noncomputable def L₁ (s) := ((L s).get (I_defined s)).2
 
 def I₀ : set ℕ := limit L₀
+
 def I₁ : set ℕ := limit L₁
 
-#check @rpartrec.nat_elim
-section 
-open computable
-lemma zeroprime_computable₀' : L partrec_in chr* ∅′ :=
-begin
-  --have cg := const (([], []) : list bool × list bool),
-  let f := (λ n : ℕ, n),
-  let h : ℕ × ℕ × (list bool × list bool) →. list bool × list bool := λ x,
-    let s := x.2.1,
-        σ := x.2.2,
-        e := s.div2 in
-    match s.bodd with
-    | ff := 
-      cond (chr {e | ∃ l, extendable σ.2 l σ.1.length e} e)
-        (do l ← ε_operator (chr $ λ l, extendable σ.2 l σ.1.length e),
-            b ← (⟦e⟧^((l ++ σ.2).rnth) σ.1.length : roption bool),
-            some (!b :: σ.1, l ++ σ.2))
-        (some (ff :: σ.1, σ.2))
-    | tt := do
-      σ ← L s,
-      cond (chr {e | ∃ l, extendable σ.1 l σ.2.length e} e)
-        (do l ← ε_operator (chr $ λ l, extendable σ.1 l σ.2.length e),
-            b ← (⟦e⟧^((l ++ σ.1).rnth) σ.2.length : roption bool),
-            some (l ++ σ.1, !b :: σ.2))
-        (some (σ.1, ff :: σ.2))
-    end,
-  have : exists x, (h x).dom, 
-  
-end
-
-end
 lemma zeroprime_computable₀ : I₀ ≤ₜ ∅′ :=
 classical_iff.mpr $
 begin

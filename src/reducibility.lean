@@ -1,6 +1,7 @@
 import coding
 open encodable denumerable roption
 
+local attribute [simp] set.set_of_app_iff
 
 lemma bool.to_bool_ext (p : Prop) (D0 D1 : decidable p) :
   @to_bool p D0 = @to_bool p D1 := 
@@ -227,6 +228,17 @@ end
 
 theorem re_le_0prime {A : set α} : re_pred A → A ≤ₜ ∅′ := 
 λ h, rre_tred (show A re_in (∅ : set ℕ), from h.to_rpart)
+
+theorem partrec_dom_0prime {f : α →. σ} (pf : partrec f) :
+  {x | (f x).dom} ≤ₜ ∅′ := 
+re_le_0prime
+begin
+  simp [re_pred],
+  let g := (λ a, (f a).map (λ x, ())),
+  have := pf.map ((computable.const ()).comp computable.snd).to₂,
+  exact (this.of_eq $ λ x, by { rw set.set_of_app_iff, simp, 
+    apply roption.ext, intros a, simp [dom_iff_mem] })
+end
 
 end classical
 
