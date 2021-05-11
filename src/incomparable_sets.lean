@@ -1,4 +1,4 @@
-import reducibility computable_function
+import reducibility computable_function fis
 
 open encodable denumerable roption
 
@@ -6,144 +6,8 @@ local attribute [simp] set.set_of_app_iff
 
 lemma bnot_ne (b) : b ≠ !b := by cases b; simp
 
-lemma list.append_nth_some {α} {l₀ : list α} {n a} (h : l₀.nth n = some a) (l₁) :
-  (l₀ ++ l₁).nth n = some a :=
-by { have := list.nth_eq_some.mp h, rcases this with ⟨en, _⟩,
-     exact eq.trans (list.nth_append en) h, }
-
-lemma list.drop_nth {α} : ∀ (l : list α) (k n), (l.drop k).nth n = l.nth (n + k)
-| []        _       _ := by simp [list.drop]
-| (l :: ls) 0       _ := by simp [list.drop]
-| (l :: ls) (k + 1) n := 
-    by { simp [list.drop], have := list.drop_nth ls k n, simp [this], exact rfl }
-
-lemma relation_path_le {α} {p : ℕ → α} (R : α → α → Prop)
-  (r : ∀ a, R a a) (t : ∀ a b c, R a b → R b c → R a c)
-  (i : ∀ n, R (p n) (p (n+1))) : 
-  ∀ s t, s ≤ t → R (p s) (p t) :=
-begin
-  have l0 : ∀ s t, R (p s) (p (s + t)),
-  { intros s t, induction t with s0 ih generalizing s, simp[r],
-    simp[show s + s0.succ = (s + s0) + 1, from nat.add_succ _ _],
-    exact t _ _ _ (ih _) (i _) },
-  intros s t e,
-  have : t = s + (t - s), omega,
-  rw this, exact l0 _ _,
-end
-
-namespace t_reducible
-
-def list.initial (l₀ l₁ : list bool) := ∀ n, l₀.rnth n = some tt → l₁.rnth n = some tt
-infix ` ≼ `:50 := list.initial
-
-@[simp] theorem initial_refl (l : list bool) : l ≼ l :=
-by simp[list.initial]
-
-@[simp] theorem initial_append (l l₀ : list bool) : l ≼ l₀ ++ l := λ n h,
-by { simp[list.initial, list.rnth] at h ⊢, simp only [list.append_nth_some h] } 
-
-@[simp] theorem initial_cons (a) (l : list bool) : l ≼ a :: l := λ n h,
-by { simp[list.initial, list.rnth] at h ⊢, simp only [list.append_nth_some h] } 
-
-theorem suffix_initial {l₀ l₁ : list bool} : l₀ <:+ l₁ → l₀ ≼ l₁ :=
-by { simp[list.is_suffix], intros l hl s h₀,
-     simp[←hl, list.rnth] at h₀ ⊢, rcases list.nth_eq_some.mp h₀ with ⟨e, _⟩,
-     simp [list.nth_append e, h₀] }
-
-def limit (L : ℕ → list bool) := {n | ∃ s, (L s).rnth n = tt}
-
-theorem limit_computabile_in_jump {L : ℕ → list bool} {A : set ℕ} (cL : L computable_in chr. A) :
-  limit L ≤ₜ A′ :=
-begin
-  let f : ℕ × ℕ →. ℕ := (λ n, cond ((L n.2).rnth n.1 = tt) (some 0) none),
-  have lmm0 : f partrec_in chr. A,
-  { apply rpartrec.cond,
-    { have := primrec.list_nth.to_comp.to_rcomp.comp 
-        ((primrec.list_reverse.to_comp.to_rcomp.comp $
-          cL.comp rcomputable.snd).pair rcomputable.fst),
-      have := this.pair (rcomputable.const (some tt)),
-      have := primrec.eq.to_comp.to_rcomp.comp this,
-      exact this },
-    exact rcomputable.const _,
-    exact partrec.none.to_rpart },
-  have eqn0 : limit L = {n | ∃ s, (f (n, s)).dom},
-  { apply set.ext, intros n, simp [limit, f],
-    split; rintros ⟨s, hs⟩; refine ⟨s, _⟩,
-    { simp [hs] },
-    { by_cases (L s).rnth n = ↑tt, exact h,
-      exfalso, simp [h] at hs, exact eq_none_iff'.mp rfl hs } },
-  have : {x | ∃ y, (f (x, y)).dom} ≤ₜ A′ := rpartrec_dom_exists_prime lmm0,
-  rw eqn0, exact this
-end
-
--- finite initial segments
-def fis (L : ℕ → list bool) := ∀ s, L s ≼ L (s + 1)
-
-def total {α} (L : ℕ → list α) := ∀ n, ∃ s, ∀ u, s < u → n < (L u).length
-
-theorem initial_trans {l₀ l₁ l₂ : list bool} : l₀ ≼ l₁ → l₁ ≼ l₂ → l₀ ≼ l₂ :=
- λ h01 h12 _ e, h12 _ (h01 _ e)
-
-
-theorem initial_le {L : ℕ → list bool} (h : fis L) :
-  ∀ {s t}, s ≤ t → L s ≼ L t := 
-relation_path_le (≼) (by simp) (λ a b c, initial_trans) h
-
-theorem fis_limit_eq {L : ℕ → list bool} (F : fis L) (m) :
-  limit L = limit (λ x, L (x + m)) := funext $ λ n,
-begin
-  simp[limit, set.set_of_app_iff], split,
-  { rintros ⟨s, hs⟩, have : s ≤ m ∨ m < s, from le_or_lt s m,
-    cases this,
-    refine ⟨0, _⟩, simp,
-    exact initial_le F this _ hs,
-    refine ⟨s-m, _⟩,  have : s - m + m = s, omega, simp[this],
-    exact hs },
-  { rintros ⟨s, hs⟩, refine ⟨s+m, hs⟩ }
-end
-
-def subseq (A B : ℕ → option bool) := ∀ n b, A n = some b → B n = some b
-
-infix ` ⊆. `:50 := subseq
-
-lemma suffix_subseq {l₀ l₁ : list bool} (h : l₀ <:+ l₁) :
-  l₀.rnth ⊆. l₁.rnth := λ n b eb,
-by { rcases h with ⟨l, hl⟩,
-     simp [←hl, list.rnth], exact list.append_nth_some eb _ }
-
-theorem subseq_limit (C : ℕ → option bool) :
-  ∀ {L : ℕ → list bool}, fis L → (∃ s, ∀ u, s ≤ u → C ⊆. (L u).rnth) → C ⊆. chr* limit L := 
-begin
-  suffices : 
-    ∀ {L : ℕ → list bool}, (∀ u, C ⊆. (L u).rnth) → C ⊆. chr* limit L,
-  { rintros L F ⟨s, hs⟩, 
-     rw fis_limit_eq F s,
-     apply this, intros u,
-     apply hs, omega },
-  intros L h n b, 
-  cases b; simp [limit]; unfold_coes,
-  { intros hn s hs, have := h s _ _ hn, simp [hs] at this,  exact this },
-  { intros hn, refine ⟨0, h 0 _ _ hn⟩ }
-end
-
-lemma initial_subseq {l : list bool} {A : ℕ → bool} (hl : l.rnth ⊆. (λ x, A x)) (s) :
-  ∃ l₀, (initial_code A s).rnth ⊆. (l₀ ++ l).rnth :=
-begin
-  refine ⟨((initial_code A s).reverse.drop l.length).reverse, _⟩,
-  simp[list.rnth], intros m c ec,
-  have hA := initial_code_some ec, 
-  have em : m < l.reverse.length ∨ l.reverse.length ≤ m, exact lt_or_ge _ _, 
-  cases em,
-  { simp[list.nth_append em], 
-    have ll := list.nth_le_nth em, 
-    have := hl _ _ ll, unfold_coes at this, simp at this,
-    simp [←this] at ll, simp [ll, hA] },
-  { simp [list.nth_append_right em], 
-    have : m - l.length + l.length = m, { simp at em, omega },
-    simp [list.drop_nth, this], exact ec }
-end
-
-namespace Kleene_Post
+namespace t_reducible.Kleene_Post
+open fis t_reducible
 
 def extendable (l₀ l : list bool) (n e : ℕ) := (⟦e⟧ᵪ^((l ++ l₀).rnth) n).dom
 
@@ -155,7 +19,7 @@ begin
   simp [extendable] at h,
   rcases roption.dom_iff_mem.mp C with ⟨b, hb⟩,
   rcases rpartrec.eval_inclusion hb with ⟨s, hs⟩,
-  have := initial_subseq hl₀ s, rcases this with ⟨l, hl⟩,
+  have := fis.initial_subseq hl₀ s, rcases this with ⟨l, hl⟩,
   suffices : b ∈ (⟦e⟧ᵪ^((l ++ l₀).rnth) n),
   { rcases this with ⟨lmm, _⟩, exact h _ lmm },
   apply hs, simp, intros m c em hc,
@@ -194,7 +58,7 @@ begin
   have := (fst.comp fst).pair ((list_append.comp snd (fst.comp $ snd.comp fst)).pair
     (snd.comp $ snd.comp fst)),
   have : partrec₂ f := (rpartrec.eval_list_partrec ℕ bool).comp this.to_comp,
-  have := partrec_dom_exists_0prime this,
+  have := domex_0'computable this,
   exact this
 end
 
@@ -202,7 +66,7 @@ def K_string := {x : ℕ × list bool × ℕ | (⟦x.1⟧ᵪ^x.2.1.rnth x.2.2).d
 
 lemma K_string_0'computable :
   K_string ≤ₜ ∅′ :=
-partrec_dom_0prime (rpartrec.eval_list_partrec ℕ bool)
+dom_0'computable (rpartrec.eval_list_partrec ℕ bool)
 
 lemma L_0'partrec'₀ :
   (λ (a : ℕ × list bool × list bool),
@@ -634,9 +498,9 @@ end
 theorem Kleene_Post : ∃ I₀ I₁ : set ℕ, (I₀ ≤ₜ ∅′) ∧ (I₁ ≤ₜ ∅′) ∧ (I₀ ≰ₜ I₁) ∧ (I₁ ≰ₜ I₀) :=
 ⟨I₀, I₁, I₀_0'computable, I₁_0'computable, incomparable₀, incomparable₁⟩
 
-end Kleene_Post
-
 theorem Friedberg_Muchnik : ∃ (A B : set ℕ), re_pred A ∧ re_pred B ∧ (A ≰ₜ B) ∧ (B ≰ₜ A) :=
 by sorry
 
-end t_reducible
+end t_reducible.Kleene_Post
+
+

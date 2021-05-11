@@ -219,7 +219,7 @@ begin
        simp[g], apply roption.ext, intros u, simp[hq, dom_iff_mem] }) }
 end
 
-theorem rre_tred {A : set α} {B : set ℕ} : A re_in B → A ≤ₜ B′ := 
+theorem rre_jumpcomputable {A : set α} {B : set ℕ} : A re_in B → A ≤ₜ B′ := 
 λ h, classical_iff.mpr 
 begin
   rcases rre_pred_iff.mp h with ⟨a, pa, ha⟩,
@@ -233,12 +233,12 @@ begin
   show chr A computable_in ↑(chr B′), from (l0.of_eq $ by simp[l1])
 end
 
-theorem re_le_0prime {A : set α} : re_pred A → A ≤ₜ ∅′ := 
-λ h, rre_tred (show A re_in (∅ : set ℕ), from h.to_rpart)
+theorem re_0'computable {A : set α} : re_pred A → A ≤ₜ ∅′ := 
+λ h, rre_jumpcomputable (show A re_in (∅ : set ℕ), from h.to_rpart)
 
-theorem rpartrec_dom_prime {f : α →. σ} {A : set ℕ} (pf : f partrec_in chr. A) :
+theorem dom_jumpcomputable {f : α →. σ} {A : set ℕ} (pf : f partrec_in chr. A) :
   {x | (f x).dom} ≤ₜ A′ := 
-rre_tred
+rre_jumpcomputable
 begin
   simp [re_pred],
   let g := (λ a, (f a).map (λ x, ())),
@@ -247,9 +247,9 @@ begin
     apply roption.ext, intros a, simp [dom_iff_mem] })
 end
 
-theorem partrec_dom_0prime {f : α →. σ} (pf : partrec f) :
+theorem dom_0'computable {f : α →. σ} (pf : partrec f) :
   {x | (f x).dom} ≤ₜ ∅′ := 
-rpartrec_dom_prime (pf.to_rpart_in chr. (∅ : set ℕ))
+dom_jumpcomputable (pf.to_rpart_in chr. (∅ : set ℕ))
 
 theorem rfind_dom_total {p : ℕ → bool} :
   (∃ n, p n = tt) → (nat.rfind p).dom :=
@@ -269,7 +269,7 @@ end
 
 open nat.primrec
 
-theorem rpartrec_dom_exists_prime [inhabited β]
+theorem domex_jumpcomputable [inhabited β]
   {f : α × β →. σ} {A : set ℕ} (pf : f partrec_in chr. A) :
   {x | ∃ y, (f (x, y)).dom} ≤ₜ A′ := 
 let ⟨e, hf⟩ := rpartrec.rpartrec_univ_iff_total.mp pf in
@@ -292,7 +292,7 @@ begin
       have := evaln_sound e, simp [this] } },
   have eqn0 : {x : α | ∃ (y : β), (f (x, y)).dom} = {x | (p x).dom},
   { apply set.ext, simp [lmm0] },
-  rw eqn0, apply rpartrec_dom_prime, simp [p], 
+  rw eqn0, apply dom_jumpcomputable, simp [p], 
   have c₀ := (primrec.option_is_some.to_comp.to_rcomp).comp
     (univn_rcomputable (α × β) σ (chr* A)),
   have c₁ := (primrec.snd.comp $ primrec.unpair.comp $ primrec.snd).pair
@@ -304,11 +304,11 @@ begin
   exact this
 end
 
-theorem partrec_dom_exists_0prime [inhabited β] {f : α → β →. σ} 
+theorem domex_0'computable [inhabited β] {f : α → β →. σ} 
   (pf : partrec₂ f) : {x | ∃ y, (f x y).dom} ≤ₜ ∅′ :=
-rpartrec_dom_exists_prime (pf.to_rpart_in chr. (∅ : set ℕ))
+domex_jumpcomputable (pf.to_rpart_in chr. (∅ : set ℕ))
 
-theorem rpartrec_dom_exists_prime_f [inhabited γ] {f : α × β × γ →. σ} {g : α → β} {A : set ℕ}
+theorem domex_jumpcomputable_f [inhabited γ] {f : α × β × γ →. σ} {g : α → β} {A : set ℕ}
   (pf : f partrec_in chr. A) (pg : g computable_in chr. A) :
   (λ x, chr {y | ∃ z, (f (x, y, z)).dom} (g x)) computable_in chr. A′ := 
 begin
@@ -317,13 +317,13 @@ begin
   { funext n, apply chr_ext.mpr, simp },
   have := pf.comp (rcomputable.fst.pair 
     ((pg.comp rcomputable.fst).pair rcomputable.snd)),
-  exact classical_iff.mp (rpartrec_dom_exists_prime this)
+  exact classical_iff.mp (domex_jumpcomputable this)
 end
 
 theorem partrec_dom_exists_prime_f [inhabited γ] {f : α × β × γ →. σ} {g : α → β} {A : set ℕ}
   (pf : partrec f) (pg : computable g) :
   (λ x, chr {y | ∃ z, (f (x, y, z)).dom} (g x)) computable_in chr. ∅′ :=
-rpartrec_dom_exists_prime_f (pf.to_rpart_in chr. (∅ : set ℕ))
+domex_jumpcomputable_f (pf.to_rpart_in chr. (∅ : set ℕ))
 (pg.to_rpart_in chr. (∅ : set ℕ))
 
 end classical
