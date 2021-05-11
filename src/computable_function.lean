@@ -35,21 +35,21 @@ end
 def graph {α β} [decidable_eq β] (f : α → β) : α × β → bool :=
 λ x, to_bool (f x.1 = x.2)
 
-def ε_operator_r {β} [primcodable β] [inhabited β] (p : β →. bool) : roption β := 
+def epsilon_r {β} [primcodable β] [inhabited β] (p : β →. bool) : roption β := 
   ((nat.rfind $ λ x, p ((decode β x).get_or_else (default β))).map 
     (λ x, (decode β x).get_or_else (default β)))
 
-def ε_operator {β} [primcodable β] [inhabited β] (p : β → bool) : roption β :=
-ε_operator_r (p : β →. bool)
+def epsilon {β} [primcodable β] [inhabited β] (p : β → bool) : roption β :=
+epsilon_r (p : β →. bool)
 
 theorem ε_witness {β} [primcodable β] [inhabited β] {p : β → bool} {b : β} :
-  b ∈ ε_operator p → p b = tt :=
-by { simp[ε_operator,ε_operator_r], intros x h hl he, rw he at h, simp[←h] }
+  b ∈ epsilon p → p b = tt :=
+by { simp[epsilon,epsilon_r], intros x h hl he, rw he at h, simp[←h] }
 
 @[simp] theorem exists_ε_iff {β} [primcodable β] [inhabited β] {p : β → bool} :
-  (ε_operator p).dom ↔ (∃ b, p b = tt) := by { split,
-{ intros w, use (ε_operator p).get w, exact ε_witness ⟨w, rfl⟩ },
-{ rintros ⟨b, hb⟩, simp[ε_operator,ε_operator_r, roption.map, roption.some],
+  (epsilon p).dom ↔ (∃ b, p b = tt) := by { split,
+{ intros w, use (epsilon p).get w, exact ε_witness ⟨w, rfl⟩ },
+{ rintros ⟨b, hb⟩, simp[epsilon,epsilon_r, roption.map, roption.some],
   use (encode b), simp[hb], use trivial} }
 
 def list.rnth {α} (l : list α) := l.reverse.nth 
@@ -227,8 +227,8 @@ namespace rpartrec
 variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
 variables [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ] [primcodable μ]
 
-theorem ε_operator_r_rpartrec [inhabited β] (p : α × β →. bool) :
-  (λ a, ε_operator_r (λ x, p (a, x))) partrec_in p :=
+theorem epsilon_r_rpartrec [inhabited β] (p : α × β →. bool) :
+  (λ a, epsilon_r (λ x, p (a, x))) partrec_in p :=
 begin
   have c₀ : (λ x, p (x.1, (decode β x.2).get_or_else (default β)) : α × ℕ →. bool) partrec_in p :=
   (rpartrec.refl.comp $ (computable.pair computable.fst 
@@ -241,9 +241,9 @@ begin
   exact c₂.map c₁.to_rpart
 end
 
-theorem ε_operator_rpartrec [inhabited β] (p : α × β → bool) :
-  (λ a, ε_operator (λ x, p (a, x))) partrec_in (λ x, some $ p x) :=
-ε_operator_r_rpartrec _  
+theorem epsilon_rpartrec [inhabited β] (p : α × β → bool) :
+  (λ a, epsilon (λ x, p (a, x))) partrec_in (λ x, some $ p x) :=
+epsilon_r_rpartrec _  
 
 open nat.rpartrec
 
