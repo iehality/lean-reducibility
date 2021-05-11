@@ -168,16 +168,55 @@ theorem rfind {p : α × ℕ →. bool} : (λ a, nat.rfind (λ x, p (a, x))) par
   apply map_id' (λ b, _),
   cases b; refl })
 
-theorem of_option {f : α → option β} : (λ a, (f a : roption β)) partrec_in (f : α →. option β) :=
+/-
+invalid field notation, type is not of the form (C ...) where C is a constant
+  of_option
+has type
+  option ?m_1 → roption ?m_1
+-/
+
+/-
+invalid field notation, type is not of the form (C ...) where C is a constant
+  of_option
+has type
+  option ?m_1 → roption ?m_1
+-/
+
+/-
+invalid field notation, type is not of the form (C ...) where C is a constant
+  of_option
+has type
+  option ?m_1 → roption ?m_1
+-/
+
+/-
+invalid field notation, type is not of the form (C ...) where C is a constant
+  of_option
+has type
+  option ?m_1 → roption ?m_1
+-/
+
+/-
+invalid field notation, type is not of the form (C ...) where C is a constant
+  of_option
+has type
+  option ?m_1 → roption ?m_1
+-/
+
+theorem of_option_refl {f : α → option β} : (λ a, (f a : roption β)) partrec_in (f : α →. option β) :=
 ((nat.rpartrec.of_partrec _ nat.partrec.ppred).comp nat.rpartrec.oracle).of_eq $ λ n, begin
   cases decode α n with a; simp,
   cases f a with b; simp
 end
 
+theorem of_option {f : α → option σ} {g : β →. τ} 
+  (h : f computable_in g) : (λ a, (f a : roption σ)) partrec_in g :=
+of_option_refl.trans h
+
 theorem rfind_opt {f : α × ℕ → option σ} {g : β →. σ} (hf : f computable_in g) :
   (λ a, nat.rfind_opt (λ x, f ((a, x)))) partrec_in g :=
 (rfind.trans (primrec.option_is_some.to_comp.to_rcomp.comp hf))
-.bind (of_option.trans hf)
+.bind (hf.of_option)
 
 end rpartrec
 
@@ -221,7 +260,7 @@ protected theorem decode {f : β →. σ} : (@decode α _) computable_in f := co
 theorem refl_in (f : α → β) : f computable_in (f : α →. β) := nat.rpartrec.refl
 
 @[trans] theorem trans {f : α → σ} {g : β → τ} {h : γ →. μ} :
-  f computable_in (g : β →. τ)→ g computable_in h → f computable_in h := nat.rpartrec.trans
+  f computable_in (g : β →. τ) → g computable_in h → f computable_in h := nat.rpartrec.trans
 
 theorem cond {c : α → bool} {f : α → σ} {g : α → σ} {h : β →. τ}
   (hc : c computable_in h) (hf : f computable_in h) (hg : g computable_in h) :
@@ -242,8 +281,6 @@ iff.rfl
 theorem option_some_iff {f : α → σ} {g : β →. τ} : (λ a, some (f a)) computable_in g ↔ f computable_in g :=
 ⟨λ h, encode_iff.1 $ primrec.pred.to_comp.to_rcomp.comp $ encode_iff.2 h,
  computable.option_some.to_rcomp.comp⟩
-#check nat.elim
-
 
 end rcomputable
 
@@ -267,6 +304,7 @@ theorem nat_cases_right
     { intro, induction m; simp [*, H.fst] },
     exact ⟨⟨this n, H.fst⟩, H.snd⟩ }
 end
+
 
 
 end rpartrec
@@ -324,5 +362,8 @@ theorem option_map {f : α → option β} {g : α × β → σ} {h : γ →. τ}
   (hf : f computable_in h) (hg : g computable_in h) :
   (λ a, (f a).map (λ x, g (a, x))) computable_in h :=
 option_bind hf (primrec.option_some.to_comp.to_rcomp.comp hg)
+
+theorem total_computable {f : α →. σ} (h : ∀ a, (f a).dom) :
+  (λ a, (f a).get (h a)) computable_in f := (rpartrec.refl.of_eq $ by simp)
 
 end rcomputable

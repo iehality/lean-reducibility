@@ -96,7 +96,6 @@ theorem initial_code_some {α} {f : ℕ → α} {s n a} :
   (initial_code f s).rnth n = some a → f n = a :=
 by { have : n < s ∨ s ≤ n := lt_or_ge n s, cases this; simp[this], unfold_coes, simp }
 
-
 def list.subseq {α} [decidable_eq α] (f : ℕ → α) : list α → bool
 | []      := tt
 | (x::xs) := to_bool (x = f xs.length) && list.subseq xs
@@ -129,6 +128,9 @@ begin
     simp[list.rnth], symmetry, exact list.nth_append (by simp[ne]) },
   exact ⟨lm0, lm1⟩
 end
+
+theorem primrec.list_rnth {α} [primcodable α] : primrec₂ (@list.rnth α) := 
+primrec.list_nth.comp (primrec.list_reverse.comp primrec.fst) primrec.snd
 
 namespace rcomputable
 

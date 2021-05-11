@@ -2,6 +2,7 @@ import coding computable_function
 open encodable denumerable roption
 
 local attribute [simp] set.set_of_app_iff
+#check computable.list_nth
 
 lemma bool.to_bool_ext (p : Prop) (D0 D1 : decidable p) :
   @to_bool p D0 = @to_bool p D1 := 
@@ -27,7 +28,8 @@ lemma decidable_pred.compl {α} {A : set α} :
 noncomputable def chr {α} (p : α → Prop) : α → bool := λ x : α,
 decidable.cases_on (classical.dec (p x)) (λ h₁, bool.ff) (λ h₂, bool.tt)
 
-notation `chr* `A := λ x, some (chr A x)
+notation `chr* `A := λ x, option.some (chr A x)
+notation `chr. `A := pfun.lift (chr A)
 
 @[simp] theorem chr_iff {α} (A : α → Prop) (x : α) : chr A x = tt ↔ A x :=
 by simp[chr]; cases (classical.dec (A x)); simp[h]
@@ -93,7 +95,7 @@ variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ :
 variables [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ] [primcodable μ]
 
 theorem classical_iff {A : α → Prop} {B : β → Prop} :
-  A ≤ₜ B ↔ chr A computable_in (chr* B) :=
+  A ≤ₜ B ↔ chr A computable_in (chr. B) :=
 by simp[t_reducible, to_bool_chr_eq]; exact
   ⟨λ ⟨_, _, h⟩, h, λ h, ⟨classical.dec_pred _, classical.dec_pred _, h⟩⟩
 
@@ -142,38 +144,43 @@ section classical
 
 open rpartrec
 
-def jump (A : set ℕ) : set ℕ := {x | (⟦x.unpair.1⟧^(chr* A) x.unpair.2 : roption ℕ).dom}
+notation `⟦`e`⟧ᵪ^`f:max` [`s`]` := univn ℕ bool s f e
+notation `⟦`e`⟧ᵪ^`f:max := univ ℕ bool f e
+notation `⟦`e`⟧ₙ^`f:max` [`s`]` := univn ℕ ℕ s f e
+notation `⟦`e`⟧ₙ^`f:max := univ ℕ ℕ f e
+
+def jump (A : set ℕ) : set ℕ := {x | (⟦x.unpair.1⟧ₙ^(chr* A) x.unpair.2).dom}
 
 notation A`′`:1200 := jump A
 
 theorem lt_jump (A : set ℕ) : A <ₜ A′ := 
 ⟨classical_iff.mpr $ rpartrec_univ_iff_total.mpr 
   begin
-    show ∃ e, ⟦e⟧^(chr* A′) = ↑(chr A),
-    have : ∃ e, ∀ x, (⟦e⟧^(chr* A) x : roption ℕ).dom ↔ A x,
-    { have : ∃ e, ⟦e⟧^(chr* A) = λ a, cond (chr A a) (some 0) none :=
+    show ∃ e, ⟦e⟧ᵪ^(chr* A′) = ↑(chr A),
+    have : ∃ e, ∀ x, (⟦e⟧ₙ^(chr* A) x).dom ↔ A x,
+    { have : ∃ e, ⟦e⟧ₙ^(chr* A) = λ a, cond (chr A a) (some 0) none :=
         rpartrec_univ_iff.mp (bool_to_roption (chr A)),
       rcases this with ⟨e, he⟩,
       refine ⟨e, λ x, _⟩,
-      show (⟦e⟧^(chr* A) x : roption ℕ).dom ↔ A x,
+      show (⟦e⟧ₙ^(chr* A) x).dom ↔ A x,
       simp [he],
       cases e : chr A x,
       simp[(chr_ff_iff _ _).1 e], rintros ⟨f, _⟩, 
       simp[(chr_iff _ _).1 e] },
     rcases this with ⟨e, he⟩,
     let f := λ x, chr A′ (e.mkpair x),
-    have : ∃ i, ⟦i⟧^(chr* A′) = (f : ℕ →. bool) :=
+    have : ∃ i, ⟦i⟧ᵪ^(chr* A′) = (f : ℕ →. bool) :=
       rpartrec_univ_iff.mp 
         ((rcomputable.refl_in (chr A′)).comp $ (rcomputable.const e).pair rcomputable.id),
     rcases this with ⟨i, hi⟩,
     have : f = chr A,
     { funext x, simp[f, jump, chr_ext, set.set_of_app_iff, he] },
-    show ∃ i, ⟦i⟧^(chr* A′) = ↑(chr A), from ⟨i, by simp[hi, this]⟩
+    show ∃ i, ⟦i⟧ᵪ^(chr* A′) = ↑(chr A), from ⟨i, by simp[hi, this]⟩
   end,
   λ h : A′ ≤ₜ A,
   begin
     have l0 : ↑(chr A′) partrec_in ↑(chr A) := classical_iff.mp h,
-    have : ∃ e, ∀ x : ℕ, (⟦e⟧^(chr* A) x : roption ℕ).dom ↔ (x.mkpair x) ∉ A′,
+    have : ∃ e, ∀ x : ℕ, (⟦e⟧ₙ^(chr* A) x).dom ↔ (x.mkpair x) ∉ A′,
     { let f : ℕ →. ℕ := (λ a, cond (chr A′ (a.mkpair a)) none (some 0)),
       have : f partrec_in ↑(chr A) := 
         ((rpartrec.cond (rpartrec.refl_in $ (chr A′ : ℕ →. bool))
@@ -229,7 +236,7 @@ end
 theorem re_le_0prime {A : set α} : re_pred A → A ≤ₜ ∅′ := 
 λ h, rre_tred (show A re_in (∅ : set ℕ), from h.to_rpart)
 
-theorem rpartrec_dom_prime {f : α →. σ} {A : set ℕ} (pf : f partrec_in chr* A) :
+theorem rpartrec_dom_prime {f : α →. σ} {A : set ℕ} (pf : f partrec_in chr. A) :
   {x | (f x).dom} ≤ₜ A′ := 
 rre_tred
 begin
@@ -242,9 +249,7 @@ end
 
 theorem partrec_dom_0prime {f : α →. σ} (pf : partrec f) :
   {x | (f x).dom} ≤ₜ ∅′ := 
-rpartrec_dom_prime (pf.to_rpart_in chr* (∅ : set ℕ))
-
-#check ε_operator
+rpartrec_dom_prime (pf.to_rpart_in chr. (∅ : set ℕ))
 
 theorem rfind_dom_total {p : ℕ → bool} :
   (∃ n, p n = tt) → (nat.rfind p).dom :=
@@ -265,7 +270,7 @@ end
 open nat.primrec
 
 theorem rpartrec_dom_exists_prime [inhabited β]
-  {f : α × β →. σ} {A : set ℕ} (pf : f partrec_in chr* A) :
+  {f : α × β →. σ} {A : set ℕ} (pf : f partrec_in chr. A) :
   {x | ∃ y, (f (x, y)).dom} ≤ₜ A′ := 
 let ⟨e, hf⟩ := rpartrec.rpartrec_univ_iff_total.mp pf in
 begin
@@ -299,9 +304,27 @@ begin
   exact this
 end
 
-theorem partrec_dom_exists_0prime [inhabited β] {f : α → β →. σ} {A : set ℕ}
+theorem partrec_dom_exists_0prime [inhabited β] {f : α → β →. σ} 
   (pf : partrec₂ f) : {x | ∃ y, (f x y).dom} ≤ₜ ∅′ :=
-rpartrec_dom_exists_prime (pf.to_rpart_in chr* (∅ : set ℕ))
+rpartrec_dom_exists_prime (pf.to_rpart_in chr. (∅ : set ℕ))
+
+theorem rpartrec_dom_exists_prime_f [inhabited γ] {f : α × β × γ →. σ} {g : α → β} {A : set ℕ}
+  (pf : f partrec_in chr. A) (pg : g computable_in chr. A) :
+  (λ x, chr {y | ∃ z, (f (x, y, z)).dom} (g x)) computable_in chr. A′ := 
+begin
+  have : (λ x, chr {y | ∃ z, (f (x, y, z)).dom} (g x)) =
+    chr {x : α | ∃ z, (f (x, (g x), z)).dom},
+  { funext n, apply chr_ext.mpr, simp },
+  have := pf.comp (rcomputable.fst.pair 
+    ((pg.comp rcomputable.fst).pair rcomputable.snd)),
+  exact classical_iff.mp (rpartrec_dom_exists_prime this)
+end
+
+theorem partrec_dom_exists_prime_f [inhabited γ] {f : α × β × γ →. σ} {g : α → β} {A : set ℕ}
+  (pf : partrec f) (pg : computable g) :
+  (λ x, chr {y | ∃ z, (f (x, y, z)).dom} (g x)) computable_in chr. ∅′ :=
+rpartrec_dom_exists_prime_f (pf.to_rpart_in chr. (∅ : set ℕ))
+(pg.to_rpart_in chr. (∅ : set ℕ))
 
 end classical
 
