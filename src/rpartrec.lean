@@ -168,41 +168,6 @@ theorem rfind {p : α × ℕ →. bool} : (λ a, nat.rfind (λ x, p (a, x))) par
   apply map_id' (λ b, _),
   cases b; refl })
 
-/-
-invalid field notation, type is not of the form (C ...) where C is a constant
-  of_option
-has type
-  option ?m_1 → roption ?m_1
--/
-
-/-
-invalid field notation, type is not of the form (C ...) where C is a constant
-  of_option
-has type
-  option ?m_1 → roption ?m_1
--/
-
-/-
-invalid field notation, type is not of the form (C ...) where C is a constant
-  of_option
-has type
-  option ?m_1 → roption ?m_1
--/
-
-/-
-invalid field notation, type is not of the form (C ...) where C is a constant
-  of_option
-has type
-  option ?m_1 → roption ?m_1
--/
-
-/-
-invalid field notation, type is not of the form (C ...) where C is a constant
-  of_option
-has type
-  option ?m_1 → roption ?m_1
--/
-
 theorem of_option_refl {f : α → option β} : (λ a, (f a : roption β)) partrec_in (f : α →. option β) :=
 ((nat.rpartrec.of_partrec _ nat.partrec.ppred).comp nat.rpartrec.oracle).of_eq $ λ n, begin
   cases decode α n with a; simp,
@@ -304,8 +269,6 @@ theorem nat_cases_right
     { intro, induction m; simp [*, H.fst] },
     exact ⟨⟨this n, H.fst⟩, H.snd⟩ }
 end
-
-
 
 end rpartrec
 

@@ -35,14 +35,14 @@ noncomputable def L : ℕ →. list bool × list bool
   | ff := do
     σ ← L s,
     cond (chr {e | ∃ l, extendable σ.2 l σ.1.length e} e)
-      (do l ← ε_operator (chr $ λ l, extendable σ.2 l σ.1.length e),
+      (do l ← epsilon (chr $ λ l, extendable σ.2 l σ.1.length e),
           b ← (⟦e⟧ᵪ^((l ++ σ.2).rnth) σ.1.length),
           some (!b :: σ.1, l ++ σ.2))
       (some (ff :: σ.1, σ.2))
   | tt := do
     σ ← L s,
     cond (chr {e | ∃ l, extendable σ.1 l σ.2.length e} e)
-      (do l ← ε_operator (chr $ λ l, extendable σ.1 l σ.2.length e),
+      (do l ← epsilon (chr $ λ l, extendable σ.1 l σ.2.length e),
           b ← (⟦e⟧ᵪ^((l ++ σ.1).rnth) σ.2.length),
           some (l ++ σ.1, !b :: σ.2))
       (some (σ.1, ff :: σ.2))
@@ -70,7 +70,7 @@ dom_0'computable (rpartrec.eval_list_partrec ℕ bool)
 
 lemma L_0'partrec'₀ :
   (λ (a : ℕ × list bool × list bool),
-    ε_operator (chr (λ l, extendable a.2.1 l a.2.2.length a.1.div2)) >>=
+    epsilon (chr (λ l, extendable a.2.1 l a.2.2.length a.1.div2)) >>=
     λ l, (⟦a.1.div2⟧ᵪ^((l ++ a.2.1).rnth) a.2.2.length >>=
     λ b, some (l ++ a.2.1, !b :: a.2.2))) partrec_in chr. ∅′ :=
 begin
@@ -80,13 +80,13 @@ begin
     chr (λ l, (⟦a.1.div2⟧ᵪ^((l ++ a.2.1).rnth) a.2.2.length).dom) =
     λ l, p (a, l),
   { intros a, funext x, apply chr_ext.mpr, simp [K_string] }, simp [this],
-  have lmm0 : (λ a, ε_operator (λ x, p (a, x))) partrec_in chr. ∅′,
+  have lmm0 : (λ a, epsilon (λ x, p (a, x))) partrec_in chr. ∅′,
   { have := (nat_div2.comp $ fst.comp fst).pair 
       ((list_append.comp snd (fst.comp $ snd.comp fst)).pair 
       (list_length.comp $ snd.comp $ snd.comp fst)),
     have := (classical_iff.mp K_string_0'computable).comp this.to_comp.to_rcomp,
     have : p computable_in chr. ∅′ := this,
-    exact (rpartrec.ε_operator_rpartrec p).trans this },
+    exact (rpartrec.epsilon_rpartrec p).trans this },
   let g := λ x : (ℕ × list bool × list bool) × list bool,
     (⟦x.1.1.div2⟧ᵪ^((x.2 ++ x.1.2.1).rnth) x.1.2.2.length).bind
     (λ b, some (x.2 ++ x.1.2.1, !b :: x.1.2.2)),
@@ -109,7 +109,7 @@ end
 
 lemma L_0'partrec'₁ :
   (λ (a : ℕ × list bool × list bool),
-    ε_operator (chr (λ l, extendable a.2.2 l a.2.1.length a.1.div2)) >>=
+    epsilon (chr (λ l, extendable a.2.2 l a.2.1.length a.1.div2)) >>=
     λ l, ⟦a.1.div2⟧ᵪ^((l ++ a.2.2).rnth) a.2.1.length >>=
     λ b, some (!b :: a.2.1, l ++ a.2.2)) partrec_in chr. ∅′ :=
 begin
@@ -120,13 +120,13 @@ begin
     chr (λ l, (⟦a.1.div2⟧ᵪ^((l ++ a.2.2).rnth) a.2.1.length).dom) =
     λ l, p (a, l),
   { intros a, funext x, apply chr_ext.mpr, simp [K_string] },
-  have lmm0 : (λ a, ε_operator (λ x, p (a, x))) partrec_in chr. ∅′,
+  have lmm0 : (λ a, epsilon (λ x, p (a, x))) partrec_in chr. ∅′,
   { have := (nat_div2.comp $ fst.comp fst).pair 
       ((list_append.comp snd (snd.comp $ snd.comp fst)).pair 
       (list_length.comp $ fst.comp $ snd.comp fst)),
     have := (classical_iff.mp K_string_0'computable).comp this.to_comp.to_rcomp,
     have : p computable_in chr. ∅′ := this,
-    exact (rpartrec.ε_operator_rpartrec p).trans this },
+    exact (rpartrec.epsilon_rpartrec p).trans this },
   let g := λ x : (ℕ × list bool × list bool) × list bool,
     (⟦x.1.1.div2⟧ᵪ^((x.2 ++ x.1.2.2).rnth) x.1.2.1.length).bind
     (λ b, some (!b :: x.1.2.1, x.2 ++ x.1.2.2)),
@@ -155,12 +155,12 @@ begin
         e := s.div2 in
     cond s.bodd
       (cond (chr {e | ∃ l, extendable σ.1 l σ.2.length e} e)
-        (do l ← ε_operator (chr $ λ l, extendable σ.1 l σ.2.length e),
+        (do l ← epsilon (chr $ λ l, extendable σ.1 l σ.2.length e),
             b ← (⟦e⟧ᵪ^((l ++ σ.1).rnth) σ.2.length),
             some (l ++ σ.1, !b :: σ.2))
         (some (σ.1, ff :: σ.2)))    
       (cond (chr {e | ∃ l, extendable σ.2 l σ.1.length e} e)
-        (do l ← ε_operator (chr $ λ l, extendable σ.2 l σ.1.length e),
+        (do l ← epsilon (chr $ λ l, extendable σ.2 l σ.1.length e),
             b ← (⟦e⟧ᵪ^((l ++ σ.2).rnth) σ.1.length),
             some (!b :: σ.1, l ++ σ.2))
         (some (ff :: σ.1, σ.2))),
@@ -206,7 +206,7 @@ theorem I_defined : ∀ s, (L s).dom
     { refine ⟨IH, _⟩,
       cases C : chr {i | ∃ l, extendable ((L s).get IH).snd l ((L s).get IH).fst.length i} e;
       simp [C], simp [set.set_of_app_iff] at C, refine ⟨C, _⟩,
-      have : ∃ l, l ∈ ε_operator (chr $ λ l, extendable ((L s).get IH).2 l ((L s).get IH).1.length e),
+      have : ∃ l, l ∈ epsilon (chr $ λ l, extendable ((L s).get IH).2 l ((L s).get IH).1.length e),
       { simp[←roption.dom_iff_mem], exact C },
       rcases this with ⟨l, hl⟩,
       have hb := ε_witness hl, simp only [chr_iff, extendable, roption.dom_iff_mem] at hb,
@@ -215,7 +215,7 @@ theorem I_defined : ∀ s, (L s).dom
     { refine ⟨IH, _⟩,
       cases C : chr {i | ∃ l, extendable ((L s).get IH).fst l ((L s).get IH).snd.length i} e;
       simp [C], simp [set.set_of_app_iff] at C, refine ⟨C, _⟩,
-      have : ∃ l, l ∈ ε_operator (chr $ λ l, extendable ((L s).get IH).fst l ((L s).get IH).snd.length e),
+      have : ∃ l, l ∈ epsilon (chr $ λ l, extendable ((L s).get IH).fst l ((L s).get IH).snd.length e),
       { simp[←roption.dom_iff_mem], exact C },
       rcases this with ⟨l, hl⟩,
       have hb := ε_witness hl, simp only [chr_iff, extendable, roption.dom_iff_mem] at hb,
@@ -224,6 +224,7 @@ theorem I_defined : ∀ s, (L s).dom
   end
 
 noncomputable def L₀ (s) := ((L s).get (I_defined s)).1
+
 noncomputable def L₁ (s) := ((L s).get (I_defined s)).2
 
 def I₀ : set ℕ := limit L₀
@@ -250,7 +251,7 @@ begin
   simp[fis, L₀, L], simp [L, show ∀ s, L s = some (L₀ s, L₁ s), by simp[L₀, L₁]],
   { cases C : chr {i | ∃ l, extendable (L₁ (bit0 e)) l (L₀ (bit0 e)).length i} e; simp [C],
     simp [set.set_of_app_iff] at C,
-    have : ∃ l, l ∈ ε_operator (chr $ λ l, extendable (L₁ (bit0 e)) l (L₀ (bit0 e)).length e),
+    have : ∃ l, l ∈ epsilon (chr $ λ l, extendable (L₁ (bit0 e)) l (L₀ (bit0 e)).length e),
     { simp[←roption.dom_iff_mem], exact C },
     rcases this with ⟨l, hl⟩,
     have hb := ε_witness hl, simp only [chr_iff, extendable, roption.dom_iff_mem] at hb,
@@ -264,7 +265,7 @@ begin
   simp[fis, L₁, L], simp [L, show ∀ s, L s = some (L₀ s, L₁ s), by simp[L₀, L₁]],
   { cases C : chr {i | ∃ l, extendable (L₀ (bit1 e)) l (L₁ (bit1 e)).length i} e; simp [C],
     simp [set.set_of_app_iff] at C,
-    have : ∃ l, l ∈ ε_operator (chr $ λ l, extendable (L₀ (bit1 e)) l (L₁ (bit1 e)).length e),
+    have : ∃ l, l ∈ epsilon (chr $ λ l, extendable (L₀ (bit1 e)) l (L₁ (bit1 e)).length e),
     { simp[←roption.dom_iff_mem], exact C },
     rcases this with ⟨l, hl⟩,
     have hb := ε_witness hl, simp only [chr_iff, extendable, roption.dom_iff_mem] at hb,
@@ -279,7 +280,7 @@ begin
   simp[fis, L₀, L], cases M : s.bodd; simp [M, L, show L s = some (L₀ s, L₁ s), by simp[L₀, L₁]],
   { cases C : chr {e | ∃ l, extendable (L₁ s) l (L₀ s).length e} e; simp [C],
     simp [set.set_of_app_iff] at C,
-    have : ∃ l, l ∈ ε_operator (chr $ λ l, extendable (L₁ s) l (L₀ s).length e),
+    have : ∃ l, l ∈ epsilon (chr $ λ l, extendable (L₁ s) l (L₀ s).length e),
     { simp[←roption.dom_iff_mem], exact C },
     rcases this with ⟨l, hl⟩,
     have hb := ε_witness hl, simp only [chr_iff, extendable, roption.dom_iff_mem] at hb,
@@ -287,7 +288,7 @@ begin
     simp [roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb] },  
   { cases C : chr {i | ∃ l, extendable (L₀ s) l (L₁ s).length i} e; simp [C],
     simp [set.set_of_app_iff] at C,
-    have : ∃ l, l ∈ ε_operator (chr $ λ l, extendable (L₀ s) l (L₁ s).length e),
+    have : ∃ l, l ∈ epsilon (chr $ λ l, extendable (L₀ s) l (L₁ s).length e),
     { simp[←roption.dom_iff_mem], exact C },
     rcases this with ⟨l, hl⟩,
     have hb := ε_witness hl, simp only [chr_iff, extendable, roption.dom_iff_mem] at hb,
@@ -302,7 +303,7 @@ begin
   simp[fis, L₁, L], cases M : s.bodd; simp [M, L, show L s = some (L₀ s, L₁ s), by simp[L₀, L₁]],
   { cases C : chr {i | ∃ l, extendable (L₁ s) l (L₀ s).length i} e; simp [C],
     simp [set.set_of_app_iff] at C,
-    have : ∃ l, l ∈ ε_operator (chr $ λ l, extendable (L₁ s) l (L₀ s).length e),
+    have : ∃ l, l ∈ epsilon (chr $ λ l, extendable (L₁ s) l (L₀ s).length e),
     { simp[←roption.dom_iff_mem], exact C },
     rcases this with ⟨l, hl⟩,
     have hb := ε_witness hl, simp only [chr_iff, extendable, roption.dom_iff_mem] at hb,
@@ -310,7 +311,7 @@ begin
     simp [roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb] },  
   { cases C : chr {i | ∃ l, extendable (L₀ s) l (L₁ s).length i} e; simp [C],
     simp [set.set_of_app_iff] at C,
-    have : ∃ l, l ∈ ε_operator (chr $ λ l, extendable (L₀ s) l (L₁ s).length e),
+    have : ∃ l, l ∈ epsilon (chr $ λ l, extendable (L₀ s) l (L₁ s).length e),
     { simp[←roption.dom_iff_mem], exact C },
     rcases this with ⟨l, hl⟩,
     have hb := ε_witness hl, simp only [chr_iff, extendable, roption.dom_iff_mem] at hb,
@@ -412,7 +413,7 @@ begin
     exact extendable_suffix C this },
   { right,
     show !chr I₀ (L₀ (2*e)).length ∈ ⟦e⟧^(chr* I₁) (L₀ (2 * e)).length,
-    have : ∃ l, l ∈ ε_operator (chr $ λ l, extendable (L₁ (2*e)) l (L₀ (2*e)).length e),
+    have : ∃ l, l ∈ epsilon (chr $ λ l, extendable (L₁ (2*e)) l (L₀ (2*e)).length e),
     { simp[←roption.dom_iff_mem] at C ⊢, exact C },
     rcases this with ⟨l, hl⟩,
     have hb := ε_witness hl, simp only [chr_iff, extendable, roption.dom_iff_mem] at hb,
@@ -445,7 +446,7 @@ begin
     exact extendable_suffix C this },
   { right,
     show !chr I₁ (L₁ i).length ∈ ⟦e⟧^(chr* I₀) (L₁ i).length,
-    have : ∃ l, l ∈ ε_operator (chr $ λ l, extendable (L₀ i) l (L₁ i).length e),
+    have : ∃ l, l ∈ epsilon (chr $ λ l, extendable (L₀ i) l (L₁ i).length e),
     { simp[←roption.dom_iff_mem] at C ⊢, exact C },
     rcases this with ⟨l, hl⟩,
     have hb := ε_witness hl, simp only [chr_iff, extendable, roption.dom_iff_mem] at hb,
