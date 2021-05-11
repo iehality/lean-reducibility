@@ -183,14 +183,11 @@ noncomputable def L : ℕ →. list bool × list bool
           some (l ++ σ.1, !b :: σ.2))
       (some (σ.1, ff :: σ.2))
   end
-#check rpartrec.cond
-#check rpartrec.eval_list_partrec ℕ bool
-
 
 section
 open primrec
 
-lemma extendable_exists_comp0 : 
+lemma extendable_0'computable : 
   {x : ℕ × list bool × ℕ | ∃ l, (⟦x.1⟧ᵪ^(l ++ x.2.1).rnth x.2.2).dom} ≤ₜ ∅′ :=
 begin
   let f := (λ (x : ℕ × list bool × ℕ) l, ⟦x.1⟧ᵪ^(l ++ x.2.1).rnth x.2.2),
@@ -203,11 +200,11 @@ end
 
 def K_string := {x : ℕ × list bool × ℕ | (⟦x.1⟧ᵪ^x.2.1.rnth x.2.2).dom}
 
-lemma K_str_0prime_comp :
+lemma K_string_0'computable :
   K_string ≤ₜ ∅′ :=
 partrec_dom_0prime (rpartrec.eval_list_partrec ℕ bool)
 
-lemma L_rcomp_0prime'₀ :
+lemma L_0'partrec'₀ :
   (λ (a : ℕ × list bool × list bool),
     ε_operator (chr (λ l, extendable a.2.1 l a.2.2.length a.1.div2)) >>=
     λ l, (⟦a.1.div2⟧ᵪ^((l ++ a.2.1).rnth) a.2.2.length >>=
@@ -223,7 +220,7 @@ begin
   { have := (nat_div2.comp $ fst.comp fst).pair 
       ((list_append.comp snd (fst.comp $ snd.comp fst)).pair 
       (list_length.comp $ snd.comp $ snd.comp fst)),
-    have := (classical_iff.mp K_str_0prime_comp).comp this.to_comp.to_rcomp,
+    have := (classical_iff.mp K_string_0'computable).comp this.to_comp.to_rcomp,
     have : p computable_in chr. ∅′ := this,
     exact (rpartrec.ε_operator_rpartrec p).trans this },
   let g := λ x : (ℕ × list bool × list bool) × list bool,
@@ -246,7 +243,7 @@ begin
   exact this
 end
 
-lemma L_rcomp_0prime'₁ :
+lemma L_0'partrec'₁ :
   (λ (a : ℕ × list bool × list bool),
     ε_operator (chr (λ l, extendable a.2.2 l a.2.1.length a.1.div2)) >>=
     λ l, ⟦a.1.div2⟧ᵪ^((l ++ a.2.2).rnth) a.2.1.length >>=
@@ -263,7 +260,7 @@ begin
   { have := (nat_div2.comp $ fst.comp fst).pair 
       ((list_append.comp snd (snd.comp $ snd.comp fst)).pair 
       (list_length.comp $ fst.comp $ snd.comp fst)),
-    have := (classical_iff.mp K_str_0prime_comp).comp this.to_comp.to_rcomp,
+    have := (classical_iff.mp K_string_0'computable).comp this.to_comp.to_rcomp,
     have : p computable_in chr. ∅′ := this,
     exact (rpartrec.ε_operator_rpartrec p).trans this },
   let g := λ x : (ℕ × list bool × list bool) × list bool,
@@ -286,7 +283,7 @@ begin
   exact this
 end
 
-theorem L_rcomp_0prime : L partrec_in (chr. ∅′) :=
+theorem L_0'partrec : L partrec_in (chr. ∅′) :=
 begin
   let h : ℕ × ℕ × (list bool × list bool) →. list bool × list bool := λ x,
     let s := x.2.1,
@@ -309,20 +306,20 @@ begin
     { apply rpartrec.cond,
       { have := (primrec.nat_div2.comp primrec.fst).pair ((primrec.fst.comp primrec.snd).pair 
           (primrec.list_length.comp $ primrec.snd.comp primrec.snd)),
-        have := (classical_iff.mp extendable_exists_comp0).comp
+        have := (classical_iff.mp extendable_0'computable).comp
           (this.comp primrec.snd).to_comp.to_rcomp,
         exact this },
-      { exact L_rcomp_0prime'₀.comp rcomputable.snd }, 
+      { exact L_0'partrec'₀.comp rcomputable.snd }, 
       { have := (fst.comp $ snd.comp snd).pair 
           (list_cons.comp (const ff) (snd.comp $ snd.comp snd)),
         exact this.to_comp.to_rcomp } },
     { apply rpartrec.cond,
       { have := (primrec.nat_div2.comp primrec.fst).pair ((primrec.snd.comp primrec.snd).pair 
           (primrec.list_length.comp $ primrec.fst.comp primrec.snd)),
-        have := (classical_iff.mp extendable_exists_comp0).comp
+        have := (classical_iff.mp extendable_0'computable).comp
           (this.comp primrec.snd).to_comp.to_rcomp,
         exact this },
-      { exact L_rcomp_0prime'₁.comp rcomputable.snd },
+      { exact L_0'partrec'₁.comp rcomputable.snd },
       { have := (list_cons.comp (const ff) (fst.comp $ snd.comp snd)).pair
           (snd.comp $ snd.comp snd),
         exact this.to_comp.to_rcomp } } },
@@ -372,14 +369,14 @@ def I₁ : set ℕ := limit L₁
 lemma L₀_0'computable : L₀ computable_in chr. ∅′ :=
 begin
   have := (rcomputable.total_computable I_defined),
-  have : (λ (a : ℕ), (L a).get _) computable_in chr. ∅′ := rpartrec.trans this L_rcomp_0prime,
+  have : (λ (a : ℕ), (L a).get _) computable_in chr. ∅′ := rpartrec.trans this L_0'partrec,
   exact rcomputable.fst.comp this,
 end
 
 lemma L₁_0'computable : L₁ computable_in chr. ∅′ :=
 begin
   have := (rcomputable.total_computable I_defined),
-  have : (λ (a : ℕ), (L a).get _) computable_in chr. ∅′ := rpartrec.trans this L_rcomp_0prime,
+  have : (λ (a : ℕ), (L a).get _) computable_in chr. ∅′ := rpartrec.trans this L_0'partrec,
   exact rcomputable.snd.comp this,
 end
 
@@ -457,12 +454,6 @@ begin
     simp [roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb] }
 end
 
-theorem initial_suffix₀ : ∀ {s t}, s ≤ t → L₀ s <:+ L₀ t := 
-relation_path_le (<:+) list.suffix_refl (λ a b c, list.is_suffix.trans) L₀_suffix
-
-theorem initial_suffix₁ : ∀ {s t}, s ≤ t → L₁ s <:+ L₁ t := 
-relation_path_le (<:+) list.suffix_refl (λ a b c, list.is_suffix.trans) L₁_suffix
-
 theorem L₀_length_lt (e) :
   e < (L₀ (bit0 e + 1)).length :=
 begin
@@ -478,6 +469,8 @@ end
 theorem L₁_length_lt (e) :
   e < (L₁ (bit1 e + 1)).length :=
 begin
+  have initial_suffix₁ : ∀ {s t}, s ≤ t → L₁ s <:+ L₁ t,
+  from relation_path_le (<:+) list.suffix_refl (λ a b c, list.is_suffix.trans) L₁_suffix,
   induction e with e0 ih,
   { exact pos_of_gt (L₁_length 0) }, 
   have : bit1 e0 + 1 ≤ bit1 e0.succ, { simp [bit1, bit0], omega },
@@ -487,17 +480,18 @@ begin
     from L₁_length (e0 + 1), omega,
 end
 
+lemma L₀_fis : fis L₀ := λ s, suffix_initial (L₀_suffix s)
 
-theorem L₀_fis : fis L₀ := λ s, suffix_initial (L₀_suffix s)
-
-theorem L₁_fis : fis L₁ := λ s, suffix_initial (L₁_suffix s)
+lemma L₁_fis : fis L₁ := λ s, suffix_initial (L₁_suffix s)
 
 lemma L₀_subseq (s) : (L₀ s).rnth ⊆. chr* I₀ :=
 begin
   have := subseq_limit (L₀ s).rnth L₀_fis,
   apply this,
   refine ⟨s, λ u eu, _⟩,
-  exact suffix_subseq (initial_suffix₀ eu)
+  have : ∀ {s t}, s ≤ t → L₀ s <:+ L₀ t, 
+  from relation_path_le (<:+) list.suffix_refl (λ a b c, list.is_suffix.trans) L₀_suffix,
+  exact suffix_subseq (this eu)
 end
 
 lemma L₁_subseq (s) : (L₁ s).rnth ⊆. chr* I₁ :=
@@ -505,10 +499,12 @@ begin
   have := subseq_limit (L₁ s).rnth L₁_fis,
   apply this,
   refine ⟨s, λ u eu, _⟩,
-  exact suffix_subseq (initial_suffix₁ eu)
+  have : ∀ {s t}, s ≤ t → L₁ s <:+ L₁ t,
+  from relation_path_le (<:+) list.suffix_refl (λ a b c, list.is_suffix.trans) L₁_suffix,
+  exact suffix_subseq (this eu)
 end
 
-lemma zeroprime_computable₀ : I₀ ≤ₜ ∅′ :=
+lemma I₀_0'computable : I₀ ≤ₜ ∅′ :=
 classical_iff.mpr $
 begin
   have L₀_length' : ∀ n, n < (L₀ (bit0 n + 1)).reverse.length, simp [L₀_length_lt],
@@ -525,7 +521,7 @@ begin
   exact this.of_option
 end
 
-lemma zeroprime_computable₁ : I₁ ≤ₜ ∅′ :=
+lemma I₁_0'computable : I₁ ≤ₜ ∅′ :=
 classical_iff.mpr $
 begin
   have L₁_length' : ∀ n, n < (L₁ (bit1 n + 1)).reverse.length, simp [L₁_length_lt],
@@ -636,7 +632,7 @@ begin
 end
 
 theorem Kleene_Post : ∃ I₀ I₁ : set ℕ, (I₀ ≤ₜ ∅′) ∧ (I₁ ≤ₜ ∅′) ∧ (I₀ ≰ₜ I₁) ∧ (I₁ ≰ₜ I₀) :=
-⟨I₀, I₁, zeroprime_computable₀, zeroprime_computable₁, incomparable₀, incomparable₁⟩
+⟨I₀, I₁, I₀_0'computable, I₁_0'computable, incomparable₀, incomparable₁⟩
 
 end Kleene_Post
 
