@@ -1,4 +1,4 @@
-import coding computable_function partrec_eval
+import coding computable_function
 open encodable denumerable roption
 
 local attribute [simp] set.set_of_app_iff
@@ -246,27 +246,62 @@ rpartrec_dom_prime (pf.to_rpart_in chr* (∅ : set ℕ))
 
 #check ε_operator
 
-open nat.partrec
+theorem rfind_dom_total {p : ℕ → bool} :
+  (∃ n, p n = tt) → (nat.rfind p).dom :=
+begin
+  simp, intros n,
+  induction n with n0 ih generalizing p,
+  { assume h, use 0, simp [h] },
+  { assume h, 
+    let q := (λ n : ℕ, (p n.succ)),
+    have q0 : q n0 = tt, simp[q], exact h,
+    rcases ih q0 with ⟨m, qm, hm⟩, simp[q] at qm, simp[q] at hm,
+    cases ep : p 0 with p0 p0,
+    { use m.succ, split, exact qm,
+      intros l el, simp [roption.some] },
+    { use 0, exact ⟨eq.symm ep, by simp⟩ } }
+end
 
-theorem partrec_dom_exists_0prime [inhabited β] {f : α × β →. σ} {A : set ℕ} (pf : f partrec_in chr* A) :
+open nat.primrec
+
+theorem rpartrec_dom_exists_prime [inhabited β]
+  {f : α × β →. σ} {A : set ℕ} (pf : f partrec_in chr* A) :
   {x | ∃ y, (f (x, y)).dom} ≤ₜ A′ := 
 let ⟨e, hf⟩ := rpartrec.rpartrec_univ_iff_total.mp pf in
 begin
-  have : ∀ x, (∃ y, (f (x, y)).dom) ↔ (nat.rfind (λ u, (⟦e⟧^(chr* A) [u.unpair.2]
-    (x, (decode β u.unpair.1).get_or_else (default β)) : option σ).is_some)).dom,
-  { intros x, split; simp [roption.some],
-    { intros b hb,  } }
+  let p := (λ x : α, nat.rfind (λ u, (⟦e⟧^(chr* A) [u.unpair.2]
+      (x, (decode β u.unpair.1).get_or_else (default β)) : option σ).is_some)),
+  have lmm0 : ∀ x : α, (∃ y : β, (f (x, y) : roption σ).dom) ↔ (p x).dom,
+  { intros x, simp only [p], rw ← hf, split, -- simp only[roption.dom_iff_mem, roption.some],
+    { rintros ⟨y, hb⟩, 
+      apply rfind_dom_total,
+      simp [roption.dom_iff_mem, roption.some] at hb ⊢, rcases hb with ⟨z, hz⟩,
+      rcases evaln_complete.mp hz with ⟨s, hs⟩,
+      use (encode y).mkpair s,
+      simp [hs], },
+    { simp, intros u h0 h1, 
+      use (decode β u.unpair.fst).get_or_else (default β),
+      cases e : (⟦e⟧^(chr* A) [u.unpair.snd] (x, 
+        (decode β u.unpair.fst).get_or_else (default β)) : option σ) with v,
+      { exfalso, simp [e] at h0, exact h0 },
+      have := evaln_sound e, simp [this] } },
+  have eqn0 : {x : α | ∃ (y : β), (f (x, y)).dom} = {x | (p x).dom},
+  { apply set.ext, simp [lmm0] },
+  rw eqn0, apply rpartrec_dom_prime, simp [p], 
+  have c₀ := (primrec.option_is_some.to_comp.to_rcomp).comp
+    (univn_rcomputable (α × β) σ (chr* A)),
+  have c₁ := (primrec.snd.comp $ primrec.unpair.comp $ primrec.snd).pair
+    ((primrec.const e).pair (primrec.fst.pair (primrec.option_get_or_else.comp 
+    (primrec.decode.comp $ primrec.fst.comp $ primrec.unpair.comp primrec.snd)
+    (primrec.const (default β))))), simp at c₁,
+  have := c₀.comp c₁.to_comp.to_rcomp,
+  have := rpartrec.rfind.trans this,
+  exact this
 end
 
-theorem partrec_dom_exists_0prime [inhabited β] {f : α → β →. σ} (pf : partrec₂ f) :
-  {x | ∃ y, (f x y).dom} ≤ₜ ∅′ := 
-let ⟨e, hf⟩ := exists_index.1 pf in
-begin
-  have : ∀ x, (∃ y, (f x y).dom) ↔ (nat.rfind (λ u, 
-  (⟦e⟧₀ [u.unpair.2] (x, (decode β u.unpair.1).get_or_else (default β)) : option σ).is_some)).dom,
-  { intros x, split; simp [roption.some],
-    { intros b hb,  } }
-end
+theorem partrec_dom_exists_0prime [inhabited β] {f : α → β →. σ} {A : set ℕ}
+  (pf : partrec₂ f) : {x | ∃ y, (f x y).dom} ≤ₜ ∅′ :=
+rpartrec_dom_exists_prime (pf.to_rpart_in chr* (∅ : set ℕ))
 
 end classical
 

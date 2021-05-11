@@ -725,7 +725,7 @@ def oracle_of (e i : ℕ) : ℕ := encode (code.oracle_of (of_nat _ e) (of_nat _
 by { simp[curry, univ] }
 
 open primrec
-theorem rpartrec.univn (α σ) [primcodable α] [primcodable σ] (f : β → option τ) :
+theorem univn_rcomputable (α σ) [primcodable α] [primcodable σ] (f : β → option τ) :
   (λ x, ⟦x.2.1⟧^f [x.1] x.2.2 : ℕ × ℕ × α → option σ) computable_in (λ x, f x) :=
 begin
   simp[univn], unfold_coes,
@@ -781,6 +781,16 @@ theorem evaln_sound {e} {f : β → option τ} {x : α} {y : σ} {s : ℕ} :
   ⟦e⟧^f [s] x = some y → ⟦e⟧^f x = some y := 
 by{ simp[univn, univ, roption.eq_some_iff], 
     exact λ s h e, ⟨s, code.evaln_sound h, e⟩ }
+
+theorem evaln_complete {f : β → option τ} {e x} {n : α} :
+  x ∈ (⟦e⟧^f n : roption σ) ↔ ∃ s, ⟦e⟧^f [s] n = some x :=
+by{ simp[univn, univ, roption.eq_some_iff], split,
+    { rintros ⟨a, ha, ea⟩,
+      rcases code.evaln_complete.mp ha with ⟨s, hs⟩,
+      refine ⟨s, a, hs, ea⟩ },
+    { rintros ⟨s, a, ha, ea⟩,
+      have := code.evaln_complete.mpr ⟨s, ha⟩,
+      refine ⟨a, this, ea⟩ } }
 
 theorem rpartrec_univ_iff {f : α →. σ} {g : β → option τ} :
   f partrec_in (λ x, g x) ↔ ∃ e, ⟦e⟧^g = f :=
