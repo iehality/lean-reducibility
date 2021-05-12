@@ -27,6 +27,9 @@ begin
   exact hl _ _ this
 end
 
+def O₀ := {x : ℕ × list bool × ℕ | ∃ l, (⟦x.1⟧ᵪ^(l ++ x.2.1).rnth x.2.2).dom}
+def O₁ := {x : ℕ × list bool × ℕ | (⟦x.1⟧ᵪ^x.2.1.rnth x.2.2).dom}
+
 noncomputable def L : ℕ →. list bool × list bool
 | 0     := some ([], [])
 | (s+1) :=
@@ -34,22 +37,25 @@ noncomputable def L : ℕ →. list bool × list bool
   match s.bodd with
   | ff := do
     σ ← L s,
-    cond (chr {e | ∃ l, extendable σ.2 l σ.1.length e} e)
-      (do l ← epsilon (chr $ λ l, extendable σ.2 l σ.1.length e),
+    cond (chr {i | ∃ l, (⟦i⟧ᵪ^(l ++ σ.2).rnth σ.1.length).dom} e)
+      (do l ← epsilon (chr $ λ l, (⟦e⟧ᵪ^(l ++ σ.2).rnth σ.1.length).dom),
           b ← (⟦e⟧ᵪ^((l ++ σ.2).rnth) σ.1.length),
           some (!b :: σ.1, l ++ σ.2))
       (some (ff :: σ.1, σ.2))
   | tt := do
     σ ← L s,
-    cond (chr {e | ∃ l, extendable σ.1 l σ.2.length e} e)
-      (do l ← epsilon (chr $ λ l, extendable σ.1 l σ.2.length e),
+    cond (chr {i | ∃ l, (⟦i⟧ᵪ^((l ++ σ.1).rnth) σ.2.length).dom} e)
+      (do l ← epsilon (chr $ λ l, (⟦e⟧ᵪ^((l ++ σ.1).rnth) σ.2.length).dom),
           b ← (⟦e⟧ᵪ^((l ++ σ.1).rnth) σ.2.length),
           some (l ++ σ.1, !b :: σ.2))
       (some (σ.1, ff :: σ.2))
   end
 
+
 section
 open primrec
+
+
 
 lemma extendable_0'computable : 
   {x : ℕ × list bool × ℕ | ∃ l, (⟦x.1⟧ᵪ^(l ++ x.2.1).rnth x.2.2).dom} ≤ₜ ∅′ :=
@@ -70,7 +76,7 @@ dom_0'computable (rpartrec.eval_list_partrec ℕ bool)
 
 lemma L_0'partrec'₀ :
   (λ (a : ℕ × list bool × list bool),
-    epsilon (chr (λ l, extendable a.2.1 l a.2.2.length a.1.div2)) >>=
+    epsilon (chr (λ l, (⟦a.fst.div2⟧ᵪ^((l ++ a.snd.fst).rnth) a.snd.snd.length).dom)) >>=
     λ l, (⟦a.1.div2⟧ᵪ^((l ++ a.2.1).rnth) a.2.2.length >>=
     λ b, some (l ++ a.2.1, !b :: a.2.2))) partrec_in chr. ∅′ :=
 begin
@@ -109,7 +115,7 @@ end
 
 lemma L_0'partrec'₁ :
   (λ (a : ℕ × list bool × list bool),
-    epsilon (chr (λ l, extendable a.2.2 l a.2.1.length a.1.div2)) >>=
+    epsilon (chr (λ l, (⟦a.fst.div2⟧ᵪ^((l ++ a.snd.snd).rnth) a.snd.fst.length).dom)) >>=
     λ l, ⟦a.1.div2⟧ᵪ^((l ++ a.2.2).rnth) a.2.1.length >>=
     λ b, some (!b :: a.2.1, l ++ a.2.2)) partrec_in chr. ∅′ :=
 begin
@@ -154,24 +160,24 @@ begin
         σ := x.2.2,
         e := s.div2 in
     cond s.bodd
-      (cond (chr {e | ∃ l, extendable σ.1 l σ.2.length e} e)
-        (do l ← epsilon (chr $ λ l, extendable σ.1 l σ.2.length e),
+      (cond (chr {i | ∃ l, (⟦i⟧ᵪ^((l ++ σ.1).rnth) σ.2.length).dom} e)
+        (do l ← epsilon (chr $ λ l, (⟦e⟧ᵪ^((l ++ σ.1).rnth) σ.2.length).dom),
             b ← (⟦e⟧ᵪ^((l ++ σ.1).rnth) σ.2.length),
             some (l ++ σ.1, !b :: σ.2))
         (some (σ.1, ff :: σ.2)))    
-      (cond (chr {e | ∃ l, extendable σ.2 l σ.1.length e} e)
-        (do l ← epsilon (chr $ λ l, extendable σ.2 l σ.1.length e),
+      (cond (chr {i | ∃ l, (⟦i⟧ᵪ^((l ++ σ.2).rnth) σ.1.length).dom} e)
+        (do l ← epsilon (chr $ λ l, (⟦e⟧ᵪ^((l ++ σ.2).rnth) σ.1.length).dom),
             b ← (⟦e⟧ᵪ^((l ++ σ.2).rnth) σ.1.length),
             some (!b :: σ.1, l ++ σ.2))
         (some (ff :: σ.1, σ.2))),
   have : h partrec_in (chr. ∅′),
-  { apply rpartrec.cond,
+  { simp [h, extendable], apply rpartrec.cond,
     { exact (primrec.nat_bodd.comp $ primrec.fst.comp primrec.snd).to_comp.to_rcomp },
     { apply rpartrec.cond,
       { have := (primrec.nat_div2.comp primrec.fst).pair ((primrec.fst.comp primrec.snd).pair 
           (primrec.list_length.comp $ primrec.snd.comp primrec.snd)),
         have := (classical_iff.mp extendable_0'computable).comp
-          (this.comp primrec.snd).to_comp.to_rcomp,
+          (this.comp primrec.snd).to_comp.to_rcomp, 
         exact this },
       { exact L_0'partrec'₀.comp rcomputable.snd }, 
       { have := (fst.comp $ snd.comp snd).pair 
@@ -191,7 +197,7 @@ begin
     (rcomputable.const (([], []) : list bool × list bool)) this,
   exact (this.of_eq $ λ s, by 
   { simp, induction s with s0 ih; simp [L],
-    cases C : s0.bodd; simp [C, L, h] at ih ⊢; rw ih; congr; funext; simp [C] })
+    cases C : s0.bodd; simp [C, L, h] at ih ⊢; rw ih; congr; funext; simp [C, extendable] })
 end
 
 end

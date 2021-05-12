@@ -32,6 +32,7 @@ end
 namespace fis
 
 def list.initial (l₀ l₁ : list bool) := ∀ n, l₀.rnth n = some tt → l₁.rnth n = some tt
+
 infix ` ≼ `:50 := list.initial
 
 @[simp] theorem initial_refl (l : list bool) : l ≼ l :=
@@ -47,6 +48,17 @@ theorem suffix_initial {l₀ l₁ : list bool} : l₀ <:+ l₁ → l₀ ≼ l₁
 by { simp[list.is_suffix], intros l hl s h₀,
      simp[←hl, list.rnth] at h₀ ⊢, rcases list.nth_eq_some.mp h₀ with ⟨e, _⟩,
      simp [list.nth_append e, h₀] }
+
+def subseq (A B : ℕ → option bool) := ∀ n b, A n = some b → B n = some b
+
+infix ` ⊆. `:50 := subseq
+
+-- finite initial segments
+def fis (L : ℕ → list bool) := ∀ s, L s ≼ L (s + 1)
+
+def sfis (L : ℕ → list bool) := ∀ s, L s <:+ L (s + 1)
+
+def total (L : ℕ → list bool) := ∀ n, ∃ s, n < (L s).length
 
 def limit (L : ℕ → list bool) := {n | ∃ s, (L s).rnth n = tt}
 
@@ -74,9 +86,6 @@ begin
   rw eqn0, exact this
 end
 
--- finite initial segments
-def fis (L : ℕ → list bool) := ∀ s, L s ≼ L (s + 1)
-
 theorem initial_trans {l₀ l₁ l₂ : list bool} : l₀ ≼ l₁ → l₁ ≼ l₂ → l₀ ≼ l₂ :=
  λ h01 h12 _ e, h12 _ (h01 _ e)
 
@@ -97,9 +106,7 @@ begin
   { rintros ⟨s, hs⟩, refine ⟨s+m, hs⟩ }
 end
 
-def subseq (A B : ℕ → option bool) := ∀ n b, A n = some b → B n = some b
 
-infix ` ⊆. `:50 := subseq
 
 lemma suffix_subseq {l₀ l₁ : list bool} (h : l₀ <:+ l₁) :
   l₀.rnth ⊆. l₁.rnth := λ n b eb,
