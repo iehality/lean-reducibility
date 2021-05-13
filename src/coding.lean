@@ -87,11 +87,11 @@ def of_nat_code : ℕ → code
     (le_trans (le_trans (nat.unpair_le_right _) div8) (nat.le.intro rfl)),
   match e.bodd, e.div2.bodd with
   | ff, ff := pair (of_nat_code e.div2.div2.unpair.1)
-                       (of_nat_code e.div2.div2.unpair.2)
+    (of_nat_code e.div2.div2.unpair.2)
   | ff, tt := comp (of_nat_code e.div2.div2.unpair.1)
-                       (of_nat_code e.div2.div2.unpair.2)
+    (of_nat_code e.div2.div2.unpair.2)
   | tt, ff := prec (of_nat_code e.div2.div2.unpair.1)
-                       (of_nat_code e.div2.div2.unpair.2)
+    (of_nat_code e.div2.div2.unpair.2)
   | tt, tt := rfind' (of_nat_code e.div2.div2)
   end
 
@@ -164,9 +164,6 @@ def evaln : ℕ → (ℕ → option ℕ) → code → ℕ → option ℕ
     x ← evaln (s+1) f cf (mkpair a m),
     if x = 0 then pure m else
     evaln s f (rfind' cf) (mkpair a (m+1)))
-
-def evaln_ropt (s : ℕ) (f : ℕ →. ℕ) [decidable_pred f.dom] : code → ℕ → option ℕ :=
-evaln s f.eval_opt
 
 theorem evaln_inclusion : ∀ {s c} {f g : ℕ → option ℕ},
   (∀ x y, x < s → f x = some y → g x = some y) → 
@@ -329,9 +326,6 @@ def eval (f : ℕ → option ℕ) : code → ℕ →. ℕ
 | (rfind' cf) := nat.unpaired (λ a m,
     (nat.rfind (λ n, (λ m, m = 0) <$>
       eval cf (mkpair a (n + m)))).map (+ m))
-
-def eval_ropt (f : ℕ →. ℕ) [decidable_pred f.dom] : code → ℕ →. ℕ :=
-eval f.eval_opt
 
 theorem evaln_sound {f} : ∀ {s c n x},
   x ∈ evaln s f c n → x ∈ eval f c n
@@ -655,25 +649,6 @@ end⟩
 
 open rcomputable
 
-axiom evaln_ropt_computable (f : ℕ →. ℕ) [decidable_pred f.dom] : 
-  (λ x : (ℕ × code) × ℕ, evaln_ropt x.1.1 f x.1.2 x.2) computable_in f 
-
-theorem eval_eq_rfind_ropt (f : ℕ →. ℕ) [decidable_pred f.dom] (c n) :
-  eval_ropt f c n = nat.rfind_opt (λ k, evaln_ropt k f c n) :=
-roption.ext $ λ x, begin
-  refine evaln_complete.trans (nat.rfind_opt_mono _).symm,
-  intros a m n hl, apply evaln_mono hl,
-end
-
-theorem eval_ropt_partrec (f : ℕ →. ℕ) [decidable_pred f.dom] :
-  (λ n : code × ℕ, eval_ropt f n.1 n.2) partrec_in f :=
-begin
-  have := ((evaln_ropt_computable f).comp ((snd.pair $ fst.comp fst).pair $ snd.comp fst)),
-  have := rpartrec.rfind_opt this,
-  exact (this.of_eq $ λ n, by simp[eval_eq_rfind_ropt])
-end
-
-
 axiom evaln_computable (f : ℕ → option ℕ) : 
   (λ x : (ℕ × code) × ℕ, evaln x.1.1 f x.1.2 x.2) computable_in (λ x, f x) 
 
@@ -724,7 +699,9 @@ by { simp[curry, univ] }
 
 namespace rpartrec
 
-theorem curry_computable {α} [primcodable α] : computable₂ (@curry α _) := by sorry
+theorem curry_prim {α} [primcodable α] : primrec₂ (@curry α _) :=
+(primrec.encode.comp $ code.curry_prim.comp 
+  ((primrec.of_nat code).comp primrec.fst) ((@primrec.encode α _).comp primrec.snd))
 
 open primrec
 theorem univn_rcomputable (α σ) [primcodable α] [primcodable σ] (f : β → option τ) :
@@ -852,38 +829,34 @@ theorem universal_index {f : β → option τ} : ∃ u, ∀ x (y : α),
 by rcases rpartrec_univ_iff.mp (univ_rpartrec α σ f) with ⟨u, hu⟩; exact ⟨u, by simp[hu]⟩
 
 theorem recursion (α σ) [primcodable α] [inhabited α] [primcodable σ] (f : β → option τ) :
-  ∃ fixpoint : ℕ → ℕ, computable fixpoint ∧
+  ∃ fixpoint : ℕ → ℕ, primrec fixpoint ∧
   (∀ {I : ℕ → ℕ} {i}, ⟦i⟧^f = (I : ℕ →. ℕ) → (⟦fixpoint i⟧^f : α →. σ) = ⟦I (fixpoint i)⟧^f) :=
 begin
   have : ∃ t', ⟦t'⟧^f = λ (a : ℕ × α), (⟦a.1⟧^f a.1).bind (λ (x : ℕ), ⟦x⟧^f a.2),
   { have this := ((univ_rpartrec ℕ ℕ f).comp (fst.pair fst).to_comp.to_rcomp).bind
       ((univ_rpartrec α σ f).comp (snd.pair (snd.comp primrec.fst)).to_comp.to_rcomp),
     exact rpartrec_univ_iff.mp this },
-  rcases this with ⟨t', ht'⟩,
+  rcases this with ⟨t', lmm_t'⟩,
   let t : ℕ → ℕ := curry t',
   have : ∃ j, ⟦j⟧^f = λ (a : ℕ × ℕ), ⟦a.1⟧^f (t a.2),
-  { have : computable t := curry_computable.comp (computable.const t') computable.id,
+  { have : computable t := curry_prim.to_comp.comp (computable.const t') computable.id,
     have := (univ_rpartrec _ ℕ f).comp (rcomputable.fst.pair (this.to_rcomp.comp rcomputable.snd)),
     exact rpartrec_univ_iff.mp this },
-  rcases this with ⟨j, hj⟩,
+  rcases this with ⟨j, lmm_j⟩,
   let fixpoint : ℕ → ℕ := λ x, t (curry j x),
-  have : computable fixpoint := curry_computable.comp (computable.const t')
-    (curry_computable.comp (computable.const j) computable.id),
+  have : primrec fixpoint := curry_prim.comp (primrec.const t')
+    (curry_prim.comp (primrec.const j) primrec.id),
   refine ⟨fixpoint, this, _⟩,
   assume I i h, funext x,
-  show ⟦fixpoint i⟧^f x = ⟦I (fixpoint i)⟧^f x, simp[fixpoint, ht', hj, h, t]
-  --calc
-  --  ⟦fixpoint i⟧^f x = (⟦curry ℕ j i⟧^f (curry ℕ j i) : roption ℕ).bind (λ y : ℕ, ⟦y⟧^f x : ℕ →. σ) :
-  --    by { funext x, simp[t, ←ht'] }
-  --               ... = ⟦I (fixpoint i)⟧^f x :
-  --    by { funext x, simp[smn, ←hj, h] }
+  show ⟦fixpoint i⟧^f x = ⟦I (fixpoint i)⟧^f x,
+  simp[fixpoint, lmm_t', lmm_j, h, t]
 end
 
 theorem recursion1 (α σ) [primcodable α] [inhabited α] [primcodable σ]
   {f : β → option τ} {I : ℕ → ℕ} (h : I computable_in (λ x, f x)) :
   ∃ n, (⟦n⟧^f : α →. σ) = ⟦I n⟧^f :=
-by rcases recursion α σ f with ⟨fix, cf, hfix⟩;
+by rcases recursion α σ f with ⟨fixpoint, cf, hfix⟩;
    rcases rpartrec_univ_iff.mp h with ⟨i, hi⟩;
-   exact ⟨fix i, hfix hi⟩
+   exact ⟨fixpoint i, hfix hi⟩
 
 end rpartrec

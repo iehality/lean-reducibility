@@ -178,7 +178,7 @@ theorem of_option {f : α → option σ} {g : β →. τ}
   (h : f computable_in g) : (λ a, (f a : roption σ)) partrec_in g :=
 of_option_refl.trans h
 
-theorem rfind_opt {f : α × ℕ → option σ} {g : β →. σ} (hf : f computable_in g) :
+theorem rfind_opt {f : α × ℕ → option σ} {g : β →. τ} (hf : f computable_in g) :
   (λ a, nat.rfind_opt (λ x, f ((a, x)))) partrec_in g :=
 (rfind.trans (primrec.option_is_some.to_comp.to_rcomp.comp hf))
 .bind (hf.of_option)

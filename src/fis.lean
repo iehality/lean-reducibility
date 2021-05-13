@@ -1,6 +1,6 @@
 import reducibility computable_function
 
-open encodable denumerable roption
+open encodable denumerable roption t_reducible
 
 local attribute [simp] set.set_of_app_iff
 
@@ -58,6 +58,9 @@ def fis (L : ℕ → list bool) := ∀ s, L s ≼ L (s + 1)
 
 def sfis (L : ℕ → list bool) := ∀ s, L s <:+ L (s + 1)
 
+theorem sfis.fis {L : ℕ → list bool} (h : sfis L) : fis L :=
+λ s, suffix_initial (h s)
+
 def total (L : ℕ → list bool) := ∀ n, ∃ s, n < (L s).length
 
 def limit (L : ℕ → list bool) := {n | ∃ s, (L s).rnth n = tt}
@@ -89,9 +92,13 @@ end
 theorem initial_trans {l₀ l₁ l₂ : list bool} : l₀ ≼ l₁ → l₁ ≼ l₂ → l₀ ≼ l₂ :=
  λ h01 h12 _ e, h12 _ (h01 _ e)
 
-theorem initial_le {L : ℕ → list bool} (h : fis L) :
+theorem fis_le {L : ℕ → list bool} (h : fis L) :
   ∀ {s t}, s ≤ t → L s ≼ L t := 
 relation_path_le (≼) (by simp) (λ a b c, initial_trans) h
+
+theorem sfis_le {L : ℕ → list bool} (h : sfis L) :
+  ∀ {s t}, s ≤ t → L s <:+ L t := 
+relation_path_le (<:+) list.suffix_refl (λ a b c, list.is_suffix.trans) h
 
 theorem fis_limit_eq {L : ℕ → list bool} (F : fis L) (m) :
   limit L = limit (λ x, L (x + m)) := funext $ λ n,
@@ -100,13 +107,11 @@ begin
   { rintros ⟨s, hs⟩, have : s ≤ m ∨ m < s, from le_or_lt s m,
     cases this,
     refine ⟨0, _⟩, simp,
-    exact initial_le F this _ hs,
-    refine ⟨s-m, _⟩,  have : s - m + m = s, omega, simp[this],
+    exact fis_le F this _ hs,
+    refine ⟨s-m, _⟩,  have : s - m + m = s, omega, simp [this],
     exact hs },
   { rintros ⟨s, hs⟩, refine ⟨s+m, hs⟩ }
 end
-
-
 
 lemma suffix_subseq {l₀ l₁ : list bool} (h : l₀ <:+ l₁) :
   l₀.rnth ⊆. l₁.rnth := λ n b eb,
@@ -143,6 +148,33 @@ begin
   { simp [list.nth_append_right em], 
     have : m - l.length + l.length = m, { simp at em, omega },
     simp [list.drop_nth, this], exact ec }
+end
+
+lemma sfis_subseq_limit {L} (F : sfis L) (s) : (L s).rnth ⊆. chr* limit L :=
+subseq_limit (L s).rnth F.fis ⟨s, λ u eu, suffix_subseq (sfis_le F eu)⟩
+
+theorem limit_totalsfis_computable {L} (F : sfis L) (T : total L) : 
+  chr (limit L) computable_in (L : ℕ →. list bool) :=
+begin
+  let f : ℕ →. bool := (λ n, nat.rfind_opt (λ s, (L s).rnth n)),
+  have eqn0 : f = pfun.lift (chr $ limit L),
+  { funext n, simp [f, roption.eq_some_iff],
+    rcases T n with ⟨s, hs⟩, have hs' : n < (L s).reverse.length, simp [hs],
+    have eqnn : (L s).rnth n = some ((L s).reverse.nth_le n hs'), from list.nth_le_nth hs',
+    have eqn0 : chr (limit L) n = (L s).reverse.nth_le n hs',
+    { have := sfis_subseq_limit F s _ _ eqnn, simp at this, exact this },
+    have mono : ∀ a s u, s ≤ u → a ∈ ((L s).rnth n) → a ∈ ((L u).rnth n),
+    from λ a s u e h, suffix_subseq (sfis_le F e) n a h, 
+    have : (L s).reverse.nth_le n hs' ∈ nat.rfind_opt (λ (s : ℕ), (L s).rnth n), 
+    from (nat.rfind_opt_mono mono).mpr ⟨s, eqnn⟩,      
+    simp [eqn0, this] },
+  have : f partrec_in ↑L,
+  { have := primrec.list_rnth.to_comp.to_rcomp.comp 
+      (((rcomputable.refl_in L).comp rcomputable.snd).pair rcomputable.fst), simp at this,
+    have := rpartrec.rfind_opt this,
+    exact this },
+  rw eqn0 at this,
+  exact this
 end
 
 end fis
