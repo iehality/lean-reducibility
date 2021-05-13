@@ -25,7 +25,7 @@ lemma encode_to_bool_eq {α} {A : α → Prop} (D0 D1 : decidable_pred A) :
 lemma decidable_pred.compl {α} {A : set α} :
   decidable_pred A → decidable_pred Aᶜ := λ h x, @not.decidable _ (h x)
 
-noncomputable def chr {α} (p : α → Prop) : α → bool := λ x : α,
+noncomputable def chr {α} (p : α → Prop)  : α → bool := λ x : α,
 decidable.cases_on (classical.dec (p x)) (λ h₁, bool.ff) (λ h₂, bool.tt)
 
 notation `chr* `A := λ x, option.some (chr A x)
@@ -141,13 +141,17 @@ theorem degree0 (A : α → Prop) :
  λ ⟨h, _⟩, le_computable_computable _ _ h computable_0⟩
 
 section classical
-
+local attribute [instance, priority 0] classical.prop_decidable
 open rpartrec
 
 notation `⟦`e`⟧ᵪ^`f:max` [`s`]` := univn ℕ bool s f e
 notation `⟦`e`⟧ᵪ^`f:max := univ ℕ bool f e
 notation `⟦`e`⟧ₙ^`f:max` [`s`]` := univn ℕ ℕ s f e
 notation `⟦`e`⟧ₙ^`f:max := univ ℕ ℕ f e
+
+theorem cond_if_eq {α β} (p : α → Prop) (x) (a b : β) :
+  cond (chr p x) a b = if p x then a else b :=
+by {by_cases h : p x; simp [h], simp [(chr_iff p x).mpr h], simp [(chr_ff_iff p x).mpr h] }
 
 def jump (A : set ℕ) : set ℕ := {x | (⟦x.unpair.1⟧ₙ^(chr* A) x.unpair.2).dom}
 

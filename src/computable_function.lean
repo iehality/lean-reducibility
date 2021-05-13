@@ -42,13 +42,13 @@ def epsilon_r {β} [primcodable β] [inhabited β] (p : β →. bool) : roption 
 def epsilon {β} [primcodable β] [inhabited β] (p : β → bool) : roption β :=
 epsilon_r (p : β →. bool)
 
-theorem ε_witness {β} [primcodable β] [inhabited β] {p : β → bool} {b : β} :
+theorem epsilon_witness {β} [primcodable β] [inhabited β] {p : β → bool} {b : β} :
   b ∈ epsilon p → p b = tt :=
 by { simp[epsilon,epsilon_r], intros x h hl he, rw he at h, simp[←h] }
 
-@[simp] theorem exists_ε_iff {β} [primcodable β] [inhabited β] {p : β → bool} :
+@[simp] theorem exists_epsilon_iff {β} [primcodable β] [inhabited β] {p : β → bool} :
   (epsilon p).dom ↔ (∃ b, p b = tt) := by { split,
-{ intros w, use (epsilon p).get w, exact ε_witness ⟨w, rfl⟩ },
+{ intros w, use (epsilon p).get w, exact epsilon_witness ⟨w, rfl⟩ },
 { rintros ⟨b, hb⟩, simp[epsilon,epsilon_r, roption.map, roption.some],
   use (encode b), simp[hb], use trivial} }
 
