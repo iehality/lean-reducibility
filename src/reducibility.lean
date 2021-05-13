@@ -106,7 +106,8 @@ theorem of_eq {A B : α → Prop} {C : β → Prop} (hA : A ≤ₜ C) (H : ∀ n
 
 @[trans] theorem trans (A : α → Prop) (B : β → Prop) (C : γ → Prop)
   : A ≤ₜ B → B ≤ₜ C → A ≤ₜ C :=
-λ ⟨Da, Db, hab⟩ ⟨Db0, Dc, hbc⟩, ⟨Da, Dc, by { simp only [encode_to_bool_eq Db Db0] at hab, exact nat.rpartrec.trans hab hbc }⟩
+λ ⟨Da, Db, hab⟩ ⟨Db0, Dc, hbc⟩,
+⟨Da, Dc, by simp only [encode_to_bool_eq Db Db0] at hab; exact nat.rpartrec.trans hab hbc⟩
 
 theorem reducible_compl (A : set α) [D : decidable_pred A] : Aᶜ ≤ₜ A :=
 have Dc : decidable_pred Aᶜ, from D.compl,
@@ -158,9 +159,9 @@ def jump (A : set ℕ) : set ℕ := {x | (⟦x.unpair.1⟧ₙ^(chr* A) x.unpair.
 notation A`′`:1200 := jump A
 
 theorem lt_jump (A : set ℕ) : A <ₜ A′ := 
-⟨classical_iff.mpr $ rpartrec_univ_iff_total.mpr 
+⟨classical_iff.mpr
   begin
-    show ∃ e, ⟦e⟧ᵪ^(chr* A′) = ↑(chr A),
+    show chr A computable_in chr. A′,
     have : ∃ e, ∀ x, (⟦e⟧ₙ^(chr* A) x).dom ↔ A x,
     { have : ∃ e, ⟦e⟧ₙ^(chr* A) = λ a, cond (chr A a) (some 0) none :=
         rpartrec_univ_iff.mp (bool_to_roption (chr A)),
@@ -173,13 +174,11 @@ theorem lt_jump (A : set ℕ) : A <ₜ A′ :=
       simp[(chr_iff _ _).1 e] },
     rcases this with ⟨e, he⟩,
     let f := λ x, chr A′ (e.mkpair x),
-    have : ∃ i, ⟦i⟧ᵪ^(chr* A′) = (f : ℕ →. bool) :=
-      rpartrec_univ_iff.mp 
-        ((rcomputable.refl_in (chr A′)).comp $ (rcomputable.const e).pair rcomputable.id),
-    rcases this with ⟨i, hi⟩,
+    have lmm_f : f computable_in chr* A′ :=
+        (rcomputable.refl.comp (primrec₂.mkpair.comp (primrec.const e) primrec.id).to_comp.to_rcomp),
     have : f = chr A,
     { funext x, simp[f, jump, chr_ext, set.set_of_app_iff, he] },
-    show ∃ i, ⟦i⟧ᵪ^(chr* A′) = ↑(chr A), from ⟨i, by simp[hi, this]⟩
+    simp [←this], exact lmm_f,
   end,
   λ h : A′ ≤ₜ A,
   begin
@@ -190,7 +189,7 @@ theorem lt_jump (A : set ℕ) : A <ₜ A′ :=
         ((rpartrec.cond (rpartrec.refl_in $ (chr A′ : ℕ →. bool))
         partrec.none.to_rpart (const 0)).comp
           (primrec₂.mkpair.comp primrec.id primrec.id).to_comp.to_rcomp).trans l0,
-      have : ∃ e, ⟦e⟧^(chr* A) = f := rpartrec_univ_iff.mp this,
+      have : ∃ e, ⟦e⟧ₙ^(chr* A) = f := rpartrec_univ_iff.mp this,
       rcases this with ⟨e, he⟩,
       refine ⟨e, λ x, _⟩,
       simp[he, set.mem_def, f],
@@ -200,8 +199,8 @@ theorem lt_jump (A : set ℕ) : A <ₜ A′ :=
     rcases this with ⟨e, he⟩,
     have : (e.mkpair e) ∉ A′ ↔ (e.mkpair e) ∈ A′,
     calc
-      (e.mkpair e) ∉ A′ ↔ ¬(⟦e⟧^(chr* A) e : roption ℕ).dom : by simp[jump]
-                    ... ↔ (e.mkpair e) ∈ A′                : by simp[he],
+      (e.mkpair e) ∉ A′ ↔ ¬(⟦e⟧ₙ^(chr* A) e).dom : by simp[jump]
+                    ... ↔ (e.mkpair e) ∈ A′      : by simp[he],
     show false, from (not_iff_self _).mp this
   end⟩
 
@@ -324,7 +323,7 @@ begin
   exact classical_iff.mp (domex_jumpcomputable this)
 end
 
-theorem partrec_dom_exists_prime_f [inhabited γ] {f : α × β × γ →. σ} {g : α → β} {A : set ℕ}
+theorem domex_0'computable_f [inhabited γ] {f : α × β × γ →. σ} {g : α → β} {A : set ℕ}
   (pf : partrec f) (pg : computable g) :
   (λ x, chr {y | ∃ z, (f (x, y, z)).dom} (g x)) computable_in chr. ∅′ :=
 domex_jumpcomputable_f (pf.to_rpart_in chr. (∅ : set ℕ))

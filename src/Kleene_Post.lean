@@ -474,15 +474,16 @@ begin
   have l0 : ↑(chr I₁) partrec_in ↑(chr I₀) := classical_iff.mp h,
   have : ∃ e, ⟦e⟧ᵪ^(chr* I₀) = ↑(chr I₁) := rpartrec.rpartrec_univ_iff_total.mp l0,
   rcases this with ⟨e, he⟩,
-  have E : ∀ n, (chr I₁ n) ∈ (⟦e⟧ᵪ^(chr* I₀ ) n), simp[he],
- rcases requirement₁ e with ⟨w, hw⟩, cases hw,
+  have E : ∀ n, (chr I₁ n) ∈ (⟦e⟧ᵪ^(chr* I₀) n), simp[he],
+  rcases requirement₁ e with ⟨w, hw⟩, cases hw,
   { have : chr I₁ w = !chr I₁ w := roption.mem_unique (E w) hw,
     show false, from bnot_ne _ this },
   { have : (⟦e⟧ᵪ^(chr* I₀) w).dom, { rcases E w with ⟨h, _⟩, exact h },
     contradiction }
 end
 
-theorem Kleene_Post : ∃ I₀ I₁ : set ℕ, (I₀ ≤ₜ ∅′) ∧ (I₁ ≤ₜ ∅′) ∧ (I₀ ≰ₜ I₁) ∧ (I₁ ≰ₜ I₀) :=
+theorem Kleene_Post : ∃ I₀ I₁ : set ℕ,
+  (I₀ ≤ₜ ∅′) ∧ (I₁ ≤ₜ ∅′) ∧ (I₀ ≰ₜ I₁) ∧ (I₁ ≰ₜ I₀) :=
 ⟨I₀, I₁, I₀_0'computable, I₁_0'computable, incomparable₀, incomparable₁⟩
 
 theorem Friedberg_Muchnik : ∃ (A B : set ℕ), re_pred A ∧ re_pred B ∧ (A ≰ₜ B) ∧ (B ≰ₜ A) :=
