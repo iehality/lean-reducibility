@@ -263,8 +263,7 @@ begin
     simp [roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb ] }
 end
 
-lemma L₀_suffix (s) :
-  (L₀ s) <:+ (L₀ (s+1)) :=
+lemma L₀_fiss : fiss L₀ := λ s,
 begin
   let e := s.div2,
   simp[fis, L₀, L], cases M : s.bodd; simp [M, L, show L s = some (L₀ s, L₁ s), by simp[L₀, L₁]],
@@ -284,8 +283,7 @@ begin
     simp [roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb] }
 end
 
-lemma L₁_suffix (s) :
-  (L₁ s) <:+ (L₁ (s+1)) :=
+lemma L₁_fiss : fiss L₁ := λ s,
 begin
   let e := s.div2,
   simp[fis, L₁, L], cases M : s.bodd; simp [M, L, show L s = some (L₀ s, L₁ s), by simp[L₀, L₁]],
@@ -305,89 +303,43 @@ begin
     simp [roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb] }
 end
 
-lemma L₀_length_lt (e) :
-  e < (L₀ (bit0 e + 1)).length :=
+lemma L₀_total : total L₀ := λ n, ⟨bit0 n + 1, 
 begin
-  induction e with e0 ih,
+  show n < (L₀ (bit0 n + 1)).length,
+  induction n with n0 ih,
   exact L₀_length 0, 
-  have eq0 : (L₀ (bit0 e0 + 1)).length ≤ (L₀ (bit0 e0 + 1 + 1)).length,
-    from list.length_le_of_infix (list.infix_of_suffix $ L₀_suffix $ bit0 e0 + 1),
-  have : bit0 e0 + 1 + 1 = bit0 (e0 + 1), { simp [bit0], omega }, rw this at eq0,
-  have eq1 : (L₀ (bit0 (e0 + 1))).length < (L₀ (bit0 (e0 + 1) + 1)).length,
-    from L₀_length (e0 + 1), omega,
-end
+  have eq0 : (L₀ (bit0 n0 + 1)).length ≤ (L₀ (bit0 n0 + 1 + 1)).length,
+    from list.length_le_of_infix (list.infix_of_suffix $ L₀_fiss $ bit0 n0 + 1),
+  have : bit0 n0 + 1 + 1 = bit0 (n0 + 1), { simp [bit0], omega }, rw this at eq0,
+  have eq1 : (L₀ (bit0 (n0 + 1))).length < (L₀ (bit0 (n0 + 1) + 1)).length,
+    from L₀_length (n0 + 1), omega,  
+end⟩
 
-lemma L₁_length_lt (e) :
-  e < (L₁ (bit1 e + 1)).length :=
+lemma L₁_total : total L₁ := λ n, ⟨bit1 n + 1,
 begin
+  show n < (L₁ (bit1 n + 1)).length,
   have initial_suffix₁ : ∀ {s t}, s ≤ t → L₁ s <:+ L₁ t,
-  from relation_path_le (<:+) list.suffix_refl (λ a b c, list.is_suffix.trans) L₁_suffix,
-  induction e with e0 ih,
+  from relation_path_le (<:+) list.suffix_refl (λ a b c, list.is_suffix.trans) L₁_fiss,
+  induction n with n0 ih,
   { exact pos_of_gt (L₁_length 0) }, 
-  have : bit1 e0 + 1 ≤ bit1 e0.succ, { simp [bit1, bit0], omega },
-  have eq0 : (L₁ (bit1 e0 + 1)).length ≤ (L₁ (bit1 e0.succ)).length,
+  have : bit1 n0 + 1 ≤ bit1 n0.succ, { simp [bit1, bit0], omega },
+  have eq0 : (L₁ (bit1 n0 + 1)).length ≤ (L₁ (bit1 n0.succ)).length,
     from list.length_le_of_infix (list.infix_of_suffix $ initial_suffix₁ this),
-  have eq1 : (L₁ (bit1 (e0 + 1))).length < (L₁ (bit1 (e0 + 1) + 1)).length,
-    from L₁_length (e0 + 1), omega,
-end
+  have eq1 : (L₁ (bit1 (n0 + 1))).length < (L₁ (bit1 (n0 + 1) + 1)).length,
+    from L₁_length (n0 + 1), omega
+end⟩
 
-lemma L₀_fis : fis L₀ := λ s, suffix_initial (L₀_suffix s)
+lemma L₀_subseq : ∀ s, (L₀ s).rnth ⊆. chr* I₀ :=
+fiss_subseq_limit L₀_fiss
 
-lemma L₁_fis : fis L₁ := λ s, suffix_initial (L₁_suffix s)
-
-lemma L₀_subseq (s) : (L₀ s).rnth ⊆. chr* I₀ :=
-begin
-  have := subseq_limit (L₀ s).rnth L₀_fis,
-  apply this,
-  refine ⟨s, λ u eu, _⟩,
-  have : ∀ {s t}, s ≤ t → L₀ s <:+ L₀ t, 
-  from relation_path_le (<:+) list.suffix_refl (λ a b c, list.is_suffix.trans) L₀_suffix,
-  exact suffix_subseq (this eu)
-end
-
-lemma L₁_subseq (s) : (L₁ s).rnth ⊆. chr* I₁ :=
-begin
-  have := subseq_limit (L₁ s).rnth L₁_fis,
-  apply this,
-  refine ⟨s, λ u eu, _⟩,
-  have : ∀ {s t}, s ≤ t → L₁ s <:+ L₁ t,
-  from relation_path_le (<:+) list.suffix_refl (λ a b c, list.is_suffix.trans) L₁_suffix,
-  exact suffix_subseq (this eu)
-end
+lemma L₁_subseq : ∀ s, (L₁ s).rnth ⊆. chr* I₁ :=
+fiss_subseq_limit L₁_fiss
 
 lemma I₀_0'computable : I₀ ≤ₜ ∅′ :=
-classical_iff.mpr $
-begin
-  have L₀_length' : ∀ n, n < (L₀ (bit0 n + 1)).reverse.length, simp [L₀_length_lt],
-  have eqn0 : pfun.lift (chr I₀) = (λ n, (L₀ (bit0 n + 1)).rnth n),
-  { funext n,
-    have eqn0 := list.nth_le_nth (L₀_length' n),
-    have eqn1 := L₀_subseq (bit0 n + 1) _ _ eqn0, simp at eqn1,
-    unfold_coes,
-    simp [pfun.lift, list.rnth, of_option, eqn0, eqn1] },
-  simp [rcomputable], unfold_coes, rw eqn0,
-  have := primrec.list_rnth.to_comp.to_rcomp.comp 
-      ((L₀_0'computable.comp (primrec.nat_add.comp 
-        primrec.nat_bit0 (primrec.const 1)).to_comp.to_rcomp).pair rcomputable.id),
-  exact this.of_option
-end
+classical_iff.mpr $ (limit_totalfiss_computable L₀_fiss L₀_total).trans L₀_0'computable
 
 lemma I₁_0'computable : I₁ ≤ₜ ∅′ :=
-classical_iff.mpr $
-begin
-  have L₁_length' : ∀ n, n < (L₁ (bit1 n + 1)).reverse.length, simp [L₁_length_lt],
-  have eqn0 : pfun.lift (chr I₁) = (λ n, (L₁ (bit1 n + 1)).rnth n),
-  { funext n,
-    have eqn0 := list.nth_le_nth (L₁_length' n),
-    have eqn1 := L₁_subseq (bit1 n + 1) _ _ eqn0, simp at eqn1,
-    unfold_coes,
-    simp [pfun.lift, list.rnth, of_option, eqn0, eqn1] },
-  simp [rcomputable], unfold_coes, rw eqn0,
-  have := primrec.list_rnth.to_comp.to_rcomp.comp 
-      ((L₁_0'computable.comp (primrec.nat_add.comp 
-        primrec.nat_bit1 (primrec.const 1)).to_comp.to_rcomp).pair rcomputable.id),
-  exact this.of_option
-end
+classical_iff.mpr $ (limit_totalfiss_computable L₁_fiss L₁_total).trans L₁_0'computable
 
 lemma requirement₀ (e) : ∃ w : ℕ,
   !chr I₀ w ∈ (⟦e⟧ᵪ^(chr* I₁) w) ∨ ¬(⟦e⟧ᵪ^(chr* I₁) w).dom :=
@@ -486,7 +438,8 @@ theorem Kleene_Post : ∃ I₀ I₁ : set ℕ,
   (I₀ ≤ₜ ∅′) ∧ (I₁ ≤ₜ ∅′) ∧ (I₀ ≰ₜ I₁) ∧ (I₁ ≰ₜ I₀) :=
 ⟨I₀, I₁, I₀_0'computable, I₁_0'computable, incomparable₀, incomparable₁⟩
 
-theorem Friedberg_Muchnik : ∃ (A B : set ℕ), re_pred A ∧ re_pred B ∧ (A ≰ₜ B) ∧ (B ≰ₜ A) :=
+theorem Friedberg_Muchnik : ∃ (A B : set ℕ), 
+  re_pred A ∧ re_pred B ∧ (A ≰ₜ B) ∧ (B ≰ₜ A) :=
 by sorry
 
 end Kleene_Post

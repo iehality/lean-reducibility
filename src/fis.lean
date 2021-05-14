@@ -56,9 +56,9 @@ infix ` ⊆. `:50 := subseq
 -- finite initial segments
 def fis (L : ℕ → list bool) := ∀ s, L s ≼ L (s + 1)
 
-def sfis (L : ℕ → list bool) := ∀ s, L s <:+ L (s + 1)
+def fiss (L : ℕ → list bool) := ∀ s, L s <:+ L (s + 1)
 
-theorem sfis.fis {L : ℕ → list bool} (h : sfis L) : fis L :=
+theorem fiss.fis {L : ℕ → list bool} (h : fiss L) : fis L :=
 λ s, suffix_initial (h s)
 
 def total (L : ℕ → list bool) := ∀ n, ∃ s, n < (L s).length
@@ -96,7 +96,7 @@ theorem fis_le {L : ℕ → list bool} (h : fis L) :
   ∀ {s t}, s ≤ t → L s ≼ L t := 
 relation_path_le (≼) (by simp) (λ a b c, initial_trans) h
 
-theorem sfis_le {L : ℕ → list bool} (h : sfis L) :
+theorem fiss_le {L : ℕ → list bool} (h : fiss L) :
   ∀ {s t}, s ≤ t → L s <:+ L t := 
 relation_path_le (<:+) list.suffix_refl (λ a b c, list.is_suffix.trans) h
 
@@ -150,10 +150,10 @@ begin
     simp [list.drop_nth, this], exact ec }
 end
 
-lemma sfis_subseq_limit {L} (F : sfis L) (s) : (L s).rnth ⊆. chr* limit L :=
-subseq_limit (L s).rnth F.fis ⟨s, λ u eu, suffix_subseq (sfis_le F eu)⟩
+lemma fiss_subseq_limit {L} (F : fiss L) (s) : (L s).rnth ⊆. chr* limit L :=
+subseq_limit (L s).rnth F.fis ⟨s, λ u eu, suffix_subseq (fiss_le F eu)⟩
 
-theorem limit_totalsfis_computable {L} (F : sfis L) (T : total L) : 
+theorem limit_totalfiss_computable {L} (F : fiss L) (T : total L) : 
   chr (limit L) computable_in (L : ℕ →. list bool) :=
 begin
   let f : ℕ →. bool := (λ n, nat.rfind_opt (λ s, (L s).rnth n)),
@@ -162,9 +162,9 @@ begin
     rcases T n with ⟨s, hs⟩, have hs' : n < (L s).reverse.length, simp [hs],
     have eqnn : (L s).rnth n = some ((L s).reverse.nth_le n hs'), from list.nth_le_nth hs',
     have eqn0 : chr (limit L) n = (L s).reverse.nth_le n hs',
-    { have := sfis_subseq_limit F s _ _ eqnn, simp at this, exact this },
+    { have := fiss_subseq_limit F s _ _ eqnn, simp at this, exact this },
     have mono : ∀ a s u, s ≤ u → a ∈ ((L s).rnth n) → a ∈ ((L u).rnth n),
-    from λ a s u e h, suffix_subseq (sfis_le F e) n a h, 
+    from λ a s u e h, suffix_subseq (fiss_le F e) n a h, 
     have : (L s).reverse.nth_le n hs' ∈ nat.rfind_opt (λ (s : ℕ), (L s).rnth n), 
     from (nat.rfind_opt_mono mono).mpr ⟨s, eqnn⟩,      
     simp [eqn0, this] },
