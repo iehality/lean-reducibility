@@ -11,12 +11,12 @@ namespace t_reducible
 open primrec
 
 theorem extendable_suffix {l₀ n e} {A : ℕ → bool}
-  (h : ∀ l : list bool, ¬(⟦e⟧ᵪ^(l ++ l₀).rnth n).dom) (hl₀ : l₀.rnth ⊆. (λ x, A x)) :
+  (h : ∀ l : list bool, ¬(⟦e⟧ᵪ^(l ++ l₀).rnth n).dom) (hl₀ : l₀.rnth ⊆* (λ x, A x)) :
   ¬(⟦e⟧ᵪ^(λ x, some (A x)) n).dom := λ C,
 begin
   rcases roption.dom_iff_mem.mp C with ⟨b, hb⟩,
   rcases rpartrec.eval_inclusion hb with ⟨s, hs⟩,
-  have := fis.initial_subseq hl₀ s, rcases this with ⟨l, hl⟩,
+  have := initial_subseq hl₀ s, rcases this with ⟨l, hl⟩,
   suffices : b ∈ (⟦e⟧ᵪ^((l ++ l₀).rnth) n),
   { rcases this with ⟨lmm, _⟩, exact h _ lmm },
   apply hs, simp, intros m c em hc,
@@ -42,7 +42,6 @@ theorem O₁_0'computable : O₁ ≤ₜ ∅′ :=
 dom_0'computable (rpartrec.eval_list_partrec ℕ bool)
 
 namespace Kleene_Post
-open fis
 
 noncomputable def L : ℕ →. list bool × list bool
 | 0     := some ([], [])
@@ -265,6 +264,7 @@ end
 
 lemma L₀_fiss : fiss L₀ := λ s,
 begin
+  show L₀ s <:+ L₀ (s + 1),
   let e := s.div2,
   simp[fis, L₀, L], cases M : s.bodd; simp [M, L, show L s = some (L₀ s, L₁ s), by simp[L₀, L₁]],
   { by_cases C : (s.div2, L₁ s, (L₀ s).length) ∈ O₀; simp [C],
@@ -285,6 +285,7 @@ end
 
 lemma L₁_fiss : fiss L₁ := λ s,
 begin
+  show L₁ s <:+ L₁ (s + 1),
   let e := s.div2,
   simp[fis, L₁, L], cases M : s.bodd; simp [M, L, show L s = some (L₀ s, L₁ s), by simp[L₀, L₁]],
   { by_cases C : (s.div2, L₁ s, (L₀ s).length) ∈ O₀; simp [C],
@@ -303,7 +304,7 @@ begin
     simp [roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb] }
 end
 
-lemma L₀_total : total L₀ := λ n, ⟨bit0 n + 1, 
+lemma L₀_full : full L₀ := λ n, ⟨bit0 n + 1, 
 begin
   show n < (L₀ (bit0 n + 1)).length,
   induction n with n0 ih,
@@ -315,7 +316,7 @@ begin
     from L₀_length (n0 + 1), omega,  
 end⟩
 
-lemma L₁_total : total L₁ := λ n, ⟨bit1 n + 1,
+lemma L₁_full : full L₁ := λ n, ⟨bit1 n + 1,
 begin
   show n < (L₁ (bit1 n + 1)).length,
   have initial_suffix₁ : ∀ {s t}, s ≤ t → L₁ s <:+ L₁ t,
@@ -329,59 +330,61 @@ begin
     from L₁_length (n0 + 1), omega
 end⟩
 
-lemma L₀_subseq : ∀ s, (L₀ s).rnth ⊆. chr* I₀ :=
-fiss_subseq_limit L₀_fiss
+lemma L₀_subseq : ∀ s, (L₀ s).rnth ⊆* chr* I₀ :=
+L₀_fiss.fiss_subseq_limit 
 
-lemma L₁_subseq : ∀ s, (L₁ s).rnth ⊆. chr* I₁ :=
-fiss_subseq_limit L₁_fiss
+lemma L₁_subseq : ∀ s, (L₁ s).rnth ⊆* chr* I₁ :=
+L₁_fiss.fiss_subseq_limit 
 
 lemma I₀_0'computable : I₀ ≤ₜ ∅′ :=
-classical_iff.mpr $ (limit_totalfiss_computable L₀_fiss L₀_total).trans L₀_0'computable
+classical_iff.mpr $ (L₀_fiss.limit_fullfiss_computable L₀_full).trans L₀_0'computable
 
 lemma I₁_0'computable : I₁ ≤ₜ ∅′ :=
-classical_iff.mpr $ (limit_totalfiss_computable L₁_fiss L₁_total).trans L₁_0'computable
+classical_iff.mpr $ (L₁_fiss.limit_fullfiss_computable L₁_full).trans L₁_0'computable
 
 lemma requirement₀ (e) : ∃ w : ℕ,
   !chr I₀ w ∈ (⟦e⟧ᵪ^(chr* I₁) w) ∨ ¬(⟦e⟧ᵪ^(chr* I₁) w).dom :=
 begin
-  use (L₀ (2*e)).length,
-  by_cases C : (e, L₁ (2*e), (L₀ (2*e)).length) ∈ O₀,
+  let i := 2*e,
+  let w := (L₀ i).length,
+  use w,
+  by_cases C : (e, L₁ i, w) ∈ O₀,
   { left,
-    show !chr I₀ (L₀ (2 * e)).length ∈ ⟦e⟧ᵪ^(λ (x : ℕ), some (chr I₁ x)) (L₀ (2 * e)).length,
-    have : ∃ l, l ∈ epsilon (chr (λ l, (⟦e⟧ᵪ^((l ++ L₁ (2 * e)).rnth) (L₀ (2 * e)).length).dom)),
+    show !chr I₀ w ∈ ⟦e⟧ᵪ^(λ (x : ℕ), some (chr I₁ x)) w,
+    have : ∃ l, l ∈ epsilon (chr (λ l, (⟦e⟧ᵪ^((l ++ L₁ i).rnth) w).dom)),
     { simp[←roption.dom_iff_mem] at C ⊢, exact C },
     rcases this with ⟨l, hl⟩,
     have hb := epsilon_witness hl, simp only [chr_iff, roption.dom_iff_mem] at hb,
     rcases hb with ⟨b, hb⟩,
-    have : L₀ (2*e + 1) = !b :: L₀ (2*e) ∧ L₁ (2*e + 1) = l ++ L₁ (2*e),
-    { simp [L₀, L₁, L, show (2 * e).div2 = e, by simp[nat.div2_val]], 
-      simp [L, show L (2*e) = some (L₀ (2*e), L₁ (2*e)), by simp[L₀, L₁], C,
+    have : L₀ (i + 1) = !b :: L₀ i ∧ L₁ (i + 1) = l ++ L₁ i,
+    { simp [L₀, L₁, L, show i.div2 = e, by simp[nat.div2_val]], 
+      simp [L, show L i = some (L₀ i, L₁ i), by simp[L₀, L₁], C,
         roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb] },
     rcases this with ⟨nL₀, nL₁⟩,
-    have lmm0 : chr I₀ (L₀ (2 * e)).length = !b,
-    { have := L₀_subseq (2*e + 1) ((L₀ (2*e)).length) (!b),
+    have lmm0 : chr I₀ w = !b,
+    { have := L₀_subseq (i + 1) (w) (!b),
       simp [nL₀, list.rnth] at this, apply this,
-      rw (show (L₀ (2*e)).length = (L₀ (2*e)).reverse.length, by simp),
+      rw (show w = (L₀ i).reverse.length, by simp),
       simp only [list.nth_concat_length] },
-    have lmm1 : b ∈ (⟦e⟧ᵪ^(chr* I₁) (L₀ (2*e)).length),
+    have lmm1 : b ∈ (⟦e⟧ᵪ^(chr* I₁) w),
     { rcases rpartrec.eval_inclusion hb with ⟨s, hs⟩, apply hs, simp,
-      have := L₁_subseq (2*e + 1), simp[nL₁, subseq] at this,
+      have := L₁_subseq (i + 1), simp[nL₁, subseq] at this,
       exact (λ n c _, this n c) },
     simp[lmm0, lmm1] },
   { right, simp [O₀] at C,
-    have : (L₁ (2*e)).rnth ⊆. chr* I₁, from L₁_subseq _,
+    have : (L₁ i).rnth ⊆* chr* I₁, from L₁_subseq _,
     exact extendable_suffix C this }
 end
 
 lemma requirement₁ (e) : ∃ w : ℕ,
   !chr I₁ w ∈ (⟦e⟧ᵪ^(chr* I₀) w) ∨ ¬(⟦e⟧ᵪ^(chr* I₀) w).dom :=
 begin
-  let i := bit1 e,  
-  use (L₁ i).length,
-  by_cases C : (e, L₀ i, (L₁ i).length) ∈ O₀,
-  { left,
-    show !chr I₁ (L₁ i).length ∈ ⟦e⟧^(chr* I₀) (L₁ i).length,
-    have : ∃ l, l ∈ epsilon (chr $ λ l, (⟦e⟧ᵪ^((l ++ L₀ i).rnth) (L₁ i).length).dom),
+  let i := bit1 e,
+  let w := (L₁ i).length,
+  use w,
+  by_cases C : (e, L₀ i, w) ∈ O₀,
+  { left, show !chr I₁ w ∈ ⟦e⟧ᵪ^(chr* I₀) w,
+    have : ∃ l, l ∈ epsilon (chr $ λ l, (⟦e⟧ᵪ^((l ++ L₀ i).rnth) w).dom),
     { simp[←roption.dom_iff_mem] at C ⊢, exact C },
     rcases this with ⟨l, hl⟩,
     have hb := epsilon_witness hl, simp only [chr_iff, roption.dom_iff_mem] at hb,
@@ -391,18 +394,18 @@ begin
       simp [L, show L i = some (L₀ i, L₁ i), by simp[L₀, L₁], C,
         roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb] },
     rcases this with ⟨nL₀, nL₁⟩,
-    have lmm0 : chr I₁ (L₁ i).length = !b,
-    { have := L₁_subseq (i+ 1) ((L₁ i).length) (!b),
+    have lmm0 : chr I₁ w = !b,
+    { have := L₁_subseq (i + 1) (w) (!b),
       simp [nL₁, list.rnth] at this, apply this,
-      rw (show (L₁ i).length = (L₁ i).reverse.length, by simp),
+      rw (show w = (L₁ i).reverse.length, by simp),
       simp only [list.nth_concat_length] },
-    have lmm1 : b ∈ (⟦e⟧ᵪ^(chr* I₀) (L₁ i).length),
+    have lmm1 : b ∈ (⟦e⟧ᵪ^(chr* I₀) w),
     { rcases rpartrec.eval_inclusion hb with ⟨s, hs⟩, apply hs, simp,
       have := L₀_subseq (i + 1), simp[nL₀, subseq] at this,
       exact (λ n c _, this n c) },
     simp[lmm0, lmm1] },
   { right, simp [O₀] at C,
-    have : (L₀ i).rnth ⊆. chr* I₀, from L₀_subseq _,
+    have : (L₀ i).rnth ⊆* chr* I₀, from L₀_subseq _,
     exact extendable_suffix C this }
 end
 

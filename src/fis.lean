@@ -29,14 +29,15 @@ begin
   rw this, exact l0 _ _,
 end
 
-namespace fis
-
 def list.initial (l₀ l₁ : list bool) := ∀ n, l₀.rnth n = some tt → l₁.rnth n = some tt
 
 infix ` ≼ `:50 := list.initial
 
 @[simp] theorem initial_refl (l : list bool) : l ≼ l :=
 by simp[list.initial]
+
+theorem initial_trans {l₀ l₁ l₂ : list bool} : l₀ ≼ l₁ → l₁ ≼ l₂ → l₀ ≼ l₂ :=
+ λ h01 h12 _ e, h12 _ (h01 _ e)
 
 @[simp] theorem initial_append (l l₀ : list bool) : l ≼ l₀ ++ l := λ n h,
 by { simp[list.initial, list.rnth] at h ⊢, simp only [list.append_nth_some h] } 
@@ -51,19 +52,41 @@ by { simp[list.is_suffix], intros l hl s h₀,
 
 def subseq (A B : ℕ → option bool) := ∀ n b, A n = some b → B n = some b
 
-infix ` ⊆. `:50 := subseq
+infix ` ⊆* `:50 := subseq
+
+lemma suffix_subseq {l₀ l₁ : list bool} (h : l₀ <:+ l₁) :
+  l₀.rnth ⊆* l₁.rnth := λ n b eb,
+by { rcases h with ⟨l, hl⟩,
+     simp [←hl, list.rnth], exact list.append_nth_some eb _ }
+
+lemma initial_subseq {l : list bool} {A : ℕ → bool} (hl : l.rnth ⊆* (λ x, A x)) (s) :
+  ∃ l₀, (initial_code A s).rnth ⊆* (l₀ ++ l).rnth :=
+begin
+  refine ⟨((initial_code A s).reverse.drop l.length).reverse, _⟩,
+  simp[list.rnth], intros m c ec,
+  have hA := initial_code_some ec, 
+  have em : m < l.reverse.length ∨ l.reverse.length ≤ m, exact lt_or_ge _ _, 
+  cases em,
+  { simp[list.nth_append em], 
+    have ll := list.nth_le_nth em, 
+    have := hl _ _ ll, unfold_coes at this, simp at this,
+    simp [←this] at ll, simp [ll, hA] },
+  { simp [list.nth_append_right em], 
+    have : m - l.length + l.length = m, { simp at em, omega },
+    simp [list.drop_nth, this], exact ec }
+end
 
 -- finite initial segments
 def fis (L : ℕ → list bool) := ∀ s, L s ≼ L (s + 1)
 
 def fiss (L : ℕ → list bool) := ∀ s, L s <:+ L (s + 1)
 
-theorem fiss.fis {L : ℕ → list bool} (h : fiss L) : fis L :=
+theorem fiss_fis {L : ℕ → list bool} (h : fiss L) : fis L :=
 λ s, suffix_initial (h s)
 
-def total (L : ℕ → list bool) := ∀ n, ∃ s, n < (L s).length
+def full (L : ℕ → list bool) := ∀ n, ∃ s, n < (L s).length
 
-def limit (L : ℕ → list bool) := {n | ∃ s, (L s).rnth n = tt}
+def limit (L : ℕ → list bool) : set ℕ := {n | ∃ s, (L s).rnth n = tt}
 
 theorem limit_jumpcomputabile {L : ℕ → list bool} {A : set ℕ} (cL : L computable_in chr. A) :
   limit L ≤ₜ A′ :=
@@ -89,18 +112,13 @@ begin
   rw eqn0, exact this
 end
 
-theorem initial_trans {l₀ l₁ l₂ : list bool} : l₀ ≼ l₁ → l₁ ≼ l₂ → l₀ ≼ l₂ :=
- λ h01 h12 _ e, h12 _ (h01 _ e)
+namespace fis
 
-theorem fis_le {L : ℕ → list bool} (h : fis L) :
+theorem fis_le {L} (h : fis L) :
   ∀ {s t}, s ≤ t → L s ≼ L t := 
 relation_path_le (≼) (by simp) (λ a b c, initial_trans) h
 
-theorem fiss_le {L : ℕ → list bool} (h : fiss L) :
-  ∀ {s t}, s ≤ t → L s <:+ L t := 
-relation_path_le (<:+) list.suffix_refl (λ a b c, list.is_suffix.trans) h
-
-theorem fis_limit_eq {L : ℕ → list bool} (F : fis L) (m) :
+theorem fis_limit_eq {L} (F : fis L) (m) :
   limit L = limit (λ x, L (x + m)) := funext $ λ n,
 begin
   simp[limit, set.set_of_app_iff], split,
@@ -113,53 +131,39 @@ begin
   { rintros ⟨s, hs⟩, refine ⟨s+m, hs⟩ }
 end
 
-lemma suffix_subseq {l₀ l₁ : list bool} (h : l₀ <:+ l₁) :
-  l₀.rnth ⊆. l₁.rnth := λ n b eb,
-by { rcases h with ⟨l, hl⟩,
-     simp [←hl, list.rnth], exact list.append_nth_some eb _ }
-
-theorem subseq_limit (C : ℕ → option bool) :
-  ∀ {L : ℕ → list bool}, fis L → (∃ s, ∀ u, s ≤ u → C ⊆. (L u).rnth) → C ⊆. chr* limit L := 
+theorem subseq_limit {L} (F : fis L) {C s} (h : ∀ u, s ≤ u → C ⊆* (L u).rnth) :
+  C ⊆* chr* limit L := 
 begin
   suffices : 
-    ∀ {L : ℕ → list bool}, (∀ u, C ⊆. (L u).rnth) → C ⊆. chr* limit L,
-  { rintros L F ⟨s, hs⟩, 
-     rw fis_limit_eq F s,
-     apply this, intros u,
-     apply hs, omega },
+    ∀ {L : ℕ → list bool}, (∀ u, C ⊆* (L u).rnth) → C ⊆* chr* limit L,
+  { rw fis_limit_eq F s,
+    apply this, intros u,
+    apply h, omega },
   intros L h n b, 
   cases b; simp [limit]; unfold_coes,
   { intros hn s hs, have := h s _ _ hn, simp [hs] at this,  exact this },
   { intros hn, refine ⟨0, h 0 _ _ hn⟩ }
 end
 
-lemma initial_subseq {l : list bool} {A : ℕ → bool} (hl : l.rnth ⊆. (λ x, A x)) (s) :
-  ∃ l₀, (initial_code A s).rnth ⊆. (l₀ ++ l).rnth :=
-begin
-  refine ⟨((initial_code A s).reverse.drop l.length).reverse, _⟩,
-  simp[list.rnth], intros m c ec,
-  have hA := initial_code_some ec, 
-  have em : m < l.reverse.length ∨ l.reverse.length ≤ m, exact lt_or_ge _ _, 
-  cases em,
-  { simp[list.nth_append em], 
-    have ll := list.nth_le_nth em, 
-    have := hl _ _ ll, unfold_coes at this, simp at this,
-    simp [←this] at ll, simp [ll, hA] },
-  { simp [list.nth_append_right em], 
-    have : m - l.length + l.length = m, { simp at em, omega },
-    simp [list.drop_nth, this], exact ec }
-end
+end fis
 
-lemma fiss_subseq_limit {L} (F : fiss L) (s) : (L s).rnth ⊆. chr* limit L :=
-subseq_limit (L s).rnth F.fis ⟨s, λ u eu, suffix_subseq (fiss_le F eu)⟩
+namespace fiss
+open fis
 
-theorem limit_totalfiss_computable {L} (F : fiss L) (T : total L) : 
+theorem fiss_le {L} (F : fiss L) :
+  ∀ {s t}, s ≤ t → L s <:+ L t := 
+relation_path_le (<:+) list.suffix_refl (λ a b c, list.is_suffix.trans) F
+
+lemma fiss_subseq_limit {L} (F : fiss L) (s) : (L s).rnth ⊆* chr* limit L :=
+subseq_limit (fiss_fis F) (λ u eu, suffix_subseq (fiss_le F eu))
+
+theorem limit_fullfiss_computable {L} (F : fiss L) (U : full L) : 
   chr (limit L) computable_in (L : ℕ →. list bool) :=
 begin
   let f : ℕ →. bool := (λ n, nat.rfind_opt (λ s, (L s).rnth n)),
   have eqn0 : f = pfun.lift (chr $ limit L),
   { funext n, simp [f, roption.eq_some_iff],
-    rcases T n with ⟨s, hs⟩, have hs' : n < (L s).reverse.length, simp [hs],
+    rcases U n with ⟨s, hs⟩, have hs' : n < (L s).reverse.length, simp [hs],
     have eqnn : (L s).rnth n = some ((L s).reverse.nth_le n hs'), from list.nth_le_nth hs',
     have eqn0 : chr (limit L) n = (L s).reverse.nth_le n hs',
     { have := fiss_subseq_limit F s _ _ eqnn, simp at this, exact this },
@@ -177,4 +181,4 @@ begin
   exact this
 end
 
-end fis
+end fiss
