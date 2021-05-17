@@ -96,6 +96,8 @@ theorem initial_code_some {α} {f : ℕ → α} {s n a} :
   (initial_code f s).rnth n = some a → f n = a :=
 by { have : n < s ∨ s ≤ n := lt_or_ge n s, cases this; simp[this], unfold_coes, simp }
 
+def nat.rpartrec.code.use (f c n) := nat.rfind_opt (λ s, nat.rpartrec.code.evaln s f c n)
+
 def list.subseq {α} [decidable_eq α] (f : ℕ → α) : list α → bool
 | []      := tt
 | (x::xs) := to_bool (x = f xs.length) && list.subseq xs
@@ -129,8 +131,23 @@ begin
   exact ⟨lm0, lm1⟩
 end
 
-theorem primrec.list_rnth {α} [primcodable α] : primrec₂ (@list.rnth α) := 
+def list.bmerge : list bool → list bool → list bool
+| []        l         := l
+| l         []        := l
+| (a :: xs) (b :: ys) := (a || b) :: (xs.bmerge ys)
+
+namespace primrec
+
+variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
+variables [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ] [primcodable μ]
+
+theorem list_rnth : primrec₂ (@list.rnth α) := 
 primrec.list_nth.comp (primrec.list_reverse.comp primrec.fst) primrec.snd
+
+theorem list_bmerge : primrec₂ list.bmerge :=
+by sorry
+
+end primrec
 
 namespace rcomputable
 

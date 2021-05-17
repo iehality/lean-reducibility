@@ -71,15 +71,13 @@ begin
   let p := (λ x : (ℕ × list bool × list bool) × list bool,
     chr O₁ (x.1.1.div2, x.2 ++ x.1.2.1, x.1.2.2.length)),
   have : ∀ a : ℕ × list bool × list bool,
-    chr (λ l, (⟦a.1.div2⟧ᵪ^((l ++ a.2.1).rnth) a.2.2.length).dom) =
-    λ l, p (a, l),
+    chr (λ l, (⟦a.1.div2⟧ᵪ^((l ++ a.2.1).rnth) a.2.2.length).dom) = λ l, p (a, l),
   { intros a, funext x, apply chr_ext.mpr, simp [O₁] }, simp [this],
-  have lmm0 : (λ a, epsilon (λ x, p (a, x))) partrec_in chr. ∅′,
+  have lmm : (λ a, epsilon (λ x, p (a, x))) partrec_in chr. ∅′,
   { have := (nat_div2.comp $ fst.comp fst).pair 
       ((list_append.comp snd (fst.comp $ snd.comp fst)).pair 
       (list_length.comp $ snd.comp $ snd.comp fst)),
     have := (classical_iff.mp O₁_0'computable).comp this.to_comp.to_rcomp,
-    have : p computable_in chr. ∅′ := this,
     exact (rpartrec.epsilon_rpartrec p).trans this },
   let g := λ x : (ℕ × list bool × list bool) × list bool,
     (⟦x.1.1.div2⟧ᵪ^((x.2 ++ x.1.2.1).rnth) x.1.2.2.length).bind
@@ -97,7 +95,7 @@ begin
       (fst.comp $ snd.comp $ fst.comp fst)).pair 
       (list_cons.comp (primrec.bnot.comp snd) (snd.comp $ snd.comp $ fst.comp fst)),
     exact lmm1.bind ph.to_comp.part },
-  have := lmm0.bind lmm1.to_rpart, simp [g] at this,
+  have := lmm.bind lmm1.to_rpart, simp [g] at this,
   exact this
 end
 
@@ -110,15 +108,13 @@ begin
   let p := (λ x : (ℕ × list bool × list bool) × list bool,
     chr O₁ (x.1.1.div2, x.2 ++ x.1.2.2, x.1.2.1.length)),
   have : ∀ a : ℕ × list bool × list bool,
-    chr (λ l, (⟦a.1.div2⟧ᵪ^((l ++ a.2.2).rnth) a.2.1.length).dom) =
-    λ l, p (a, l),
+    chr (λ l, (⟦a.1.div2⟧ᵪ^((l ++ a.2.2).rnth) a.2.1.length).dom) = λ l, p (a, l),
   { intros a, funext x, apply chr_ext.mpr, simp [O₁] },
-  have lmm0 : (λ a, epsilon (λ x, p (a, x))) partrec_in chr. ∅′,
+  have lmm : (λ a, epsilon (λ x, p (a, x))) partrec_in chr. ∅′,
   { have := (nat_div2.comp $ fst.comp fst).pair 
       ((list_append.comp snd (snd.comp $ snd.comp fst)).pair 
       (list_length.comp $ fst.comp $ snd.comp fst)),
     have := (classical_iff.mp O₁_0'computable).comp this.to_comp.to_rcomp,
-    have : p computable_in chr. ∅′ := this,
     exact (rpartrec.epsilon_rpartrec p).trans this },
   let g := λ x : (ℕ × list bool × list bool) × list bool,
     (⟦x.1.1.div2⟧ᵪ^((x.2 ++ x.1.2.2).rnth) x.1.2.1.length).bind
@@ -136,7 +132,7 @@ begin
       (list_cons.comp (primrec.bnot.comp snd) (fst.comp $ snd.comp $ fst.comp fst)).pair
       (list_append.comp (snd.comp fst) (snd.comp $ snd.comp $ fst.comp fst)),
     exact lmm1.bind ph.to_comp.part },
-  have := lmm0.bind lmm1.to_rpart, simp [g] at this,
+  have := lmm.bind lmm1.to_rpart, simp [g] at this,
   exact this
 end
 
@@ -330,12 +326,6 @@ begin
     from L₁_length (n0 + 1), omega
 end⟩
 
-lemma L₀_subseq : ∀ s, (L₀ s).rnth ⊆* chr* I₀ :=
-L₀_fiss.fiss_subseq_limit 
-
-lemma L₁_subseq : ∀ s, (L₁ s).rnth ⊆* chr* I₁ :=
-L₁_fiss.fiss_subseq_limit 
-
 lemma I₀_0'computable : I₀ ≤ₜ ∅′ :=
 classical_iff.mpr $ (L₀_fiss.limit_fullfiss_computable L₀_full).trans L₀_0'computable
 
@@ -343,14 +333,14 @@ lemma I₁_0'computable : I₁ ≤ₜ ∅′ :=
 classical_iff.mpr $ (L₁_fiss.limit_fullfiss_computable L₁_full).trans L₁_0'computable
 
 lemma requirement₀ (e) : ∃ w : ℕ,
-  !chr I₀ w ∈ (⟦e⟧ᵪ^(chr* I₁) w) ∨ ¬(⟦e⟧ᵪ^(chr* I₁) w).dom :=
+  !chr I₀ w ∈ ⟦e⟧ᵪ^(chr* I₁) w ∨ ¬(⟦e⟧ᵪ^(chr* I₁) w).dom :=
 begin
   let i := 2*e,
   let w := (L₀ i).length,
   use w,
   by_cases C : (e, L₁ i, w) ∈ O₀,
   { left,
-    show !chr I₀ w ∈ ⟦e⟧ᵪ^(λ (x : ℕ), some (chr I₁ x)) w,
+    show !chr I₀ w ∈ ⟦e⟧ᵪ^(chr* I₁) w,
     have : ∃ l, l ∈ epsilon (chr (λ l, (⟦e⟧ᵪ^((l ++ L₁ i).rnth) w).dom)),
     { simp[←roption.dom_iff_mem] at C ⊢, exact C },
     rcases this with ⟨l, hl⟩,
@@ -361,23 +351,23 @@ begin
       simp [L, show L i = some (L₀ i, L₁ i), by simp[L₀, L₁], C,
         roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb] },
     rcases this with ⟨nL₀, nL₁⟩,
-    have lmm0 : chr I₀ w = !b,
-    { have := L₀_subseq (i + 1) (w) (!b),
+    have lmm : chr I₀ w = !b,
+    { have := L₀_fiss.fiss_subseq_limit (i + 1) (w) (!b),
       simp [nL₀, list.rnth] at this, apply this,
       rw (show w = (L₀ i).reverse.length, by simp),
       simp only [list.nth_concat_length] },
-    have lmm1 : b ∈ (⟦e⟧ᵪ^(chr* I₁) w),
+    have lmm1 : b ∈ ⟦e⟧ᵪ^(chr* I₁) w,
     { rcases rpartrec.eval_inclusion hb with ⟨s, hs⟩, apply hs, simp,
-      have := L₁_subseq (i + 1), simp[nL₁, subseq] at this,
+      have := L₁_fiss.fiss_subseq_limit (i + 1), simp[nL₁, subseq] at this,
       exact (λ n c _, this n c) },
-    simp[lmm0, lmm1] },
+    simp[lmm, lmm1] },
   { right, simp [O₀] at C,
-    have : (L₁ i).rnth ⊆* chr* I₁, from L₁_subseq _,
+    have : (L₁ i).rnth ⊆* chr* I₁, from L₁_fiss.fiss_subseq_limit _,
     exact extendable_suffix C this }
 end
 
 lemma requirement₁ (e) : ∃ w : ℕ,
-  !chr I₁ w ∈ (⟦e⟧ᵪ^(chr* I₀) w) ∨ ¬(⟦e⟧ᵪ^(chr* I₀) w).dom :=
+  !chr I₁ w ∈ ⟦e⟧ᵪ^(chr* I₀) w ∨ ¬(⟦e⟧ᵪ^(chr* I₀) w).dom :=
 begin
   let i := bit1 e,
   let w := (L₁ i).length,
@@ -394,55 +384,60 @@ begin
       simp [L, show L i = some (L₀ i, L₁ i), by simp[L₀, L₁], C,
         roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb] },
     rcases this with ⟨nL₀, nL₁⟩,
-    have lmm0 : chr I₁ w = !b,
-    { have := L₁_subseq (i + 1) (w) (!b),
+    have lmm : chr I₁ w = !b,
+    { have := L₁_fiss.fiss_subseq_limit (i + 1) (w) (!b),
       simp [nL₁, list.rnth] at this, apply this,
       rw (show w = (L₁ i).reverse.length, by simp),
       simp only [list.nth_concat_length] },
-    have lmm1 : b ∈ (⟦e⟧ᵪ^(chr* I₀) w),
+    have lmm1 : b ∈ ⟦e⟧ᵪ^(chr* I₀) w,
     { rcases rpartrec.eval_inclusion hb with ⟨s, hs⟩, apply hs, simp,
-      have := L₀_subseq (i + 1), simp[nL₀, subseq] at this,
+      have := L₀_fiss.fiss_subseq_limit (i + 1), simp[nL₀, subseq] at this,
       exact (λ n c _, this n c) },
-    simp[lmm0, lmm1] },
+    simp[lmm, lmm1] },
   { right, simp [O₀] at C,
-    have : (L₀ i).rnth ⊆* chr* I₀, from L₀_subseq _,
+    have : (L₀ i).rnth ⊆* chr* I₀, from L₀_fiss.fiss_subseq_limit _,
     exact extendable_suffix C this }
 end
 
-lemma incomparable₀ : I₀ ≰ₜ I₁ :=
+lemma incomparable₀ : ¬I₀ ≤ₜ I₁ :=
 begin
-  assume h : I₀ ≤ₜ I₁,
-  have l0 : ↑(chr I₀) partrec_in ↑(chr I₁) := classical_iff.mp h,
-  have : ∃ e, ⟦e⟧ᵪ^(chr* I₁) = ↑(chr I₀) := rpartrec.rpartrec_univ_iff_total.mp l0,
-  rcases this with ⟨e, he⟩,
-  have E : ∀ n, (chr I₀ n) ∈ (⟦e⟧ᵪ^(chr* I₁) n), simp[he],
-  rcases requirement₀ e with ⟨w, hw⟩, cases hw,
-  { have : chr I₀ w = !chr I₀ w := roption.mem_unique (E w) hw,
+  assume hyp : I₀ ≤ₜ I₁,
+  have : ∃ e, ⟦e⟧ᵪ^(chr* I₁) = chr I₀ :=
+    rpartrec.rpartrec_univ_iff_total.mp (classical_iff.mp hyp),
+  rcases this with ⟨e, lmm_e⟩,
+  have lmm : ∀ n, (chr I₀ n) ∈ (⟦e⟧ᵪ^(chr* I₁) n), simp[lmm_e],
+  rcases requirement₀ e with ⟨w, lmm_w⟩, cases lmm_w,
+  { have : chr I₀ w = !chr I₀ w := roption.mem_unique (lmm w) lmm_w,
     show false, from bnot_ne _ this },
-  { have : (⟦e⟧ᵪ^(chr* I₁) w).dom, { rcases E w with ⟨h, _⟩, exact h },
+  { have : (⟦e⟧ᵪ^(chr* I₁) w).dom, { rcases lmm w with ⟨h, _⟩, exact h },
     contradiction }
 end
 
-lemma incomparable₁ : I₁ ≰ₜ I₀ :=
+lemma incomparable₁ : ¬I₁ ≤ₜ I₀ :=
 begin
-  assume h : I₁ ≤ₜ I₀,
-  have l0 : ↑(chr I₁) partrec_in ↑(chr I₀) := classical_iff.mp h,
-  have : ∃ e, ⟦e⟧ᵪ^(chr* I₀) = ↑(chr I₁) := rpartrec.rpartrec_univ_iff_total.mp l0,
-  rcases this with ⟨e, he⟩,
-  have E : ∀ n, (chr I₁ n) ∈ (⟦e⟧ᵪ^(chr* I₀) n), simp[he],
-  rcases requirement₁ e with ⟨w, hw⟩, cases hw,
-  { have : chr I₁ w = !chr I₁ w := roption.mem_unique (E w) hw,
+  assume hyp : I₁ ≤ₜ I₀,
+  have : ∃ e, ⟦e⟧ᵪ^(chr* I₀) = chr I₁ :=
+    rpartrec.rpartrec_univ_iff_total.mp (classical_iff.mp hyp),
+  rcases this with ⟨e, lmm_e⟩,
+  have lmm : ∀ n, (chr I₁ n) ∈ (⟦e⟧ᵪ^(chr* I₀) n), simp[lmm_e],
+  rcases requirement₁ e with ⟨w, lmm_w⟩, cases lmm_w,
+  { have : chr I₁ w = !chr I₁ w := roption.mem_unique (lmm w) lmm_w,
     show false, from bnot_ne _ this },
-  { have : (⟦e⟧ᵪ^(chr* I₀) w).dom, { rcases E w with ⟨h, _⟩, exact h },
+  { have : (⟦e⟧ᵪ^(chr* I₀) w).dom, { rcases lmm w with ⟨h, _⟩, exact h },
     contradiction }
 end
 
 theorem Kleene_Post : ∃ I₀ I₁ : set ℕ,
-  (I₀ ≤ₜ ∅′) ∧ (I₁ ≤ₜ ∅′) ∧ (I₀ ≰ₜ I₁) ∧ (I₁ ≰ₜ I₀) :=
+  I₀ ≤ₜ ∅′ ∧ I₁ ≤ₜ ∅′ ∧ ¬I₀ ≤ₜ I₁ ∧ ¬I₁ ≤ₜ I₀ :=
 ⟨I₀, I₁, I₀_0'computable, I₁_0'computable, incomparable₀, incomparable₁⟩
 
-theorem Friedberg_Muchnik : ∃ (A B : set ℕ), 
-  re_pred A ∧ re_pred B ∧ (A ≰ₜ B) ∧ (B ≰ₜ A) :=
+theorem Kleene_Post' : ∃ d₀ d₁ : turing_degree,
+  d₀ ≤ 0⁺ ∧ d₁ ≤ 0⁺ ∧ ¬d₀ ≤ d₁ ∧ ¬d₁ ≤ d₀ :=
+⟨turing_degree.of I₀, turing_degree.of I₁, by { simp [has_zero.zero],
+ exact ⟨I₀_0'computable, I₁_0'computable, incomparable₀, incomparable₁⟩}⟩
+
+theorem Friedberg_Muchnik' : ∃ d₀ d₁ : turing_degree,
+  d₀ ∈ 𝓡 ∧ d₁ ∈ 𝓡 ∧ ¬d₀ ≤ d₁ ∧ ¬d₁ ≤ d₀ :=
 by sorry
 
 end Kleene_Post
