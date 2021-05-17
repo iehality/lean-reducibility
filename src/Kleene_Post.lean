@@ -7,7 +7,6 @@ local attribute [simp] set.set_of_app_iff
 
 lemma bnot_ne (b) : b ≠ !b := by cases b; simp
 
-namespace t_reducible
 open primrec
 
 theorem extendable_suffix {l₀ n e} {A : ℕ → bool}
@@ -431,15 +430,4 @@ theorem Kleene_Post : ∃ I₀ I₁ : set ℕ,
   I₀ ≤ₜ ∅′ ∧ I₁ ≤ₜ ∅′ ∧ ¬I₀ ≤ₜ I₁ ∧ ¬I₁ ≤ₜ I₀ :=
 ⟨I₀, I₁, I₀_0'computable, I₁_0'computable, incomparable₀, incomparable₁⟩
 
-theorem Kleene_Post' : ∃ d₀ d₁ : turing_degree,
-  d₀ ≤ 0⁺ ∧ d₁ ≤ 0⁺ ∧ ¬d₀ ≤ d₁ ∧ ¬d₁ ≤ d₀ :=
-⟨turing_degree.of I₀, turing_degree.of I₁, by { simp [has_zero.zero],
- exact ⟨I₀_0'computable, I₁_0'computable, incomparable₀, incomparable₁⟩}⟩
-
-theorem Friedberg_Muchnik' : ∃ d₀ d₁ : turing_degree,
-  d₀ ∈ 𝓡 ∧ d₁ ∈ 𝓡 ∧ ¬d₀ ≤ d₁ ∧ ¬d₁ ≤ d₀ :=
-by sorry
-
 end Kleene_Post
-
-end t_reducible

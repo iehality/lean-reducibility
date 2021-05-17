@@ -108,7 +108,7 @@ begin
     { simp [hs] },
     { by_cases (L s).rnth n = ↑tt, exact h,
       exfalso, simp [h] at hs, exact eq_none_iff'.mp rfl hs } },
-  have : {x | ∃ y, (f (x, y)).dom} ≤ₜ A′ := t_reducible.domex_jumpcomputable lmm0,
+  have : {x | ∃ y, (f (x, y)).dom} ≤ₜ A′ := domex_jumpcomputable lmm0,
   rw eqn0, exact this
 end
 

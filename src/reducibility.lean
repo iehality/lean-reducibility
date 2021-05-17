@@ -117,16 +117,16 @@ have cc : Aᶜᶜ = A, from compl_compl A,
 ⟨reducible_compl A, by { 
   suffices : Aᶜᶜ ≤ₜ Aᶜ, rw cc at this, exact this, exact @reducible_compl _ _ Aᶜ D.compl, }⟩ 
 
-theorem computable_le (A : set α) (B : set β) [D : decidable_pred B] :
+theorem computable_le {A : set α} (B : set β) [D : decidable_pred B] :
   computable_pred A → A ≤ₜ B :=
 λ ⟨D0, hA⟩, ⟨D0, D, nat.rpartrec.of_partrec _ hA⟩
 
-theorem le_computable_computable (A : set α) (B : set β) :
+theorem le_computable_computable {A : set α} {B : set β} :
   B ≤ₜ A → computable_pred A → computable_pred B := λ ⟨Db, Da, h⟩ ⟨Da0, hA⟩,
 ⟨Db, by { simp only [computable, partrec, encode_to_bool_eq Da0 Da] at hA,
           exact rpartrec.le_part_part h hA}⟩
 
-theorem computable_equiv (A : set α) (B : set β) :
+theorem computable_equiv {A : set α} {B : set β} :
   computable_pred A → computable_pred B → A ≡ₜ B :=
 λ ⟨Da, ca⟩ ⟨Db, cb⟩, ⟨@computable_le _ _ _ _ A B Db ⟨Da, ca⟩, @computable_le _ _ _ _ B A Da ⟨Db, cb⟩⟩
 
@@ -135,8 +135,8 @@ theorem computable_0 : computable_pred (∅ : set α) :=
 
 theorem degree0 (A : set α) :
   computable_pred A ↔ A ≡ₜ (∅ : set β) := 
-⟨λ ⟨D, h⟩, ⟨computable_le _ _ ⟨D, h⟩, @computable_le _ _ _ _ _ _ D computable_0⟩,
- λ ⟨h, _⟩, le_computable_computable _ _ h computable_0⟩
+⟨λ ⟨D, h⟩, ⟨computable_le _ ⟨D, h⟩, @computable_le _ _ _ _ _ _ D computable_0⟩,
+ λ ⟨h, _⟩, le_computable_computable h computable_0⟩
 
 section classical
 local attribute [instance, priority 0] classical.prop_decidable
@@ -349,90 +349,5 @@ theorem domex_0'computable_f [inhabited γ] {f : α × β × γ →. σ} {g : α
   (λ x, chr {y | ∃ z, (f (x, y, z)).dom} (g x)) computable_in chr. (∅′ : set ℕ) :=
 domex_jumpcomputable_f (pf.to_rpart_in chr. (∅ : set ℕ))
 (pg.to_rpart_in chr. (∅ : set ℕ))
-
-@[refl] theorem t_reducible_equiv.refl {α} [primcodable α] (A : set α) [D : decidable_pred A] :
-  A ≡ₜ A :=
-⟨t_reducible.refl A, t_reducible.refl A⟩
-
-@[symm] theorem t_reducible_equiv.symm {A : set α} {B : set β} :
-  A ≡ₜ B → B ≡ₜ A :=
-and.swap
-
-@[trans] theorem t_reducible_equiv.trans {A : set α} {B : set β} {C : set γ} :
-  A ≡ₜ B → B ≡ₜ C → A ≡ₜ C :=
-λ ⟨ab, ba⟩ ⟨bc, cb⟩, ⟨t_reducible.trans ab bc, t_reducible.trans cb ba⟩
-
-theorem equivalence_of_t_reducible_equiv (α) [primcodable α] :
-  equivalence (@t_reducible_equiv α α _ _) :=
-⟨λ x, t_reducible_equiv.refl x, λ x y, t_reducible_equiv.symm, λ x y z, t_reducible_equiv.trans⟩
-
-def turing_degree : Type :=
-quotient (⟨t_reducible_equiv, equivalence_of_t_reducible_equiv ℕ⟩ : setoid (set ℕ))
-
-namespace turing_degree
-
-def of (A : set ℕ) : turing_degree := quotient.mk' A
-
-@[elab_as_eliminator]
-protected lemma ind_on {C : turing_degree → Prop} (d : turing_degree)
-  (h : ∀ p : set ℕ, C (of p)) : C d :=
-quotient.induction_on' d h
-
-@[elab_as_eliminator, reducible]
-protected def lift_on {φ} (d : turing_degree) (f : set ℕ → φ)
-  (h : ∀ p q, p ≡ₜ q → f p = f q) : φ :=
-quotient.lift_on' d f h
-
-@[simp]
-protected lemma lift_on_eq {φ} (p : set ℕ) (f : set ℕ → φ)
-  (h : ∀ p q, t_reducible_equiv p q → f p = f q) : (of p).lift_on f h = f p :=
-rfl
-
-@[elab_as_eliminator, reducible, simp]
-protected def lift_on₂ {φ} (d₁ d₂ : turing_degree) (f : set ℕ → set ℕ → φ)
-  (h : ∀ p₁ p₂ q₁ q₂, p₁ ≡ₜ q₁ → p₂ ≡ₜ q₂ → f p₁ p₂ = f q₁ q₂) : φ :=
-quotient.lift_on₂' d₁ d₂ f h
-
-@[simp]
-protected lemma lift_on₂_eq {φ} (p q : set ℕ) (f : set ℕ → set ℕ → φ)
-  (h : ∀ p₁ p₂ q₁ q₂, p₁ ≡ₜ q₁ → p₂ ≡ₜ q₂ → f p₁ p₂ = f q₁ q₂) :
-  (of p).lift_on₂ (of q) f h = f p q := rfl
-
-@[simp] lemma of_eq_of {p q} : of p = of q ↔ p ≡ₜ q :=
-by simp [of, quotient.eq']
-
-
-
-instance : has_le turing_degree :=
-⟨λ d₁ d₂, turing_degree.lift_on₂ d₁ d₂ (≤ₜ) $
-  λ p₁ p₂ q₁ q₂ hp hq, propext ⟨λ hpq, (hp.2.trans hpq).trans hq.1, λ hpq, (hp.1.trans hpq).trans hq.2⟩⟩
-
-instance : has_lt turing_degree := ⟨λ d₀ d₁, d₀ ≤ d₁ ∧ ¬ d₁ ≤ d₀⟩
-
-instance : has_zero turing_degree := ⟨of (∅ : set ℕ)⟩
-
-instance : inhabited turing_degree := ⟨0⟩
-
-def djump : turing_degree → turing_degree :=
-λ d, turing_degree.lift_on d (λ d, of d′)
-(λ A B ⟨ab, ba⟩, by { simp, exact ⟨le_le_jump ab, le_le_jump ba⟩ })
-
-notation d`⁺`:1200 := djump d
-
-@[simp] lemma of_le_of {p q} : of p ≤ of q ↔ p ≤ₜ q := by refl
-
-@[simp] lemma of_lt_of {p q} : of p < of q ↔ p <ₜ q := by refl
-
-@[simp] lemma of_jump {A} : (of A)⁺ = of A′ := by refl
-
-def Rec := {d | ∃ R : set ℕ, re_pred R ∧ d = of R}
-
-notation `𝓡` := Rec
-
-def High := {d | d ∈ 𝓡 ∧ d⁺ = 0⁺⁺}
-
-def Low  := {d | d ∈ 𝓡 ∧ d⁺ = 0⁺}
-
-end turing_degree
 
 end classical
