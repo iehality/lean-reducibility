@@ -3,7 +3,8 @@ open encodable denumerable roption
 
 local attribute [instance, priority 0] classical.prop_decidable
 
-@[refl] theorem t_reducible_equiv.refl {α} [primcodable α] (A : set α) [D : decidable_pred A] :
+@[refl] theorem t_reducible_equiv.refl {α} [primcodable α]
+  (A : set α) [D : decidable_pred A] :
   A ≡ₜ A :=
 ⟨t_reducible.refl A, t_reducible.refl A⟩
 
@@ -12,14 +13,17 @@ local attribute [instance, priority 0] classical.prop_decidable
   A ≡ₜ B → B ≡ₜ A :=
 and.swap
 
-@[trans] theorem t_reducible_equiv.trans {α β γ} [primcodable α] [primcodable β] [primcodable γ]
+@[trans] theorem t_reducible_equiv.trans {α β γ}
+  [primcodable α] [primcodable β] [primcodable γ]
   {A : set α} {B : set β} {C : set γ} :
   A ≡ₜ B → B ≡ₜ C → A ≡ₜ C :=
 λ ⟨ab, ba⟩ ⟨bc, cb⟩, ⟨t_reducible.trans ab bc, t_reducible.trans cb ba⟩
 
 theorem equivalence_of_t_reducible_equiv (α) [primcodable α] :
   equivalence (@t_reducible_equiv α α _ _) :=
-⟨λ x, t_reducible_equiv.refl x, λ x y, t_reducible_equiv.symm, λ x y z, t_reducible_equiv.trans⟩
+⟨λ x, t_reducible_equiv.refl x,
+ λ _ _, t_reducible_equiv.symm,
+ λ _ _ _, t_reducible_equiv.trans⟩
 
 def turing_degree : Type :=
 quotient (⟨t_reducible_equiv, equivalence_of_t_reducible_equiv ℕ⟩ : setoid (set ℕ))
@@ -60,13 +64,12 @@ by simp [deg, quotient.eq']
 
 instance : has_le 𝓓 :=
 ⟨λ d₁ d₂, turing_degree.lift_on₂ d₁ d₂ (≤ₜ) $
-  λ p₁ p₂ q₁ q₂ hp hq, propext ⟨λ hpq, (hp.2.trans hpq).trans hq.1, λ hpq, (hp.1.trans hpq).trans hq.2⟩⟩
+ λ p₁ p₂ q₁ q₂ hp hq, propext 
+ ⟨λ hpq, (hp.2.trans hpq).trans hq.1, λ hpq, (hp.1.trans hpq).trans hq.2⟩⟩
 
 instance : has_lt 𝓓 := ⟨λ d₀ d₁, d₀ ≤ d₁ ∧ ¬ d₁ ≤ d₀⟩
 
 instance : has_zero 𝓓 := ⟨deg (∅ : set ℕ)⟩
-
-
 
 instance : inhabited 𝓓 := ⟨0⟩
 
@@ -80,9 +83,9 @@ def djump_itr (d : 𝓓) : ℕ → 𝓓
 | 0 := d
 | (n+1) := (djump_itr n)⁺
 
-@[simp] lemma of_le_of {p q} : deg p ≤ deg q ↔ p ≤ₜ q := by refl
+@[simp] lemma of_le_of {A B} : deg A ≤ deg B ↔ A ≤ₜ B := by refl
 
-@[simp] lemma of_lt_of {p q} : deg p < deg q ↔ p <ₜ q := by refl
+@[simp] lemma of_lt_of {A B} : deg A < deg B ↔ A <ₜ B := by refl
 
 @[simp] lemma of_jump {A} : (deg A)⁺ = deg A′ := by refl
 
@@ -161,8 +164,7 @@ begin
     simp [has_lt.lt] at this, 
     have : d₀ ≤ d₁, from this.1.trans (by simp),
     contradiction },  
-  by_contra C,
-  simp at C,
+  by_contra C, simp at C,
   cases this,
   { have := C _ this,
     simp [has_lt.lt] at this,

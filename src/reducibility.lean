@@ -84,9 +84,15 @@ A ≤ₜ B ∧ B ≤ₜ A
 
 infix ` ≡ₜ `:1000 := t_reducible_equiv
 
---namespace t_reducible
+def productive (A : set ℕ) : Prop :=
+∃ φ : ℕ →. ℕ, partrec φ ∧ ∀ i : ℕ, W⟦i⟧ₙ⁰ ⊆ A → ∃ z, z ∈ φ i ∧ z ∈ A ∧ z ∉ W⟦i⟧ₙ⁰
 
---open rpartrec rcomputable
+def creative (A : set ℕ) : Prop :=
+re_pred A ∧ productive Aᶜ
+
+def immune (A : set ℕ) : Prop := infinite A ∧ ∀ e, infinite W⟦e⟧ₙ⁰ → W⟦e⟧ₙ⁰ ∩ Aᶜ ≠ ∅
+
+def simple (A : set ℕ) : Prop := re_pred A ∧ immune Aᶜ 
 
 variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
 variables [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ] [primcodable μ]
@@ -142,16 +148,12 @@ section classical
 local attribute [instance, priority 0] classical.prop_decidable
 open rpartrec
 
-notation `⟦`e`⟧ᵪ^`f:max` [`s`]` := univn ℕ bool s f e
-notation `⟦`e`⟧ᵪ^`f:max := univ ℕ bool f e
-notation `⟦`e`⟧ₙ^`f:max` [`s`]` := univn ℕ ℕ s f e
-notation `⟦`e`⟧ₙ^`f:max := univ ℕ ℕ f e
-
 theorem cond_if_eq {α β} (p : set α) (x) (a b : β) :
   cond (chr p x) a b = if p x then a else b :=
 by {by_cases h : p x; simp [h], simp [(chr_iff p x).mpr h], simp [(chr_ff_iff p x).mpr h] }
 
 def jump (A : set ℕ) : set ℕ := {x | (⟦x.unpair.1⟧ₙ^(chr* A) x.unpair.2).dom}
+def kleene (A : set ℕ) : set ℕ := {x | (⟦x⟧ₙ^(chr* A) x).dom}
 
 notation A`′`:1200 := jump A
 
@@ -219,6 +221,45 @@ begin
     (primrec₂.mkpair.comp (primrec.const e)
     primrec.id).to_comp.to_rcomp),
 end
+
+open primrec
+
+theorem kleene_eq_jump (A : set ℕ) : kleene A ≡ₜ A′ :=
+⟨classical_iff.mpr 
+  begin
+    show chr (kleene A) computable_in chr. A′,
+    let f := (λ n : ℕ, chr A′ (n.mkpair n)),
+    have : chr (kleene A) = f,
+    { funext n, apply chr_ext.mpr,
+      simp [kleene, f, jump] },
+    rw this,
+    have := rcomputable.refl.comp
+      (primrec₂.mkpair.comp primrec.id primrec.id).to_comp.to_rcomp,
+    exact this
+  end, classical_iff.mpr
+  begin
+    show chr A′ computable_in chr. kleene A,
+    let t := (λ x : ℕ × (ℕ × ℕ), ⟦x.1⟧ₙ^(chr* A) x.2.1),
+    have : ∃ e, ⟦e⟧^(chr* A) = t,
+    { have : t partrec_in chr. A := (univ_rpartrec ℕ ℕ (chr* A)).comp 
+        (fst.pair (fst.comp snd)).to_comp.to_rcomp,
+      exact rpartrec_univ_iff_total.mp this },
+    rcases this with ⟨e, eqn_e⟩,
+    let k := (λ n m : ℕ, curry (curry e n) m),
+    have eqn_k : ∀ z i x, ⟦k i x⟧ₙ^(chr* A) z = ⟦i⟧ₙ^(chr* A) x,
+    { intros z i x, simp [k, eqn_e] },
+    let f := (λ x : ℕ, chr (kleene A) (k x.unpair.1 x.unpair.2)),
+    have : chr A′ = f,
+    { funext n, apply chr_ext.mpr,
+      simp [kleene, f, jump, eqn_k, eqn_e] },
+    rw this,
+    have : primrec₂ k := curry_prim.comp
+      (curry_prim.comp (const e) fst) snd,
+    have := rcomputable.refl.comp
+      (this.comp (fst.comp primrec.unpair)
+      (snd.comp primrec.unpair)).to_comp.to_rcomp,
+    exact this
+  end⟩
 
 lemma rre_pred_iff {p : set α} {f : β →. σ}:
   rre_pred p f ↔ ∃ q : ℕ →. ℕ, q partrec_in f ∧ (∀ x, p x ↔ (q $ encodable.encode x).dom) :=
@@ -289,7 +330,7 @@ begin
     { use 0, exact ⟨eq.symm ep, by simp⟩ } }
 end
 
-open primrec
+
 
 theorem domex_jumpcomputable [inhabited β]
   {f : α × β →. σ} {A : set ℕ} (pf : f partrec_in chr. A) :
@@ -349,5 +390,7 @@ theorem domex_0'computable_f [inhabited γ] {f : α × β × γ →. σ} {g : α
   (λ x, chr {y | ∃ z, (f (x, y, z)).dom} (g x)) computable_in chr. (∅′ : set ℕ) :=
 domex_jumpcomputable_f (pf.to_rpart_in chr. (∅ : set ℕ))
 (pg.to_rpart_in chr. (∅ : set ℕ))
+
+
 
 end classical

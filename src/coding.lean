@@ -689,6 +689,33 @@ def univ (α σ) [primcodable α] [primcodable σ] (f : β → option τ) (e : �
 
 notation `⟦`e`⟧^`f:max := univ _ _ f e
 
+notation `⟦`e`⟧ᵪ^`f:max` [`s`]` := univn ℕ bool s f e
+notation `⟦`e`⟧ₙ^`f:max` [`s`]` := univn ℕ ℕ s f e
+notation `⟦`e`⟧ᵪ^`f:max := univ ℕ bool f e
+notation `⟦`e`⟧ₙ^`f:max := univ ℕ ℕ f e
+
+def univn0 (α σ) [primcodable α] [primcodable σ] (s : ℕ) (e : ℕ) : α → option σ :=
+univn α σ s (λ x, none : ℕ → option ℕ) e
+
+def univ0 (α σ) [primcodable α] [primcodable σ] (e : ℕ) : α →. σ :=
+univ α σ (λ x, none : ℕ → option ℕ) e
+
+notation `⟦`e`⟧ᵪ⁰`:max` [`s`]` := univn0 ℕ bool s e
+notation `⟦`e`⟧ₙ⁰`:max` [`s`]` := univn0 ℕ ℕ s e
+notation `⟦`e`⟧ᵪ⁰`:max := univ0 ℕ bool e
+notation `⟦`e`⟧ₙ⁰`:max := univ0 ℕ ℕ e
+
+def wert (α σ) [primcodable α] [primcodable σ] (f : β → option τ) (e : ℕ) : set α :=
+{x | (⟦e⟧^f x : roption σ).dom}
+
+def wert0 (α σ) [primcodable α] [primcodable σ] (e : ℕ) : set α :=
+{x | (univ0 α σ e x : roption σ).dom}
+
+notation `W⟦`e`⟧ᵪ^`f:max := wert ℕ bool f e
+notation `W⟦`e`⟧ₙ^`f:max := wert ℕ ℕ f e
+notation `W⟦`e`⟧ᵪ⁰`:max := wert0 ℕ bool e
+notation `W⟦`e`⟧ₙ⁰`:max := wert0 ℕ ℕ e
+
 def curry {α} [primcodable α] (e : ℕ) (n : α) : ℕ := encode (code.curry (of_nat _ e) (encode n))
 
 def oracle_of (e i : ℕ) : ℕ := encode (code.oracle_of (of_nat _ e) (of_nat _ i))
