@@ -145,6 +145,12 @@ begin
   { intros hn, refine ⟨0, h 0 _ _ hn⟩ }
 end
 
+theorem limit_rre {L} (F : fis L) : limit L re_in (L : ℕ →. list bool) :=
+begin
+  simp [rre_pred_iff],
+  
+end
+
 end fis
 
 namespace fiss
