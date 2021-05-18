@@ -88,28 +88,28 @@ def full (L : ℕ → list bool) := ∀ n, ∃ s, n < (L s).length
 
 def limit (L : ℕ → list bool) : set ℕ := {n | ∃ s, (L s).rnth n = tt}
 
-theorem limit_jumpcomputabile {L : ℕ → list bool} {A : set ℕ} (cL : L computable_in chr. A) :
-  limit L ≤ₜ A′ :=
+theorem limit_rre {L} : limit L re_in (L : ℕ →. list bool) :=
 begin
-  let f : ℕ × ℕ →. ℕ := (λ n, cond ((L n.2).rnth n.1 = tt) (some 0) none),
-  have lmm0 : f partrec_in chr. A,
-  { apply rpartrec.cond,
-    { have := primrec.list_nth.to_comp.to_rcomp.comp 
-        ((primrec.list_reverse.to_comp.to_rcomp.comp $
-          cL.comp rcomputable.snd).pair rcomputable.fst),
-      have := this.pair (rcomputable.const (some tt)),
-      have := primrec.eq.to_comp.to_rcomp.comp this,
-      exact this },
-    exact rcomputable.const _,
-    exact partrec.none.to_rpart },
-  have eqn0 : limit L = {n | ∃ s, (f (n, s)).dom},
-  { apply set.ext, intros n, simp [limit, f],
-    split; rintros ⟨s, hs⟩; refine ⟨s, _⟩,
-    { simp [hs] },
-    { by_cases (L s).rnth n = ↑tt, exact h,
-      exfalso, simp [h] at hs, exact eq_none_iff'.mp rfl hs } },
-  have : {x | ∃ y, (f (x, y)).dom} ≤ₜ A′ := domex_jumpcomputable lmm0,
-  rw eqn0, exact this
+  let f : ℕ × ℕ →. ℕ := (λ x, of_option (((L x.2).rnth x.1).bind (λ b, cond b (some 0) none))),
+  have pf : f partrec_in (L : ℕ →. list bool),
+  { apply rpartrec.of_option,
+    have c₀ : (λ x : ℕ × ℕ, (L x.2).rnth x.1) computable_in (L : ℕ →. list bool) :=
+      primrec.list_rnth.to_comp.to_rcomp.comp
+      ((rcomputable.refl.comp rcomputable.snd).pair rcomputable.fst),
+    have c₁ : (λ b, cond b (option.some 0) none) computable_in (L : ℕ →. list bool) :=
+      (rcomputable.cond rcomputable.id 
+      (rcomputable.const _) (rcomputable.const _)),
+    have := (c₁.comp rcomputable.snd),
+    have := c₀.option_bind this, exact this },
+  have eqn : {n | ∃ s, (L s).rnth n = ↑tt} = {n | ∃ s, (f (n, s)).dom},
+  { have : ∀ n s, (L s).rnth n = ↑tt ↔ (f (n, s)).dom,
+    { simp[f], intros a b, unfold_coes,
+      cases (L b).rnth a with v; simp [roption.none],
+      cases v; simp },
+    apply set.ext, simp [this] },
+  simp [limit], rw eqn,
+  have := domex_rre f,
+  exact pf.rre_rre this,
 end
 
 namespace fis
@@ -143,12 +143,6 @@ begin
   cases b; simp [limit]; unfold_coes,
   { intros hn s hs, have := h s _ _ hn, simp [hs] at this,  exact this },
   { intros hn, refine ⟨0, h 0 _ _ hn⟩ }
-end
-
-theorem limit_rre {L} (F : fis L) : limit L re_in (L : ℕ →. list bool) :=
-begin
-  simp [rre_pred_iff],
-  
 end
 
 end fis

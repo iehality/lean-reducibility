@@ -279,14 +279,9 @@ begin
        simp[g], apply roption.ext, intros u, simp[hq, dom_iff_mem] }) }
 end
 
-lemma dom_rre {f : α →. σ} {g : β →. τ} (hf : f partrec_in g) :
-  {x | (f x).dom} re_in g :=
-begin
-  let g := (λ a, (f a).map (λ x, ())),
-  have := hf.map ((computable.const ()).comp computable.snd).to_rcomp,
-  exact (this.of_eq $ λ x, by { rw set.set_of_app_iff, simp, 
-    apply roption.ext, intros a, simp [dom_iff_mem] })
-end
+lemma rpartrec.rre_rre {f : α →. σ} {g : β →. τ} (hf : f partrec_in g) {A : set γ} :
+  A re_in f → A re_in g :=
+by simp [rre_pred_iff]; exact λ f' pf' hf', ⟨f', pf'.trans hf, hf'⟩
 
 theorem rre_jumpcomputable {A : set α} {B : set ℕ} : A re_in (chr. B) → A ≤ₜ B′ := 
 λ h, classical_iff.mpr 
@@ -306,15 +301,15 @@ end
 theorem re_0'computable {A : set α} : re_pred A → A ≤ₜ (∅′ : set ℕ) := 
 λ h, rre_jumpcomputable (show A re_in chr. (∅ : set ℕ), from h.to_rpart)
 
-theorem dom_jumpcomputable {f : α →. σ} {A : set ℕ} (h : f partrec_in chr. A) :
-  {x | (f x).dom} ≤ₜ A′ := 
-rre_jumpcomputable (dom_rre h)
+lemma dom_rre (f : α →. σ) : {x | (f x).dom} re_in f :=
+begin
+  let g := (λ a, (f a).map (λ x, ())),
+  have := rpartrec.refl.map ((computable.const ()).comp computable.snd).to_rcomp,
+  exact (this.of_eq $ λ x, by { rw set.set_of_app_iff, simp, 
+    apply roption.ext, intros a, simp [dom_iff_mem] })
+end
 
-theorem dom_0'computable {f : α →. σ} (pf : partrec f) :
-  {x | (f x).dom} ≤ₜ (∅′ : set ℕ) := 
-dom_jumpcomputable pf.to_rpart
-
-theorem rfind_dom_total {p : ℕ → bool} :
+private lemma rfind_dom_total {p : ℕ → bool} :
   (∃ n, p n = tt) → (nat.rfind p).dom :=
 begin
   simp, intros n,
@@ -330,35 +325,37 @@ begin
     { use 0, exact ⟨eq.symm ep, by simp⟩ } }
 end
 
-
-
-theorem domex_jumpcomputable [inhabited β]
-  {f : α × β →. σ} {A : set ℕ} (pf : f partrec_in chr. A) :
-  {x | ∃ y, (f (x, y)).dom} ≤ₜ A′ := 
+theorem domex_rre [inhabited β] (f : α × β →. σ) :
+  {x | ∃ y, (f (x, y)).dom} re_in f :=
 begin
-  have := rpartrec.rpartrec_univ_iff_total.mp pf,
+  let fo := (λ x, (f x).to_option),
+  have pf : f partrec_in (λ x, fo x),
+  { unfold_coes, simp [fo] },
+  have pfo : (λ x, fo x) partrec_in f,
+  { unfold_coes, simp [fo] },
+  have := rpartrec.rpartrec_univ_iff.mp pf,
   rcases this with ⟨e, hf⟩,
-  let p := (λ x : α, nat.rfind (λ u, (⟦e⟧^(chr* A) [u.unpair.2]
-      (x, (decode β u.unpair.1).get_or_else (default β)) : option σ).is_some)),
+  let p := (λ x : α, nat.rfind (λ u, (⟦e⟧^fo [u.unpair.2]
+    (x, (decode β u.unpair.1).get_or_else (default β)) : option σ).is_some)),
   have lmm : ∀ x : α, (∃ y : β, (f (x, y) : roption σ).dom) ↔ (p x).dom,
-  { intros x, simp only [p], rw ← hf, split, -- simp only[roption.dom_iff_mem, roption.some],
+  { intros x, simp only [p], rw ← hf, split,
     { rintros ⟨y, hb⟩, 
       apply rfind_dom_total,
       simp [roption.dom_iff_mem, roption.some] at hb ⊢, rcases hb with ⟨z, hz⟩,
       rcases evaln_complete.mp hz with ⟨s, hs⟩,
       use (encode y).mkpair s,
-      simp [hs], },
+      simp [hs] },
     { simp, intros u h0 h1, 
       use (decode β u.unpair.fst).get_or_else (default β),
-      cases e : (⟦e⟧^(chr* A) [u.unpair.snd] (x, 
+      cases e : (⟦e⟧^fo [u.unpair.snd] (x, 
         (decode β u.unpair.fst).get_or_else (default β)) : option σ) with v,
       { exfalso, simp [e] at h0, exact h0 },
       have := evaln_sound e, simp [this] } },
   have eqn : {x | ∃ y, (f (x, y)).dom} = {x | (p x).dom},
   { apply set.ext, simp [lmm] },
-  have : p partrec_in chr. A,
+  have : p partrec_in (λ x, fo x),
   { have c₀ := primrec.option_is_some.to_comp.to_rcomp.comp
-      (univn_rcomputable (α × β) σ (chr* A)),
+      (univn_rcomputable (α × β) σ _),
     have c₁ := (snd.comp $ unpair.comp $ snd).pair
       ((const e).pair (fst.pair (option_get_or_else.comp 
       (primrec.decode.comp $ fst.comp $ unpair.comp snd)
@@ -366,8 +363,23 @@ begin
     have := c₀.comp c₁.to_comp.to_rcomp,
     have := rpartrec.rfind.trans this,
     exact this },
-  rw eqn, exact dom_jumpcomputable this
+  rw eqn,
+  show {x : α | (p x).dom} re_in f,
+  exact pfo.rre_rre (this.rre_rre (dom_rre p)),
 end
+
+theorem dom_jumpcomputable {f : α →. σ} {A : set ℕ} (h : f partrec_in chr. A) :
+  {x | (f x).dom} ≤ₜ A′ := 
+rre_jumpcomputable (h.rre_rre (dom_rre f))
+
+theorem dom_0'computable {f : α →. σ} (pf : partrec f) :
+  {x | (f x).dom} ≤ₜ (∅′ : set ℕ) := 
+dom_jumpcomputable pf.to_rpart
+
+theorem domex_jumpcomputable [inhabited β]
+  {f : α × β →. σ} {A} (pf : f partrec_in chr. A) :
+  {x | ∃ y, (f (x, y)).dom} ≤ₜ A′ := 
+rre_jumpcomputable (pf.rre_rre (domex_rre f))
 
 theorem domex_0'computable [inhabited β] {f : α → β →. σ} 
   (pf : partrec₂ f) : {x | ∃ y, (f x y).dom} ≤ₜ (∅′ : set ℕ) :=
