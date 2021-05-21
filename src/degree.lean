@@ -80,7 +80,7 @@ def djump : 𝓓 → 𝓓 :=
 notation d`⁺`:1200 := djump d
 
 def djump_itr (d : 𝓓) : ℕ → 𝓓
-| 0 := d
+| 0     := d
 | (n+1) := (djump_itr n)⁺
 
 @[simp] lemma of_le_of {A B} : deg A ≤ deg B ↔ A ≤ₜ B := by refl

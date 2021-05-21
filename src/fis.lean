@@ -88,7 +88,7 @@ def full (L : ℕ → list bool) := ∀ n, ∃ s, n < (L s).length
 
 def limit (L : ℕ → list bool) : set ℕ := {n | ∃ s, (L s).rnth n = tt}
 
-theorem limit_rre {L} : limit L re_in (L : ℕ →. list bool) :=
+theorem limit_rre (L) : limit L re_in (L : ℕ →. list bool) :=
 begin
   let f : ℕ × ℕ →. ℕ := (λ x, of_option (((L x.2).rnth x.1).bind (λ b, cond b (some 0) none))),
   have pf : f partrec_in (L : ℕ →. list bool),
@@ -109,8 +109,12 @@ begin
     apply set.ext, simp [this] },
   simp [limit], rw eqn,
   have := domex_rre f,
-  exact pf.rre_rre this,
+  show {n | ∃ s, (f (n, s)).dom} re_in ↑L,
+  exact this.rre pf,
 end
+
+theorem limit_re {L} (cL : computable L) : re_pred (limit L) :=
+(limit_rre L).re cL
 
 namespace fis
 
@@ -131,9 +135,10 @@ begin
   { rintros ⟨s, hs⟩, refine ⟨s+m, hs⟩ }
 end
 
-theorem subseq_limit {L} (F : fis L) {C s} (h : ∀ u, s ≤ u → C ⊆* (L u).rnth) :
+theorem subseq_limit {L} (F : fis L) {C} (h : ∃ s, ∀ u, s ≤ u → C ⊆* (L u).rnth) :
   C ⊆* chr* limit L := 
 begin
+  rcases h with ⟨s, h⟩,
   suffices : 
     ∀ {L : ℕ → list bool}, (∀ u, C ⊆* (L u).rnth) → C ⊆* chr* limit L,
   { rw fis_limit_eq F s,
@@ -155,7 +160,7 @@ theorem fiss_le {L} (F : fiss L) :
 relation_path_le (<:+) list.suffix_refl (λ a b c, list.is_suffix.trans) F
 
 lemma fiss_subseq_limit {L} (F : fiss L) (s) : (L s).rnth ⊆* chr* limit L :=
-subseq_limit (fiss_fis F) (λ u eu, suffix_subseq (fiss_le F eu))
+subseq_limit (fiss_fis F) ⟨s, λ u eu, suffix_subseq (fiss_le F eu)⟩
 
 theorem limit_fullfiss_computable {L} (F : fiss L) (U : full L) : 
   chr (limit L) computable_in (L : ℕ →. list bool) :=
@@ -174,7 +179,7 @@ begin
     simp [eqn0, this] },
   have : f partrec_in ↑L,
   { have := primrec.list_rnth.to_comp.to_rcomp.comp 
-      (((rcomputable.refl_in L).comp rcomputable.snd).pair rcomputable.fst), simp at this,
+      (((rcomputable.refl_in L).comp rcomputable.snd).pair rcomputable.fst),
     have := rpartrec.rfind_opt this,
     exact this },
   rw eqn0 at this,

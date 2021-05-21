@@ -32,13 +32,13 @@ begin
   let f := (λ (x : ℕ × list bool × ℕ) l, ⟦x.1⟧ᵪ^(l ++ x.2.1).rnth x.2.2),
   have := (fst.comp fst).pair ((list_append.comp snd (fst.comp $ snd.comp fst)).pair
     (snd.comp $ snd.comp fst)),
-  have : partrec₂ f := (rpartrec.eval_list_partrec ℕ bool).comp this.to_comp,
+  have : partrec₂ f := (partrec.eval_list_partrec ℕ bool).comp this.to_comp,
   have := domex_0'computable this,
   exact this
 end
 
 theorem O₁_0'computable : O₁ ≤ₜ ∅′ :=
-dom_0'computable (rpartrec.eval_list_partrec ℕ bool)
+dom_0'computable (partrec.eval_list_partrec ℕ bool)
 
 namespace Kleene_Post
 
@@ -60,6 +60,30 @@ noncomputable def L : ℕ →. list bool × list bool
             some (l ++ σ.1, !b :: σ.2)
     else some (σ.1, ff :: σ.2)
   end
+
+lemma fffL_0'partrec'₀ :
+  (λ (a : ℕ × list bool × list bool),
+    epsilon (chr (λ l, (⟦a.fst.div2⟧ᵪ^((l ++ a.snd.fst).rnth) a.snd.snd.length).dom)) >>=
+    λ l, (⟦a.1.div2⟧ᵪ^((l ++ a.2.1).rnth) a.2.2.length >>=
+    λ b, some (l ++ a.2.1, !b :: a.2.2))) partrec_in chr. O₁ :=
+begin
+  simp [(>>=)],
+  apply rpartrec.bind',
+  { apply rcomputable.epsilon, simp,
+    let p := (λ x : (ℕ × list bool × list bool) × list bool,
+      chr O₁ (x.1.1.div2, x.2 ++ x.1.2.1, x.1.2.2.length)),
+    have : ∀ a : ℕ × list bool × list bool,
+      chr (λ l, (⟦a.1.div2⟧ᵪ^((l ++ a.2.1).rnth) a.2.2.length).dom) = λ l, p (a, l),
+    { intros a, funext x, apply chr_ext.mpr, simp [O₁] }, simp [this],
+    have := (nat_div2.comp $ fst.comp fst).pair 
+      ((list_append.comp snd (fst.comp $ snd.comp fst)).pair 
+      (list_length.comp $ snd.comp $ snd.comp fst)),
+    exact (rcomputable.refl).comp this.to_comp.to_rcomp },
+  { simp, apply rpartrec.bind',
+    { apply partrec.to_rpart,
+       }
+    }
+end
 
 lemma L_0'partrec'₀ :
   (λ (a : ℕ × list bool × list bool),
@@ -87,7 +111,7 @@ begin
     have pm : primrec m := (nat_div2.comp $ fst.comp fst).pair
       ((list_append.comp snd (fst.comp $ snd.comp fst)).pair
       (list_length.comp $ snd.comp $ snd.comp fst)),
-    have lmm1 := (rpartrec.eval_list_partrec ℕ bool).comp pm.to_comp, simp [m] at lmm1,
+    have lmm1 := (partrec.eval_list_partrec ℕ bool).comp pm.to_comp, simp [m] at lmm1,
     let h := (λ (x : (ℕ × list bool × list bool) × list bool) (b : bool),
       (x.2 ++ x.1.2.1, !b :: x.1.2.2)),
     have ph : primrec₂ h := (list_append.comp (snd.comp fst) 
@@ -124,7 +148,7 @@ begin
     have pm : primrec m := (nat_div2.comp $ fst.comp fst).pair
       ((list_append.comp snd (snd.comp $ snd.comp fst)).pair
       (list_length.comp $ fst.comp $ snd.comp fst)),
-    have lmm1 := (rpartrec.eval_list_partrec ℕ bool).comp pm.to_comp, simp [m] at lmm1,
+    have lmm1 := (partrec.eval_list_partrec ℕ bool).comp pm.to_comp, simp [m] at lmm1,
     let h := (λ (x : (ℕ × list bool × list bool) × list bool) (b : bool),
       (!b :: x.1.2.1, x.2 ++ x.1.2.2)),
     have ph : primrec₂ h := 

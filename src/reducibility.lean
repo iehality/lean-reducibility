@@ -60,11 +60,15 @@ begin
     exact (chr_iff A x).mpr (by simp [h, bx]) }
 end
 
-def rre_pred {β σ α} [primcodable β] [primcodable σ] [primcodable α]
+def rre_pred {α β σ} [primcodable α] [primcodable β] [primcodable σ]
   (p : set α) (f : β →. σ) : Prop :=
 (λ a, roption.assert (p a) (λ _, roption.some ())) partrec_in f
 
 infix ` re_in `:80 := rre_pred
+
+theorem rre_pred.re {α β σ} [primcodable α] [primcodable β] [primcodable σ]
+  {A : set α} {f : β →. σ} (hA : A re_in f) (hf : partrec f) : re_pred A :=
+hA.le_part_part hf
 
 def t_reducible {α β} [primcodable α] [primcodable β] (A : set α) (B : set β) : Prop := 
 ∃ [D0 : decidable_pred A] [D1 : decidable_pred B],
@@ -156,6 +160,10 @@ def jump (A : set ℕ) : set ℕ := {x | (⟦x.unpair.1⟧ₙ^(chr* A) x.unpair.
 def kleene (A : set ℕ) : set ℕ := {x | (⟦x⟧ₙ^(chr* A) x).dom}
 
 notation A`′`:1200 := jump A
+
+def jump_itr : ℕ → set ℕ → set ℕ
+| 0     A := A
+| (n+1) A := (jump_itr n A)′
 
 theorem lt_jump (A : set ℕ) : A <ₜ A′ := 
 ⟨classical_iff.mpr
@@ -276,12 +284,12 @@ begin
     have : g partrec_in f :=
       (pq.comp computable.encode.to_rpart).map (rcomputable.const ()),
     exact (this.of_eq $ λ x, by {
-       simp[g], apply roption.ext, intros u, simp[hq, dom_iff_mem] }) }
+      simp[g], apply roption.ext, intros u, simp[hq, dom_iff_mem] }) }
 end
 
-lemma rpartrec.rre_rre {f : α →. σ} {g : β →. τ} (hf : f partrec_in g) {A : set γ} :
-  A re_in f → A re_in g :=
-by simp [rre_pred_iff]; exact λ f' pf' hf', ⟨f', pf'.trans hf, hf'⟩
+lemma rre_pred.rre {f : α →. σ} {g : β →. τ} {A : set γ}
+  : A re_in f → f partrec_in g → A re_in g :=
+by simp [rre_pred_iff]; exact λ q pq h pf, ⟨q, pq.trans pf, h⟩
 
 theorem rre_jumpcomputable {A : set α} {B : set ℕ} : A re_in (chr. B) → A ≤ₜ B′ := 
 λ h, classical_iff.mpr 
@@ -365,12 +373,12 @@ begin
     exact this },
   rw eqn,
   show {x : α | (p x).dom} re_in f,
-  exact pfo.rre_rre (this.rre_rre (dom_rre p)),
+  exact (dom_rre p).rre (this.trans pfo)
 end
 
 theorem dom_jumpcomputable {f : α →. σ} {A : set ℕ} (h : f partrec_in chr. A) :
   {x | (f x).dom} ≤ₜ A′ := 
-rre_jumpcomputable (h.rre_rre (dom_rre f))
+rre_jumpcomputable ((dom_rre f).rre h)
 
 theorem dom_0'computable {f : α →. σ} (pf : partrec f) :
   {x | (f x).dom} ≤ₜ (∅′ : set ℕ) := 
@@ -379,7 +387,7 @@ dom_jumpcomputable pf.to_rpart
 theorem domex_jumpcomputable [inhabited β]
   {f : α × β →. σ} {A} (pf : f partrec_in chr. A) :
   {x | ∃ y, (f (x, y)).dom} ≤ₜ A′ := 
-rre_jumpcomputable (pf.rre_rre (domex_rre f))
+rre_jumpcomputable ((domex_rre f).rre pf)
 
 theorem domex_0'computable [inhabited β] {f : α → β →. σ} 
   (pf : partrec₂ f) : {x | ∃ y, (f x y).dom} ≤ₜ (∅′ : set ℕ) :=
@@ -402,7 +410,5 @@ theorem domex_0'computable_f [inhabited γ] {f : α × β × γ →. σ} {g : α
   (λ x, chr {y | ∃ z, (f (x, y, z)).dom} (g x)) computable_in chr. (∅′ : set ℕ) :=
 domex_jumpcomputable_f (pf.to_rpart_in chr. (∅ : set ℕ))
 (pg.to_rpart_in chr. (∅ : set ℕ))
-
-
 
 end classical

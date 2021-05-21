@@ -165,6 +165,9 @@ def evaln : ℕ → (ℕ → option ℕ) → code → ℕ → option ℕ
     if x = 0 then pure m else
     evaln s f (rfind' cf) (mkpair a (m+1)))
 
+@[simp] theorem evaln_0 {f c n} : evaln 0 f c n = none :=
+by induction c; simp [evaln]
+
 theorem evaln_inclusion : ∀ {s c} {f g : ℕ → option ℕ},
   (∀ x y, x < s → f x = some y → g x = some y) → 
   ∀ {x y}, evaln s f c x = some y →  evaln s g c x = some y
@@ -261,6 +264,10 @@ theorem evaln_bound {f} : ∀ {k c n x}, x ∈ evaln k f c n → n < k
   { cases c; rw [evaln] at h; try { exact this h } },
   simpa [(>>)] using nat.lt_succ_of_le
 end
+
+theorem evaln_bound_none {f k c n} (h : k ≤ n) : evaln k f c n = none :=
+by { cases e : evaln k f c n with v; simp,
+     have := evaln_bound e, exact nat.lt_le_antisymm this h }
 
 theorem evaln_mono : ∀ {s₁ s₂ c f n x},
   s₁ ≤ s₂ → evaln s₁ f c n = some x → evaln s₂ f c n = some x
@@ -477,6 +484,15 @@ theorem eval_inclusion {c x y} {f : ℕ → option ℕ} (h : y ∈ eval f c x) :
 by { have : ∃ s, y ∈ evaln s f c x := evaln_complete.mp h, rcases this with ⟨s, hs⟩,
      refine ⟨s, λ g h, evaln_complete.mpr ⟨s, evaln_inclusion h hs⟩⟩ }
 
+@[simp] theorem evaln_const (s f) :
+  ∀ n m, evaln (s+1) f (code.const n) m = guard (n ≤ s+1) >> guard (m ≤ s) >> option.some n
+| 0     m := by { simp[code.const, evaln, (>>), pure], }
+| (n+1) m := have IH : _ := evaln_const n m, 
+  by { simp [code.const, evaln, IH, pure, (>>)],
+    by_cases e1 : n ≤ s; simp[e1, failure, alternative.failure],
+    by_cases e2 : m ≤ s; simp[e1, e2, failure, alternative.failure],
+    refine ⟨n, ⟨⟨(le_add_right e1), (), rfl⟩, rfl⟩, e1, rfl⟩ }
+
 @[simp] theorem eval_const (f) : ∀ n m, eval f (code.const n) m = roption.some n
 | 0     m := rfl
 | (n+1) m := by simp! *
@@ -485,6 +501,53 @@ by { have : ∃ s, y ∈ evaln s f c x := evaln_complete.mp h, rcases this with 
 
 @[simp] theorem eval_curry (f c n x) : eval f (curry c n) x = eval f c (mkpair n x) :=
 by simp! [(<*>)]
+
+@[simp] theorem evaln_curry (s f c n x) :
+  evaln s f (curry c n) x = evaln s f c (n.mkpair x) :=
+begin
+  cases s, simp,
+  simp [curry, evaln], 
+  by_cases e0 : x ≤ s; simp [code.id, evaln, e0, pure, (>>), failure, alternative.failure],
+  by_cases e1 : n ≤ s+1; simp [e0, e1, pure, (>>), (<*>), failure, alternative.failure],
+  { cases e : evaln (s + 1) f c (n.mkpair x) with y; simp,
+    have : n.mkpair x < s + 1, from evaln_bound e,
+    have : n ≤ s + 1, from le_of_lt 
+      (gt_of_gt_of_ge this (nat.le_mkpair_left n x)),
+    contradiction },
+  { cases e : evaln (s + 1) f c (n.mkpair x) with y; simp,
+    have : n.mkpair x ≤ s := nat.lt_succ_iff.mp (evaln_bound e),
+    have : x ≤ s := le_trans (nat.le_mkpair_right _ _) this,
+    contradiction }
+end
+
+@[simp] theorem evaln_oracle_of {g h : ℕ → option ℕ} {cg : code}
+  (hg : ∀ s, evaln (s+1) h cg = λ n, guard (n ≤ s) >> g n) :
+  ∀ cf s, evaln s h (oracle_of cg cf) = evaln s g cf
+| _              0     := funext $ λ _, by simp  
+| oracle         (s+1) := by simp[evaln, oracle_of, hg]
+| zero           (s+1) := by simp[evaln, oracle_of]
+| succ           (s+1) := by simp[evaln, oracle_of]
+| left           (s+1) := by simp[evaln, oracle_of]
+| right          (s+1) := by simp[evaln, oracle_of]
+| (pair cff cfg) (s+1) := 
+    have IH₀ : _ := evaln_oracle_of cff,
+    have IH₁ : _ := evaln_oracle_of cfg,
+    by simp[evaln, oracle_of, IH₀, IH₁]
+| (comp cff cfg) (s+1) := 
+    have IH₀ : _ := evaln_oracle_of cff,
+    have IH₁ : _ := evaln_oracle_of cfg,
+    by simp[evaln, oracle_of, IH₀, IH₁]
+| (prec cff cfg) (s+1) :=
+    have IH₀ : _ := evaln_oracle_of cff,
+    have IH₁ : _ := evaln_oracle_of cfg,
+    by { have : evaln s h ((cg.oracle_of cff).prec (cg.oracle_of cfg)) = evaln s g (cff.prec cfg),
+      { induction s with _ ih; simp [evaln], simp [ih, IH₀, IH₁] },
+      simp[evaln, oracle_of, IH₀, IH₁, this] }
+| (rfind' cff)   (s+1) :=
+    have IH₀ : _ := evaln_oracle_of cff,
+    by { have : evaln s h (cg.oracle_of cff).rfind' = evaln s g cff.rfind',
+      { induction s with _ ih; simp [evaln], simp [ih, IH₀] },
+      simp[evaln, oracle_of, IH₀, this] }
 
 @[simp] theorem oracle_of_eq {g h : ℕ → option ℕ} {cg : code} (hg : eval h cg = λ x, g x) :
   ∀ cf, eval h (oracle_of cg cf) = eval g cf
@@ -648,6 +711,18 @@ end,λ h, begin
 end⟩
 
 open rcomputable
+
+axiom eval_universality : ∃ U, ∀ f,
+  eval f U = λ n, (some $ encode (evaln n.unpair.1.unpair.1 f (of_nat _ n.unpair.1.unpair.2) n.unpair.2))
+
+theorem evaln_computable (f : ℕ → option ℕ) : 
+  (λ x : (ℕ × code) × ℕ, evaln x.1.1 f x.1.2 x.2) computable_in (λ x, f x) :=
+begin
+  rcases eval_universality with ⟨U, hU⟩,
+  let f := (λ x, (eval f U x).bind (λ x, decode (option ℕ) x)),
+  simp [rcomputable],
+  
+end
 
 axiom evaln_computable (f : ℕ → option ℕ) : 
   (λ x : (ℕ × code) × ℕ, evaln x.1.1 f x.1.2 x.2) computable_in (λ x, f x) 

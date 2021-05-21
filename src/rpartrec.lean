@@ -89,6 +89,9 @@ end rpartrec
 
 end nat
 
+@[simp, reducible] def prod.unpaired {α β γ} (f : α → β → γ) : α × β → γ := λ p, f p.1 p.2
+@[simp, reducible] def prod.unpaired3 {α β γ δ} (f : α → β → γ → δ) : α × β × γ → δ := λ p, f p.1 p.2.1 p.2.2
+
 def rpartrec {α β σ τ} [primcodable α] [primcodable β] [primcodable σ] [primcodable τ] 
   (f : α →. σ) (g : β →. τ) := nat.rpartrec.reducible
 (λ n, roption.bind (decode α n) (λ a, (f a).map encode))
@@ -151,10 +154,22 @@ theorem bind {f : α →. β} {g : α × β →. σ} {h : γ →. τ}
 λ n, by simp [(<*>)]; cases e : decode α n with a;
   simp [e, encodek]
 
+theorem bind' {f : α →. β} {g : α → β →. σ} {h : γ →. τ}
+  (hf : f partrec_in h) (hg : prod.unpaired g partrec_in h) : (λ a, (f a).bind (g a)) partrec_in h :=
+(nat.rpartrec.comp hg (nat.rpartrec.some.pair hf)).of_eq $
+λ n, by simp[(<*>)]; cases e : decode α n with a;
+  simp [e, encodek]
+
 theorem map {f : α →. β} {g : α × β → σ} {h : γ →. τ}
   (hf : f partrec_in h) (hg : (g : α × β →. σ) partrec_in h) : (λ a, (f a).map (λ x, g (a, x))) partrec_in h :=
 by simpa [bind_some_eq_map] 
   using @rpartrec.bind _ _ _ _ _ _ _ _ _ _ _ (λ x, roption.some (g x)) _ hf hg
+
+theorem map' {f : α →. β} {g : α → β → σ} {h : γ →. τ}
+  (hf : f partrec_in h) (hg : prod.unpaired g computable_in h) :
+  (λ a, (f a).map (g a)) partrec_in h :=
+by simpa [bind_some_eq_map] 
+  using @rpartrec.bind' _ _ _ _ _ _ _ _ _ _ _ (λ x y, roption.some (g x y)) _ hf hg
 
 theorem rfind {p : α × ℕ →. bool} : (λ a, nat.rfind (λ x, p (a, x))) partrec_in p :=
   have c₀ : (λ x, (p x).map (λ b, cond b 0 1) : α × ℕ →. ℕ) partrec_in p :=
@@ -167,6 +182,22 @@ theorem rfind {p : α × ℕ →. bool} : (λ a, nat.rfind (λ x, p (a, x))) par
   simp [roption.map_map, (∘)],
   apply map_id' (λ b, _),
   cases b; refl })
+
+theorem rfind'_refl {p : α → ℕ →. bool} : (λ a, nat.rfind (p a)) partrec_in prod.unpaired p :=
+  have c₀ : (λ x : α × ℕ, (p x.1 x.2).map (λ b, cond b 0 1) : α × ℕ →. ℕ) partrec_in prod.unpaired p :=
+    rpartrec.refl.map ((
+      (primrec.dom_bool (λ b, cond b 0 1)).comp primrec.snd).to_comp.to_rpart),
+((nat.rpartrec.rfind c₀).of_eq $ λ n, by 
+{ cases e : decode α n with a;
+  simp [e, nat.rfind_zero_none, map_id'],
+  congr, funext n,
+  simp [roption.map_map, (∘)],
+  apply map_id' (λ b, _),
+  cases b; refl })
+
+theorem rfind' {p : α → ℕ →. bool} {g : β →. σ} :
+  prod.unpaired p partrec_in g → (λ a, nat.rfind (p a)) partrec_in g :=
+rfind'_refl.trans
 
 theorem of_option_refl {f : α → option β} : (λ a, (f a : roption β)) partrec_in (f : α →. option β) :=
 ((nat.rpartrec.of_partrec _ nat.partrec.ppred).comp nat.rpartrec.oracle).of_eq $ λ n, begin
@@ -201,6 +232,13 @@ theorem nat_elim
   {f : α → ℕ} {g : α → σ} {h : α × ℕ × σ → σ} {o : β →. γ}
   (hf : f computable_in o) (hg : g computable_in o) (hh : h computable_in o) :
   (λ a, (f a).elim (g a) (λ y IH, h (a, y, IH))) computable_in o :=
+((rpartrec.nat_elim hf hg hh).of_eq) $
+λ a, by { unfold_coes, simp, induction f a with m, simp, simp[ih] }
+
+theorem nat_elim'
+  {f : α → ℕ} {g : α → σ} {h : α → ℕ → σ → σ} {o : β →. γ}
+  (hf : f computable_in o) (hg : g computable_in o) (hh : prod.unpaired3 h computable_in o) :
+  (λ a, (f a).elim (g a) (h a)) computable_in o :=
 ((rpartrec.nat_elim hf hg hh).of_eq) $
 λ a, by { unfold_coes, simp, induction f a with m, simp, simp[ih] }
 
