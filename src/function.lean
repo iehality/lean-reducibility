@@ -1,7 +1,140 @@
-
-import function coding
+import rpartrec coding
 
 open encodable denumerable roption
+
+def encode2 {α σ} [encodable α] [inhabited α] [encodable σ] (f : α →. σ) :=
+(λ n, (f $ (decode α n).get_or_else (default α)).map encode)
+
+def encode2_total {α σ}  [encodable α] [inhabited α] [encodable σ] (f : α → σ) :=
+(λ n, encode (f $ (decode α n).get_or_else (default α)))
+
+@[simp] lemma encode2_total_eq {α σ} [encodable α] [inhabited α] [encodable σ] (f : α → σ) : 
+  encode2 (f : α →. σ) = pfun.lift (encode2_total f) := funext (λ x, by simp[encode2, encode2_total])
+
+theorem rpartrec.encode2_rpartrec_in {α σ} [primcodable α] [primcodable σ] [inhabited α] (f : α →. σ) :
+  encode2 f partrec_in f :=
+begin
+  simp only [encode2],
+  have c₀ : (λ n, f ((decode α n).get_or_else (default α))) partrec_in f :=
+  rpartrec.refl.comp ((computable.decode.option_get_or_else $ computable.const $ default α).to_rpart),
+  have c₁ : computable (λ x, encode x.2 : ℕ × σ → ℕ) := computable.encode.comp computable.snd,
+  exact c₀.map c₁.to_rpart
+end
+
+theorem rpartrec.rpartrec_in_encode2 {α σ} [primcodable α] [primcodable σ]  [inhabited α] (f : α →. σ) :
+  f partrec_in encode2 f :=
+begin
+  let f' : α →. σ := (λ a, (encode2 f (encode a)).bind (λ x, decode σ x)),
+  have c₀ : (λ a, encode2 f (encode a) : α →. ℕ) partrec_in encode2 f :=
+  rpartrec.refl.comp (partrec.to_rpart computable.encode),
+  have c₁ : partrec (λ x, ↑(decode σ x.2) : α × ℕ →. σ) := computable.decode.of_option.comp computable.snd,
+  exact ((c₀.bind (c₁.to_rpart)).of_eq $ λ a, by simp[encode2])
+end
+
+def graph {α β} [decidable_eq β] (f : α → β) : α × β → bool :=
+λ x, to_bool (f x.1 = x.2)
+
+def epsilon_r {β} [primcodable β] [inhabited β] (p : β →. bool) : roption β := 
+  ((nat.rfind $ λ x, p ((decode β x).get_or_else (default β))).map 
+    (λ x, (decode β x).get_or_else (default β)))
+
+def epsilon {β} [primcodable β] [inhabited β] (p : β → bool) : roption β :=
+epsilon_r (p : β →. bool)
+
+theorem epsilon_witness {β} [primcodable β] [inhabited β] {p : β → bool} {b : β} :
+  b ∈ epsilon p → p b = tt :=
+by { simp[epsilon,epsilon_r], intros x h hl he, rw he at h, simp[←h] }
+
+@[simp] theorem exists_epsilon_iff {β} [primcodable β] [inhabited β] {p : β → bool} :
+  (epsilon p).dom ↔ (∃ b, p b = tt) := by { split,
+{ intros w, use (epsilon p).get w, exact epsilon_witness ⟨w, rfl⟩ },
+{ rintros ⟨b, hb⟩, simp[epsilon,epsilon_r, roption.map, roption.some],
+  use (encode b), simp[hb], use trivial} }
+
+def list.rnth {α} (l : list α) := l.reverse.nth 
+
+theorem list.rnth_ext {α} {l₁ l₂ : list α} (h : ∀ n, l₁.rnth n = l₂.rnth n) : l₁ = l₂ :=
+list.reverse_inj.mp (list.ext h)
+
+lemma list.rnth_concat_length {α} (n : α) (l : list α) : (n :: l).rnth l.length = n :=
+by { simp[list.rnth], 
+     have : l.length = l.reverse.length, simp,
+     simp only [this, list.nth_concat_length], refl }
+
+lemma list.rnth_append {α} {l₀ l₁ : list α} {n : ℕ} (hn : n < l₀.length) :
+  (l₁ ++ l₀).rnth n = l₀.rnth n :=
+by { simp[list.rnth], exact list.nth_append (by simp; exact hn) }
+
+@[simp] def initial_code {α} (f : ℕ → α) : ℕ → list α
+| 0            := []
+| (nat.succ n) := f n :: initial_code n
+
+infix `↾`:70 := initial_code
+
+@[simp] theorem nat.initial_code_length {α} (f : ℕ → α) (s) : (f↾s).length = s :=
+by { induction s with m ih; simp, simp [ih] }
+
+lemma nat.initial_code_nth0 {α} (f : ℕ → α) (s n) : (f↾(n + s + 1)).rnth n = f n :=
+begin
+  induction s with n0 ihn0,
+  { simp[list.rnth],
+    suffices a : ((f↾n).reverse ++ [f n]).nth (f↾ n).reverse.length = ↑(f n),
+    { simp at a, exact a },
+    { rw list.nth_concat_length, refl } },
+  { simp[list.rnth] at ihn0,
+    suffices a : ((f↾(n + n0)).reverse ++ [f (n + n0)] ++ [f (n + n0.succ)]).nth n = ↑(f n),
+    { simp[list.rnth], simp at a, exact a },
+  { rw list.nth_append, exact ihn0, simp, linarith }},
+end
+
+@[simp] theorem nat.initial_code_nth {s n} (h : n < s) {α} (f : ℕ → α): (f↾s).rnth n = f n :=
+by { have e : s = n + (s - n - 1) + 1, omega, rw e, exact nat.initial_code_nth0 _ _ _ }
+
+@[simp] theorem nat.initial_code_rnth_none {s n} (h : s ≤ n) {α} (f : ℕ → α)  : (f↾ s).rnth n = none :=
+list.nth_len_le (by simp; from h)
+
+theorem initial_code_some {α} {f : ℕ → α} {s n a} :
+  (f↾ s).rnth n = some a → f n = a :=
+by { have : n < s ∨ s ≤ n := lt_or_ge n s, cases this; simp[this], unfold_coes, simp }
+
+def list.subseq {α} [decidable_eq α] (f : ℕ → α) : list α → bool
+| []      := tt
+| (x::xs) := to_bool (x = f xs.length) && list.subseq xs
+
+notation l` ⊂ₘ `f:80 := list.subseq f l
+
+def list.subseq_t {σ} [primcodable σ] (f : ℕ → σ) :=
+list.subseq (λ x, encode $ f x)
+
+notation l` ⊂ₘ* `f:80 := list.subseq_t f l
+
+theorem subseq_iff (l : list ℕ) (f : ℕ → ℕ) :
+  l ⊂ₘ f ↔ (∀ n, n < l.length → l.rnth n = some (f n)) :=
+begin
+  induction l with n0 l0 ih; simp[list.subseq], split; assume h,
+  { intros n h0,
+    have ih0 : ∀ {n}, n < l0.length → l0.rnth n = option.some (f n), from ih.mp h.2,
+    have e : n < l0.length ∨ n = l0.length, omega,
+    cases e,
+    simp[list.rnth, list.nth_append (show n < l0.reverse.length, by simp[list.length_reverse, e])],
+    exact ih0 e,
+    simp[e, list.rnth_concat_length, h.1], refl },
+  have lm0 : n0 = f l0.length,
+  { have h' := h l0.length (lt_add_one (list.length l0)),
+    simp [list.rnth_concat_length] at h',
+    exact option.some_inj.mp h' },
+  have lm1 : (l0 ⊂ₘ f) = tt,
+  { apply ih.mpr, intros n ne,
+    have h' := h n (nat.lt.step ne), rw ← h',
+    simp[list.rnth], symmetry, exact list.nth_append (by simp[ne]) },
+  exact ⟨lm0, lm1⟩
+end
+
+def list.bmerge : list bool → list bool → list bool
+| []        l         := l
+| l         []        := l
+| (a :: xs) (b :: ys) := (a || b) :: (xs.bmerge ys)
+
 
 def nat.rpartrec.code.use (f c n) := nat.rfind_opt (λ s, nat.rpartrec.code.evaln s f c n)
 
@@ -23,7 +156,6 @@ namespace partrec
 variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
 variables [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ] [primcodable μ]
 open nat.rpartrec
-#check code.oracle_of_eq 
 
 
 theorem code.eval_list_partrec :
@@ -120,6 +252,15 @@ end
 
 end partrec
 
+namespace computable
+open nat.rpartrec
+
+-- !! AXIOM !!
+axiom evaln_list_computable :
+  computable (λ x : ℕ × list ℕ × code × ℕ, code.evaln x.1 x.2.1.rnth x.2.2.1 x.2.2.2)
+
+end computable
+
 namespace rpartrec
 
 variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
@@ -177,7 +318,7 @@ protected theorem epsilon [inhabited β] {p : α → β → bool} {g : γ →. �
   prod.unpaired p computable_in g → (λ a, epsilon (p a)) partrec_in g := λ cp,
 rpartrec.epsilon_r cp
 
-theorem initial_code {f : ℕ → α} : (↾) f computable_in (f : ℕ →. α) :=
+theorem initial_code (f : ℕ → α) : (↾) f computable_in (f : ℕ →. α) :=
 begin
   have c₀ := computable.const [],
   have c₁ := computable.list_cons.to_rcomp.comp
@@ -262,3 +403,32 @@ begin
 end
 
 end rcomputable
+
+namespace rpartrec
+open nat.rpartrec
+
+theorem evaln_computable (f : ℕ → ℕ) : 
+  (λ x : ℕ × code × ℕ, code.evaln x.1 (↑ₒf) x.2.1 x.2.2) computable_in ↑ᵣf :=
+begin
+  let u := (λ x : ℕ × code × ℕ,
+    code.evaln x.1 (f↾x.1).rnth x.2.1 x.2.2),
+  have eqn_u : u = (λ x : ℕ × code × ℕ, code.evaln x.1 (↑ₒf) x.2.1 x.2.2),
+  { suffices :
+      ∀ s c, code.evaln s (f↾s).rnth c = code.evaln s (↑ₒf) c,
+    { funext, simp[u] at this ⊢, rw this },
+    intros s c,
+    apply code.evaln_use,
+    intros u eqn_u,
+    simp [nat.initial_code_nth eqn_u, coe_opt], 
+    unfold_coes },
+  rw ←eqn_u,
+  simp[u],  
+  let m := (λ x : ℕ × code × ℕ, (x.1, f↾x.1, x.2)),
+  have := rcomputable.initial_code f,
+  have : m computable_in ↑ᵣf := rcomputable.fst.pair 
+    (((rcomputable.initial_code _).comp rcomputable.fst).pair rcomputable.snd),
+  have := computable.evaln_list_computable.to_rcomp.comp this,
+  exact this,
+end
+
+end rpartrec

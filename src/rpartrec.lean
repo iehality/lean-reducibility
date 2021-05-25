@@ -90,7 +90,25 @@ end rpartrec
 end nat
 
 @[simp, reducible] def prod.unpaired {α β γ} (f : α → β → γ) : α × β → γ := λ p, f p.1 p.2
+
 @[simp, reducible] def prod.unpaired3 {α β γ δ} (f : α → β → γ → δ) : α × β × γ → δ := λ p, f p.1 p.2.1 p.2.2
+
+def coe_ropt {α σ} (f : α → σ) : α →. σ := λ x, roption.some (f x)
+
+prefix `↑ᵣ`:80 := coe_ropt
+
+def coe_opt {α σ} (f : α → σ) : α → option σ := λ x, option.some (f x)
+
+prefix `↑ₒ`:80 := coe_opt
+
+def coe_opt_ropt {α σ} (f : α → option σ) : α →. σ := λ x, roption.of_option (f x)
+
+prefix `↑ʳ`:80 := coe_opt_ropt
+
+def coe_ropt_opt {α σ} (f : α →. σ) [D : decidable_pred f.dom] : α → option σ := λ x, 
+@roption.to_option _ (f x) (D x)
+
+prefix `↑ᵒ`:80 := coe_ropt_opt
 
 def rpartrec {α β σ τ} [primcodable α] [primcodable β] [primcodable σ] [primcodable τ] 
   (f : α →. σ) (g : β →. τ) := nat.rpartrec.reducible

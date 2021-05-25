@@ -549,6 +549,38 @@ end
       { induction s with _ ih; simp [evaln], simp [ih, IH₀] },
       simp[evaln, oracle_of, IH₀, this] }
 
+theorem evaln_oracle_of_d (h : ℕ → option ℕ) (cg) :
+  ∀ cf s, evaln s h (oracle_of cg cf) = evaln s (evaln s h cg) cf
+| _              0     := funext $ λ _, by simp  
+| oracle         (s+1) := by { simp[evaln, oracle_of], funext n,
+    by_cases e: n ≤ s; simp [e, (>>), failure, alternative.failure],
+    apply evaln_bound_none, omega }
+| zero           (s+1) := by simp[evaln, oracle_of]
+| succ           (s+1) := by simp[evaln, oracle_of]
+| left           (s+1) := by simp[evaln, oracle_of]
+| right          (s+1) := by simp[evaln, oracle_of]
+| (pair cff cfg) (s+1) := 
+    have IH₀ : _ := evaln_oracle_of_d cff,
+    have IH₁ : _ := evaln_oracle_of_d cfg,
+    by simp[evaln, oracle_of, IH₀, IH₁]
+| (comp cff cfg) (s+1) := 
+    have IH₀ : _ := evaln_oracle_of_d cff,
+    have IH₁ : _ := evaln_oracle_of_d cfg,
+    by simp[evaln, oracle_of, IH₀, IH₁]
+| (prec cff cfg) (s+1) :=
+    have IH₀ : _ := evaln_oracle_of_d cff,
+    have IH₁ : _ := evaln_oracle_of_d cfg,
+    by { 
+      simp[evaln, oracle_of, IH₀, IH₁],
+      have : evaln s h ((cg.oracle_of cff).prec (cg.oracle_of cfg)) = evaln s (evaln (s+1) h cg) (cff.prec cfg),
+      { induction s with _ ih; simp [evaln], simp [ih, IH₀, IH₁], },
+      simp[evaln, oracle_of, IH₀, IH₁, this] }
+| (rfind' cff)   (s+1) :=
+    have IH₀ : _ := evaln_oracle_of_d cff,
+    by { have : evaln s h (cg.oracle_of cff).rfind' = evaln s g cff.rfind',
+      { induction s with _ ih; simp [evaln], simp [ih, IH₀] },
+      simp[evaln, oracle_of, IH₀, this] }
+
 @[simp] theorem oracle_of_eq {g h : ℕ → option ℕ} {cg : code} (hg : eval h cg = λ x, g x) :
   ∀ cf, eval h (oracle_of cg cf) = eval g cf
 | oracle := by simp[eval, oracle_of, hg]
@@ -712,17 +744,12 @@ end⟩
 
 open rcomputable
 
-axiom eval_universality : ∃ U, ∀ f,
-  eval f U = λ n, (some $ encode (evaln n.unpair.1.unpair.1 f (of_nat _ n.unpair.1.unpair.2) n.unpair.2))
+--axiom eval_universality : ∃ U, ∀ f,
+--  eval f U = λ n, (some $ encode (evaln n.unpair.1.unpair.1 f (of_nat _ n.unpair.1.unpair.2) n.unpair.2))
 
-theorem evaln_computable (f : ℕ → option ℕ) : 
-  (λ x : (ℕ × code) × ℕ, evaln x.1.1 f x.1.2 x.2) computable_in (λ x, f x) :=
-begin
-  rcases eval_universality with ⟨U, hU⟩,
-  let f := (λ x, (eval f U x).bind (λ x, decode (option ℕ) x)),
-  simp [rcomputable],
-  
-end
+--axiom Tpredicate : ∃ (T : list (option ℕ) × code × ℕ × ℕ → bool) (U : ℕ → ℕ),
+--  computable T ∧ computable U ∧
+--  ∀ f c x y, y ∈ eval f c x ↔ ∃ n, T (f↾n, c, x, n) = tt ∧ U n = y
 
 axiom evaln_computable (f : ℕ → option ℕ) : 
   (λ x : (ℕ × code) × ℕ, evaln x.1.1 f x.1.2 x.2) computable_in (λ x, f x) 
@@ -807,9 +834,9 @@ theorem curry_prim {α} [primcodable α] : primrec₂ (@curry α _) :=
 
 open primrec
 theorem univn_rcomputable (α σ) [primcodable α] [primcodable σ] (f : β → option τ) :
-  (λ x, ⟦x.2.1⟧^f [x.1] x.2.2 : ℕ × ℕ × α → option σ) computable_in (λ x, f x) :=
+  (λ x, ⟦x.2.1⟧^f [x.1] x.2.2 : ℕ × ℕ × α → option σ) computable_in ↑ʳf :=
 begin
-  simp[univn], unfold_coes,
+  simp[univn],
   let f1 := (λ (n : ℕ), (decode β n).bind (λ (a : β), option.map encode (f a))),
     have c₁ : (λ n, roption.of_option (f1 n)) partrec_in (λ x, roption.of_option (f x)),
   { simp[f1],
@@ -835,7 +862,7 @@ end
 
 --open rcomputable
 theorem univ_rpartrec (α σ) [primcodable α] [primcodable σ] (f : β → option τ) :
-  (λ x, ⟦x.1⟧^f x.2 : ℕ × α →. σ) partrec_in (λ x, f x) :=
+  (λ x, ⟦x.1⟧^f x.2 : ℕ × α →. σ) partrec_in ↑ʳf :=
 begin
   simp[univ], unfold_coes,
   let f1 := (λ (n : ℕ), (decode β n).bind (λ b, option.map encode (f b))),
@@ -874,7 +901,7 @@ by{ simp[univn, univ, roption.eq_some_iff], split,
       refine ⟨a, this, ea⟩ } }
 
 theorem rpartrec_univ_iff {f : α →. σ} {g : β → option τ} :
-  f partrec_in (λ x, g x) ↔ ∃ e, ⟦e⟧^g = f :=
+  f partrec_in ↑ʳg ↔ ∃ e, ⟦e⟧^g = f :=
 begin
   simp[univn, univ, rpartrec, nat.rpartrec.reducible, roption.eq_some_iff], unfold_coes,
   let g' := (λ n, (decode β n).bind (λ a, (g a).map encode)),
@@ -882,7 +909,7 @@ begin
     (λ x, g' x : ℕ →. ℕ) := funext (λ x, 
   by { unfold_coes, simp[g'], cases decode β x with v; simp[roption.of_option, (>>=)],
        cases g v; simp[roption.of_option, (>>=)] }),
-  simp [this], split,
+  simp [coe_opt_ropt, this], split,
   { assume h, rcases nat.rpartrec.code.exists_code_opt.mp h with ⟨c, hc⟩, 
     refine ⟨encode c, funext $ λ a, _⟩, simp, simp[roption.of_option,hc] },
   { rintros ⟨e, he⟩, simp[←he, g'], 
@@ -896,8 +923,8 @@ begin
 end
 
 theorem rpartrec_univ_iff_total {f : α →. σ} {g : β → τ} :
-  f partrec_in pfun.lift g ↔ ∃ e, ⟦e⟧^(λ x, some $ g x) = f :=
-by { rw ← rpartrec_univ_iff, simp[roption.of_option], refl }
+  f partrec_in ↑ᵣg ↔ ∃ e, ⟦e⟧^↑ₒg = f :=
+by { rw ← rpartrec_univ_iff, simp[coe_ropt, roption.of_option], refl }
 
 theorem eval_inclusion {e} {x : α} {y : σ}
   {f : ℕ → option τ} (h : y ∈ (⟦e⟧^f x : roption σ)) : ∃ s, ∀ {g : ℕ → option τ},
@@ -954,7 +981,7 @@ begin
 end
 
 theorem recursion1 (α σ) [primcodable α] [primcodable σ]
-  {f : β → option τ} {I : ℕ → ℕ} (h : I computable_in (λ x, f x)) :
+  {f : β → option τ} {I : ℕ → ℕ} (h : I computable_in ↑ʳf) :
   ∃ n, (⟦n⟧^f : α →. σ) = ⟦I n⟧^f :=
 by rcases recursion α σ f with ⟨fixpoint, cf, hfix⟩;
    rcases rpartrec_univ_iff.mp h with ⟨i, hi⟩;
