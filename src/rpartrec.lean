@@ -95,30 +95,51 @@ end nat
 
 def coe_ropt {α σ} (f : α → σ) : α →. σ := λ x, roption.some (f x)
 
-prefix `↑ᵣ`:80 := coe_ropt
+prefix `↑ᵣ`:max := coe_ropt
+
+@[simp] theorem coe_ropt_app {α σ} (f : α → σ) (a : α) : ↑ᵣf a = some (f a) := rfl
 
 def coe_opt {α σ} (f : α → σ) : α → option σ := λ x, option.some (f x)
 
-prefix `↑ₒ`:80 := coe_opt
+prefix `↑ₒ`:max := coe_opt
+
+@[simp] theorem coe_opt_app {α σ} (f : α → σ) (a : α) : ↑ₒf a = some (f a) := rfl
 
 def coe_opt_ropt {α σ} (f : α → option σ) : α →. σ := λ x, roption.of_option (f x)
 
-prefix `↑ʳ`:80 := coe_opt_ropt
+prefix `↑ʳ`:max := coe_opt_ropt
+
+@[simp] theorem coe_opt_ropt_app {α σ} (f : α → option σ) (a : α) : ↑ʳf a = f a := rfl
 
 def coe_ropt_opt {α σ} (f : α →. σ) [D : decidable_pred f.dom] : α → option σ := λ x, 
 @roption.to_option _ (f x) (D x)
 
-prefix `↑ᵒ`:80 := coe_ropt_opt
+prefix `↑ᵒ`:max := coe_ropt_opt
+
+@[simp] theorem coe_ropt_opt_app {α σ} (f : α →. σ) [D : decidable_pred f.dom] (a : α) :
+  ↑ᵒf a = @roption.to_option _ (f a) (D a) := rfl
 
 def rpartrec {α β σ τ} [primcodable α] [primcodable β] [primcodable σ] [primcodable τ] 
   (f : α →. σ) (g : β →. τ) := nat.rpartrec.reducible
 (λ n, roption.bind (decode α n) (λ a, (f a).map encode))
 (λ n, roption.bind (decode β n) (λ a, (g a).map encode))
+
 infix ` partrec_in `:80 := rpartrec
 
+def rpartrec_tot {α β σ τ} [primcodable α] [primcodable β] [primcodable σ] [primcodable τ]
+  (f : α →. σ) (g : β → τ) := f partrec_in ↑ᵣg
+
+infix ` partrec_in! `:80 := rpartrec_tot
+
 def rcomputable {α β σ τ} [primcodable α] [primcodable β] [primcodable σ] [primcodable τ]
-  (f : α → σ) (g : β →. τ) := (f : α →. σ) partrec_in g
+  (f : α → σ) (g : β →. τ) := ↑ᵣf partrec_in g
+
 infix ` computable_in `:80 := rcomputable
+
+def rcomputable_tot {α β σ τ} [primcodable α] [primcodable β] [primcodable σ] [primcodable τ]
+  (f : α → σ) (g : β → τ) := f computable_in ↑ᵣg
+
+infix ` computable_in! `:80 := rcomputable_tot
 
 theorem partrec.to_rpart {α σ β τ} [primcodable α] [primcodable σ] [primcodable β] [primcodable τ]
   {f : α →. σ} {g : β →. τ} (h : partrec f) : f partrec_in g := nat.rpartrec.of_partrec _ h
@@ -217,18 +238,24 @@ theorem rfind' {p : α → ℕ →. bool} {g : β →. σ} :
   prod.unpaired p partrec_in g → (λ a, nat.rfind (p a)) partrec_in g :=
 rfind'_refl.trans
 
-theorem of_option_refl {f : α → option β} : (λ a, (f a : roption β)) partrec_in (f : α →. option β) :=
+theorem of_option_refl {f : α → option β} : ↑ʳf partrec_in! f :=
 ((nat.rpartrec.of_partrec _ nat.partrec.ppred).comp nat.rpartrec.oracle).of_eq $ λ n, begin
   cases decode α n with a; simp,
-  cases f a with b; simp
+  cases f a with b; simp,
 end
 
 theorem of_option {f : α → option σ} {g : β →. τ} 
-  (h : f computable_in g) : (λ a, (f a : roption σ)) partrec_in g :=
+  (h : f computable_in g) : ↑ʳf partrec_in g :=
 of_option_refl.trans h
 
 theorem rfind_opt {f : α × ℕ → option σ} {g : β →. τ} (hf : f computable_in g) :
   (λ a, nat.rfind_opt (λ x, f ((a, x)))) partrec_in g :=
+(rfind.trans (primrec.option_is_some.to_comp.to_rcomp.comp hf))
+.bind (hf.of_option)
+
+theorem rfind_opt' {f : α → ℕ → option σ} {g : β →. τ}
+  (hf : prod.unpaired f computable_in g) :
+  (λ a, nat.rfind_opt (f a)) partrec_in g :=
 (rfind.trans (primrec.option_is_some.to_comp.to_rcomp.comp hf))
 .bind (hf.of_option)
 
@@ -242,6 +269,10 @@ variables [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [p
 theorem of_eq {f g : α → σ} {h : β →. τ} (hf : f computable_in h) (H : ∀ n, f n = g n) :
   g computable_in h := (funext H : f = g) ▸ hf
 
+theorem le_comp_comp {f : α → σ} {g : β → τ} :
+  g computable_in! f → computable f → computable g :=
+nat.rpartrec.le_part_part
+
 theorem comp {f : β → γ} {g : α → β} {h : σ →. τ} 
   (hf : f computable_in h) (hg : g computable_in h) : (λ a, f (g a)) computable_in h :=
 (nat.rpartrec.comp hf hg).of_eq $ λ n, by simp; cases e : decode α n with a; simp [e, encodek]
@@ -251,14 +282,14 @@ theorem nat_elim
   (hf : f computable_in o) (hg : g computable_in o) (hh : h computable_in o) :
   (λ a, (f a).elim (g a) (λ y IH, h (a, y, IH))) computable_in o :=
 ((rpartrec.nat_elim hf hg hh).of_eq) $
-λ a, by { unfold_coes, simp, induction f a with m, simp, simp[ih] }
+λ a, by { simp, induction f a with m, simp, simp[ih] }
 
 theorem nat_elim'
   {f : α → ℕ} {g : α → σ} {h : α → ℕ → σ → σ} {o : β →. γ}
   (hf : f computable_in o) (hg : g computable_in o) (hh : prod.unpaired3 h computable_in o) :
   (λ a, (f a).elim (g a) (h a)) computable_in o :=
 ((rpartrec.nat_elim hf hg hh).of_eq) $
-λ a, by { unfold_coes, simp, induction f a with m, simp, simp[ih] }
+λ a, by { simp, induction f a with m, simp, simp[ih] }
 
 theorem id {f : β →. σ} : (@id α) computable_in f := computable.id.to_rcomp
 
@@ -313,7 +344,7 @@ variables [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [p
 
 theorem nat_cases_right
   {f : α → ℕ} {g : α → σ} {h : α × ℕ →. σ} {o : γ →. τ}
-  (hf : (f : α →. ℕ) partrec_in o) (hg : (g : α →. σ) partrec_in o) (hh : h partrec_in o) :
+  (hf : f computable_in o) (hg : g computable_in o) (hh : h partrec_in o) :
   (λ a, (f a).cases (some (g a)) (λ x, h (a, x))) partrec_in o :=
 (nat_elim hf hg (hh.comp $ fst.pair (computable.pred.to_rpart.comp $ hf.comp fst))).of_eq $
 λ a, begin
@@ -350,7 +381,7 @@ theorem bind_decode_iff {f : α × β → option σ} {h : γ →. τ} :
     cases decode β n.unpair.2; simp,
 λ hf, begin
   have : (λ a : α × ℕ, (encode (decode β a.2)).cases
-    (some option.none) (λ n, roption.map (λ x, f (a.1, x)) (decode β n))) partrec_in (h : γ →. τ) :=
+    (some option.none) (λ n, roption.map (λ x, f (a.1, x)) (decode β n))) partrec_in h :=
   nat_cases_right (primrec.encdec.to_comp.comp computable.snd).to_rpart
     (const option.none) ((computable.of_option (computable.decode.comp computable.snd)).to_rpart.map
       (hf.comp ((fst.comp $ fst.comp fst).pair snd))),

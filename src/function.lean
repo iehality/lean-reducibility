@@ -135,7 +135,6 @@ def list.bmerge : list bool → list bool → list bool
 | l         []        := l
 | (a :: xs) (b :: ys) := (a || b) :: (xs.bmerge ys)
 
-
 def nat.rpartrec.code.use (f c n) := nat.rfind_opt (λ s, nat.rpartrec.code.evaln s f c n)
 
 namespace primrec
@@ -150,116 +149,6 @@ theorem list_bmerge : primrec₂ list.bmerge :=
 by sorry
 
 end primrec
-
-namespace partrec
-
-variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
-variables [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ] [primcodable μ]
-open nat.rpartrec
-
-
-theorem code.eval_list_partrec :
-  partrec (λ x : (code × list ℕ) × ℕ, code.eval x.1.2.rnth x.1.1 x.2) :=
-begin
-  have := primrec.list_nth.comp (primrec.list_reverse.comp $
-    (primrec.of_nat (list ℕ)).comp $ primrec.fst.comp primrec.unpair)
-    (primrec.snd.comp primrec.unpair),
-  have := this.to_comp.of_option, simp at this,
-  let N : ℕ → option ℕ := (λ x, option.none),
-  have := this.to_rpart_in (λ x, N x),
-  have := rpartrec.nat_iff.mp this,
-  rcases code.exists_code_opt.mp this with ⟨c, hc⟩,
-  let i := code.curry c, 
-  let T := (λ x c, (i x).oracle_of c),
-  have E : ∀ (l : list ℕ) d, code.eval N (T (encode l) d) = code.eval l.rnth d,
-  { intros l e, simp[T],
-    have : code.eval N (i (encode l)) = (λ x, l.rnth x),
-    { funext n, simp[i, hc], refl },
-    simp[code.oracle_of_eq this] },
-  have ip : primrec i := code.curry_prim.comp (primrec.const c) (primrec.id), 
-  have Tp : primrec₂ T := code.oracle_of_prim.comp (ip.comp $ primrec.fst)
-    (primrec.snd), 
-  suffices :
-    (λ x : (code × list ℕ) × ℕ, code.eval x.1.2.rnth x.1.1 x.2) partrec_in (λ x, N x),
-  from le_part_part this partrec.none,
-  { simp [←E],
-    have := primrec.pair (Tp.comp (primrec.encode.comp $ primrec.snd.comp primrec.fst) 
-      (primrec.fst.comp primrec.fst)) primrec.snd,
-    exact (code.eval_partrec N).comp this.to_comp.to_rcomp }
-end
-
-theorem code.evaln_list_partrec :
-  computable (λ x : ℕ × list ℕ × code × ℕ, code.evaln x.1 x.2.1.rnth x.2.2.1 x.2.2.2) :=
-begin
-  have := primrec.list_nth.comp (primrec.list_reverse.comp $
-    (primrec.of_nat (list ℕ)).comp $ primrec.fst.comp primrec.unpair)
-    (primrec.snd.comp primrec.unpair),
-  have := this.to_comp.of_option, simp at this,
-  let N : ℕ → option ℕ := (λ x, option.none),
-  have := this.to_rpart_in (λ x, N x),
-  have := rpartrec.nat_iff.mp this,
-  rcases code.exists_code_opt.mp this with ⟨c, hc⟩,
-  let i := code.curry c, 
-  let T := (λ x c, (i x).oracle_of c),
-  let o := (λ x, [8].rnth x),
-  have E : ∀ (l : list ℕ) d s, code.evaln s N (T (encode l) d) = code.evaln s o d,
-  { intros l e, simp[T],
-    apply code.evaln_oracle_of, intros s,
-    funext n, simp [i, hc],
-
-    },
-  have ip : primrec i := code.curry_prim.comp (primrec.const c) (primrec.id), 
-  have Tp : primrec₂ T := code.oracle_of_prim.comp (ip.comp $ primrec.fst)
-    (primrec.snd), 
-  suffices :
-    (λ x : (code × list ℕ) × ℕ, code.eval x.1.2.rnth x.1.1 x.2) partrec_in (λ x, N x),
-  from le_part_part this partrec.none,
-  { simp [←E],
-    have := primrec.pair (Tp.comp (primrec.encode.comp $ primrec.snd.comp primrec.fst) 
-      (primrec.fst.comp primrec.fst)) primrec.snd,
-    exact (code.eval_partrec N).comp this.to_comp.to_rcomp }
-end
-
-theorem eval_list_partrec (α σ) [primcodable α] [primcodable σ]:
-  partrec (λ x : ℕ × list β × α, (⟦x.1⟧^x.2.1.rnth x.2.2 : roption σ)) :=
-begin
-  simp [univ],
-  have el : ∀ l : list β, (λ n, option.map encode (l.rnth n)) = (list.map encode l).rnth,
-  { intros l, funext n, simp [list.rnth, ←list.map_reverse] },
-  let f := (λ x : ℕ × list β × α, ((of_nat code x.1, list.map encode x.2.1), encode x.2.2)),
-  have pf : primrec f := (((primrec.of_nat code).comp $ primrec.fst).pair 
-    (primrec.list_map (primrec.fst.comp primrec.snd) (primrec.encode.comp primrec.snd).to₂)).pair
-    (primrec.encode.comp $ primrec.snd.comp primrec.snd),
-  have := (code.eval_list_partrec.comp pf.to_comp).bind 
-    (primrec.decode.comp primrec.snd).to_comp.of_option.to₂,
-  exact (this.of_eq $ by simp [el]),
-end
-
-theorem eval_list_partrec' (α σ) [primcodable α] [primcodable σ]:
-  partrec (λ x : (ℕ × list β) × α, (⟦x.1.1⟧^x.1.2.rnth x.2 : roption σ)) :=
-begin
-  simp [univ],
-  have el : ∀ l : list β, (λ n, option.map encode (l.rnth n)) = (list.map encode l).rnth,
-  { intros l, funext n, simp [list.rnth, ←list.map_reverse] },
-  let f := (λ x : (ℕ × list β) × α, ((of_nat code x.1.1, list.map encode x.1.2), encode x.2)),
-  have pf : primrec f := (((primrec.of_nat code).comp $ primrec.fst.comp primrec.fst).pair 
-    (primrec.list_map (primrec.snd.comp primrec.fst) (primrec.encode.comp primrec.snd).to₂)).pair
-    (primrec.encode.comp primrec.snd),
-  have := (code.eval_list_partrec.comp pf.to_comp).bind 
-    (primrec.decode.comp primrec.snd).to_comp.of_option.to₂,
-  exact (this.of_eq $ by simp [el]),
-end
-
-end partrec
-
-namespace computable
-open nat.rpartrec
-
--- !! AXIOM !!
-axiom evaln_list_computable :
-  computable (λ x : ℕ × list ℕ × code × ℕ, code.evaln x.1 x.2.1.rnth x.2.2.1 x.2.2.2)
-
-end computable
 
 namespace rpartrec
 
@@ -301,11 +190,6 @@ epsilon_r_rpartrec_refl.trans
 theorem epsilon_rpartrec [inhabited β] (p : α × β → bool) :
   (λ a, epsilon (λ x, p (a, x))) partrec_in (λ x, some $ p x) :=
 epsilon_r_rpartrec _  
-
-theorem eval_list_partrec {f : α → ℕ} {g : α → list bool} {h : α → β}
-  (hf : computable f) (hg : computable g) (hh : computable h) :
-  partrec (λ a, (⟦f a⟧^(g a).rnth (h a) : roption σ)) :=
-by sorry
 
 end rpartrec
 
@@ -404,10 +288,13 @@ end
 
 end rcomputable
 
-namespace rpartrec
-open nat.rpartrec
+open nat.rpartrec primrec
 
-theorem evaln_computable (f : ℕ → ℕ) : 
+-- !!!! AXIOM !!!! 
+axiom computable.evaln_list :
+  computable (λ x : ℕ × list ℕ × code × ℕ, code.evaln x.1 x.2.1.rnth x.2.2.1 x.2.2.2)
+
+theorem rcomputable.evaln (f : ℕ → ℕ) : 
   (λ x : ℕ × code × ℕ, code.evaln x.1 (↑ₒf) x.2.1 x.2.2) computable_in ↑ᵣf :=
 begin
   let u := (λ x : ℕ × code × ℕ,
@@ -427,8 +314,163 @@ begin
   have := rcomputable.initial_code f,
   have : m computable_in ↑ᵣf := rcomputable.fst.pair 
     (((rcomputable.initial_code _).comp rcomputable.fst).pair rcomputable.snd),
-  have := computable.evaln_list_computable.to_rcomp.comp this,
+  have := computable.evaln_list.to_rcomp.comp this,
   exact this,
 end
 
+theorem eval_eq_rfind (f : ℕ → option ℕ) (c n) :
+  code.eval f c n = nat.rfind_opt (λ k, code.evaln k f c n) :=
+roption.ext $ λ x, begin
+  refine code.evaln_complete.trans (nat.rfind_opt_mono _).symm,
+  intros a m n hl, apply code.evaln_mono hl,
+end
+
+theorem rpartrec.eval (f : ℕ → ℕ) :
+  (λ n : code × ℕ, code.eval (↑ₒf) n.1 n.2) partrec_in ↑ᵣf :=
+begin
+  have := (rcomputable.evaln f).comp
+    (snd.pair ((fst.comp fst).pair (snd.comp fst))).to_comp.to_rcomp,
+  have := rpartrec.rfind_opt this,
+  exact (this.of_eq $ λ n, by simp[eval_eq_rfind])
+end 
+
+variables {α : Type*} {σ : Type*} {β : Type*} {τ : Type*} {γ : Type*} {μ : Type*} 
+variables [primcodable α] [primcodable σ] [primcodable β] [primcodable τ] [primcodable γ] [primcodable μ]
+
+theorem rcomputable.univn (α σ) [primcodable α] [primcodable σ] (f : β → τ) :
+  (λ x, ⟦x.2.1⟧^f [x.1] x.2.2 : ℕ × ℕ × α → option σ) computable_in ↑ᵣf :=
+begin
+  simp[univn],
+  let f1 := (λ n, (decode β n).bind (λ b, some $ encode (f b))),
+  have c₁ : (λ n, roption.of_option (f1 n)) partrec_in ↑ᵣf,
+  { have e : (λ n, roption.of_option ((decode β n).bind (λ b, some $ encode (f b)))) =
+      (λ n, roption.bind (decode β n) (λ b, some $ encode (f b))),
+    { funext a, cases decode β a with v; simp[roption.of_option, coe_opt]},
+    rw e,
+    have := (rpartrec.refl_in (λ b, some $ encode (f b))).map
+      (primrec.encode.comp snd).to_comp.to_rcomp, 
+    have := (computable.of_option (computable.decode)).to_rpart.bind
+      (this.comp rcomputable.snd),
+    simp at this, exact this },
+  have c₀ := (code.evaln_computable f1).comp 
+    ((fst.pair ((primrec.of_nat code).comp $ fst.comp snd)).pair
+    (primrec.encode.comp $ snd.comp snd)).to_comp.to_rcomp,
+  have := rpartrec.trans c₀ c₁,
+  have c₂ : (λ (a : ℕ × ℕ × α), code.evaln a.fst f1 (of_nat code a.snd.fst)
+    (encode a.snd.snd)) computable_in (λ b, some $ encode (f b)) := this,
+  have c₃ := primrec.decode.comp snd,
+  have := c₂.option_bind c₃.to_comp.to_rcomp,
+  exact this,
+end
+
+theorem rpartrec.univ (α σ) [primcodable α] [primcodable σ] (f : β → τ) :
+  (λ x, ⟦x.1⟧^f x.2 : ℕ × α →. σ) partrec_in ↑ᵣf :=
+begin
+  simp[univ], unfold_coes,
+  let f1 := (λ (n : ℕ), (decode β n).bind (λ b, some $ encode (f b))),
+  have c₁ : (λ n, roption.of_option (f1 n)) partrec_in ↑ᵣf,
+  { simp[f1],
+    have e : (λ (n : ℕ), roption.of_option ((decode β n).bind (λ b, some $ encode (f b)))) =
+      (λ (n : ℕ), roption.bind (decode β n) (λ b, roption.map encode (↑ₒf b))),
+    { funext a, cases decode β a with v; simp[roption.of_option, coe_opt] },
+    rw e,
+    have := (rpartrec.refl_in (λ b, some $ encode (f b))).map
+      (primrec.encode.comp snd).to_comp.to_rcomp, 
+    have := ((computable.decode).of_option).to_rpart.bind
+      (this.comp rcomputable.snd), simp at this,
+    exact this },
+  have c₀ := (code.eval_partrec f1).comp 
+    (((primrec.of_nat code).comp fst).pair
+    (primrec.encode.comp snd)).to_comp.to_rcomp,
+  have c₂ := c₀.trans c₁,
+  have c₃ := computable.decode.of_option ,
+  have := c₂.bind (c₃.to_rpart.comp rcomputable.snd),
+  exact this,
+end
+
+namespace rpartrec
+
+protected theorem cond {c : α → bool} {f : α →. σ} {g : α →. σ} {h : β → τ}
+  (hc : c computable_in ↑ᵣh) (hf : f partrec_in ↑ᵣh) (hg : g partrec_in ↑ᵣh) :
+  (λ a, cond (c a) (f a) (g a)) partrec_in ↑ᵣh :=
+let ⟨e, eqn_e⟩ := rpartrec.rpartrec_univ_iff_total.1 hf,
+    ⟨i, eqn_i⟩ := rpartrec.rpartrec_univ_iff_total.1 hg in
+begin
+  have c₀ := ((rpartrec.univ α σ h).comp $
+    (rcomputable.cond hc (rcomputable.const e) (rcomputable.const i)).pair rcomputable.id),
+  simp at c₀,
+  exact (c₀.of_eq $ λ x, by cases c x; simp[eqn_e, eqn_i] )
+end
+
+theorem bool_to_roption (c : α → bool):
+  (λ a, cond (c a) (some 0) none : α →. ℕ) partrec_in (c : α →. bool) :=
+rpartrec.cond rcomputable.refl (rcomputable.const 0) partrec.none.to_rpart
+
+theorem universal_index {f : β → τ} : ∃ u, ∀ (x : ℕ) (y : α),
+  (⟦u⟧^f (x, y) : roption σ) = ⟦x⟧^f y :=
+by rcases rpartrec.rpartrec_univ_iff_total.mp (rpartrec.univ α σ f) with ⟨u, hu⟩;
+   exact ⟨u, by simp[hu]⟩
+
+theorem recursion (α σ) [primcodable α] [primcodable σ] (f : β → τ) :
+  ∃ fixpoint : ℕ → ℕ, primrec fixpoint ∧
+  (∀ {I : ℕ → ℕ} {i}, ⟦i⟧^f = ↑ᵣI →
+    (⟦fixpoint i⟧^f : α →. σ) = ⟦I (fixpoint i)⟧^f) :=
+begin
+  have : ∃ j, ⟦j⟧^f = λ (a : ℕ × α), (⟦a.1⟧^f a.1).bind (λ (x : ℕ), ⟦x⟧^f a.2),
+  { have this := ((rpartrec.univ ℕ ℕ f).comp (fst.pair fst).to_comp.to_rcomp).bind
+      ((rpartrec.univ α σ f).comp (snd.pair (snd.comp primrec.fst)).to_comp.to_rcomp),
+    exact rpartrec.rpartrec_univ_iff_total.mp this },
+  rcases this with ⟨j, lmm_j⟩,
+  have : ∃ k, ⟦k⟧^f = λ (a : ℕ × ℕ), ⟦a.1⟧^f (curry j a.2),
+  { have := rpartrec.curry_prim.to_comp.comp (computable.const j) computable.id,
+    have := (rpartrec.univ _ ℕ f).comp (rcomputable.fst.pair
+      (this.to_rcomp.comp rcomputable.snd)),
+    exact rpartrec.rpartrec_univ_iff_total.mp this },
+  rcases this with ⟨k, lmm_k⟩,
+  let fixpoint : ℕ → ℕ := λ x, curry j (curry k x),
+  have : primrec fixpoint := rpartrec.curry_prim.comp (primrec.const j)
+    (rpartrec.curry_prim.comp (primrec.const k) primrec.id),
+  refine ⟨fixpoint, this, _⟩,
+  assume I i h, funext x,
+  show ⟦fixpoint i⟧^f x = ⟦I (fixpoint i)⟧^f x,
+  simp[fixpoint, lmm_j, lmm_k, h],
+end
+
+theorem recursion1 (α σ) [primcodable α] [primcodable σ]
+  {f : β → τ} {I : ℕ → ℕ} (h : I computable_in ↑ᵣf) :
+  ∃ n, (⟦n⟧^f : α →. σ) = ⟦I n⟧^f :=
+by rcases recursion α σ f with ⟨fixpoint, cf, hfix⟩;
+   rcases rpartrec.rpartrec_univ_iff_total.mp h with ⟨i, hi⟩;
+   exact ⟨fixpoint i, hfix hi⟩
+
 end rpartrec
+
+namespace partrec
+
+theorem code.eval_list :
+  partrec (λ x : list ℕ × code × ℕ, code.eval x.1.rnth x.2.1 x.2.2) :=
+begin
+  let f := (λ x : list ℕ × code × ℕ, nat.rfind_opt (λ s, code.evaln s x.1.rnth x.2.1 x.2.2)),
+  have : partrec f := (partrec.rfind_opt $
+    computable.evaln_list.comp (snd.pair fst).to_comp),
+  exact (this.of_eq $ by simp[f, eval_eq_rfind])
+end
+
+theorem eval_list (α σ) [primcodable α] [primcodable σ]:
+  partrec (λ x : ℕ × list β × α, (⟦x.1⟧*x.2.1.rnth x.2.2 : roption σ)) :=
+begin
+  simp [univ],
+  have eqn : ∀ l : list β, (λ n, option.map encode (l.rnth n)) = (list.map encode l).rnth,
+  { intros l, funext n, simp [list.rnth, ←list.map_reverse] },
+  let f := (λ x : ℕ × list β × α, (list.map encode x.2.1, of_nat code x.1, encode x.2.2)),
+  have pf : primrec f :=
+    (primrec.list_map (primrec.fst.comp primrec.snd) (primrec.encode.comp primrec.snd).to₂).pair
+    (((primrec.of_nat code).comp $ primrec.fst).pair
+      (primrec.encode.comp $ primrec.snd.comp primrec.snd)),
+  have := (code.eval_list.comp pf.to_comp).bind 
+    (primrec.decode.comp primrec.snd).to_comp.of_option.to₂, 
+  exact (this.of_eq $ by simp [eqn]),
+end
+
+
+end partrec

@@ -1,4 +1,4 @@
-import reducibility computable_function
+import reducibility function
 
 open encodable denumerable roption t_reducible
 
@@ -88,7 +88,7 @@ def full (L : ℕ → list bool) := ∀ n, ∃ s, n < (L s).length
 
 def limit (L : ℕ → list bool) : set ℕ := {n | ∃ s, (L s).rnth n = tt}
 
-theorem limit_rre (L) : limit L re_in (L : ℕ →. list bool) :=
+theorem limit_rre (L) : limit L re_in! L :=
 begin
   let f : ℕ × ℕ →. ℕ := (λ x, of_option (((L x.2).rnth x.1).bind (λ b, cond b (some 0) none))),
   have pf : f partrec_in (L : ℕ →. list bool),
@@ -108,9 +108,8 @@ begin
       cases v; simp },
     apply set.ext, simp [this] },
   simp [limit], rw eqn,
-  have := domex_rre f,
-  show {n | ∃ s, (f (n, s)).dom} re_in ↑L,
-  exact this.rre pf,
+  show {n | ∃ s, (f (n, s)).dom} re_in! L,  
+  exact domex_rre pf
 end
 
 theorem limit_re {L} (cL : computable L) : re_pred (limit L) :=
@@ -136,11 +135,11 @@ begin
 end
 
 theorem subseq_limit {L} (F : fis L) {C} (h : ∃ s, ∀ u, s ≤ u → C ⊆* (L u).rnth) :
-  C ⊆* chr* limit L := 
+  C ⊆* ↑ₒ(chr $ limit L) := 
 begin
   rcases h with ⟨s, h⟩,
   suffices : 
-    ∀ {L : ℕ → list bool}, (∀ u, C ⊆* (L u).rnth) → C ⊆* chr* limit L,
+    ∀ {L : ℕ → list bool}, (∀ u, C ⊆* (L u).rnth) → C ⊆* ↑ₒ(chr $ limit L),
   { rw fis_limit_eq F s,
     apply this, intros u,
     apply h, omega },
@@ -159,7 +158,7 @@ theorem fiss_le {L} (F : fiss L) :
   ∀ {s t}, s ≤ t → L s <:+ L t := 
 relation_path_le (<:+) list.suffix_refl (λ a b c, list.is_suffix.trans) F
 
-lemma fiss_subseq_limit {L} (F : fiss L) (s) : (L s).rnth ⊆* chr* limit L :=
+lemma fiss_subseq_limit {L} (F : fiss L) (s) : (L s).rnth ⊆* ↑ₒ(chr $ limit L) :=
 subseq_limit (fiss_fis F) ⟨s, λ u eu, suffix_subseq (fiss_le F eu)⟩
 
 theorem limit_fullfiss_computable {L} (F : fiss L) (U : full L) : 
