@@ -176,7 +176,7 @@ theorem lt_jump (A : set ℕ) : A <ₜ A′ :=
     show chr A computable_in! chr A′,
     have : ∃ e, ∀ x, (⟦e⟧ₙ^(chr A) x).dom ↔ A x,
     { have : ∃ e, ⟦e⟧ₙ^(chr A) = λ a, cond (chr A a) (some 0) none :=
-        rpartrec_univ_iff.mp (bool_to_roption (chr A)),
+        exists_index.mp (bool_to_roption (chr A)),
       rcases this with ⟨e, he⟩,
       refine ⟨e, λ x, _⟩,
       show (⟦e⟧ₙ^(chr A) x).dom ↔ A x,
@@ -201,7 +201,7 @@ theorem lt_jump (A : set ℕ) : A <ₜ A′ :=
         ((rpartrec.cond (rpartrec.refl_in $ (chr A′ : ℕ →. bool))
         partrec.none.to_rpart (rcomputable.const 0)).comp
           (primrec₂.mkpair.comp primrec.id primrec.id).to_comp.to_rcomp).trans l0,
-      have : ∃ e, ⟦e⟧ₙ^(chr A) = f := rpartrec_univ_iff_total.mp this,
+      have : ∃ e, ⟦e⟧ₙ^(chr A) = f := exists_index.mp this,
       rcases this with ⟨e, he⟩,
       refine ⟨e, λ x, _⟩,
       simp[he, set.mem_def, f],
@@ -222,9 +222,9 @@ begin
   have h' := classical_iff.mp h,
   let f := (λ x : ℕ, ⟦x.unpair.1⟧ₙ^(chr A) x.unpair.2),
   have : ∃ e, ⟦e⟧ₙ^(chr B) = f,
-  { have := ((rpartrec.univ ℕ ℕ (chr A)).comp
-      primrec.unpair.to_comp.to_rcomp).trans h', 
-    exact rpartrec_univ_iff_total.mp this },
+  { have := (rpartrec.univ_tot ℕ ℕ (primrec.fst.comp primrec.unpair).to_comp.to_rcomp h'
+      (primrec.snd.comp primrec.unpair).to_comp.to_rcomp), 
+    exact exists_index.mp this },
   rcases this with ⟨e, lmm_e⟩,
   have eqn : chr A′ = (λ x, chr B′ (e.mkpair x)),
   { funext x, apply chr_ext.mpr,
@@ -254,9 +254,9 @@ theorem kleene_eq_jump (A : set ℕ) : kleene A ≡ₜ A′ :=
     show chr A′ computable_in! chr (kleene A),
     let t := (λ x : ℕ × (ℕ × ℕ), ⟦x.1⟧ₙ^(chr A) x.2.1),
     have : ∃ e, ⟦e⟧^(chr A) = t,
-    { have : t partrec_in! chr A := (rpartrec.univ ℕ ℕ (chr A)).comp 
-        (fst.pair (fst.comp snd)).to_comp.to_rcomp,
-      exact rpartrec_univ_iff_total.mp this },
+    { have : t partrec_in! chr A :=
+        (rpartrec.univ_tot ℕ ℕ rcomputable.fst rcomputable.refl (fst.comp snd).to_comp.to_rcomp),
+      exact exists_index.mp this },
     rcases this with ⟨e, eqn_e⟩,
     let k := (λ n m : ℕ, curry (curry e n) m),
     have eqn_k : ∀ z i x, ⟦k i x⟧ₙ^(chr A) z = ⟦i⟧ₙ^(chr A) x,
@@ -301,7 +301,7 @@ theorem rre_jumpcomputable {A : set α} {B : set ℕ} : A re_in! chr B → A ≤
 begin
   show chr A computable_in! chr B′,
   rcases rre_pred_iff.mp h with ⟨a, pa, ha⟩,
-  rcases rpartrec_univ_iff_total.mp pa with ⟨e, he⟩,
+  rcases exists_index.mp pa with ⟨e, he⟩,
   let f : α → bool := (λ x, chr B′ (e.mkpair (encode x))),
   have l0 : f computable_in (chr B′ : ℕ →. bool) :=
     rcomputable.refl.comp (primrec₂.mkpair.comp
@@ -347,7 +347,7 @@ begin
   { unfold_coes, simp [fo] },
   have pfo : (λ x, fo x) partrec_in f,
   { unfold_coes, simp [fo] },
-  have := rpartrec.rpartrec_univ_iff_total.mp h,
+  have := rpartrec.exists_index.mp h,
   rcases this with ⟨e, hf⟩,
   let p := (λ x : α, nat.rfind (λ u, (⟦e⟧^g [u.unpair.2]
     (x, (decode β u.unpair.1).get_or_else (default β)) : option σ).is_some)),
@@ -368,15 +368,14 @@ begin
   have eqn : {x | ∃ y, (f (x, y)).dom} = {x | (p x).dom},
   { apply set.ext, simp [lmm] },
   have : p partrec_in ↑ᵣg,
-  { have c₀ := primrec.option_is_some.to_comp.to_rcomp.comp
-      (rcomputable.univn (α × β) σ _),
-    have c₁ := (snd.comp $ unpair.comp $ snd).pair
-      ((const e).pair (fst.pair (option_get_or_else.comp 
+  { apply rpartrec.rfind', simp,
+    refine primrec.option_is_some.to_comp.to_rcomp.comp
+      (rcomputable.univn_tot _ _ 
+        (primrec.const _).to_comp.to_rcomp
+        rcomputable.refl (snd.comp $ primrec.unpair.comp snd).to_comp.to_rcomp _),
+    have := ((fst.pair (option_get_or_else.comp 
       (primrec.decode.comp $ fst.comp $ unpair.comp snd)
-      (const (default β))))),
-    have := c₀.comp c₁.to_comp.to_rcomp,
-    have := rpartrec.rfind.trans this,
-    exact this },
+      (const (default β))))), exact this.to_comp.to_rcomp },
   rw eqn,
   show {x : α | (p x).dom} re_in ↑ᵣg,
   from (dom_rre p).rre this,

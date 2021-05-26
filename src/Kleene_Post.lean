@@ -426,7 +426,7 @@ lemma incomparable₀ : ¬I₀ ≤ₜ I₁ :=
 begin
   assume hyp : I₀ ≤ₜ I₁,
   have : ∃ e, ⟦e⟧ᵪ^(chr I₁) = chr I₀ :=
-    rpartrec.rpartrec_univ_iff_total.mp (classical_iff.mp hyp),
+    rpartrec.exists_index_tot.mp (classical_iff.mp hyp),
   rcases this with ⟨e, lmm_e⟩,
   have lmm : ∀ n, (chr I₀ n) ∈ (⟦e⟧ᵪ^(chr I₁) n), simp[lmm_e],
   rcases requirement₀ e with ⟨w, lmm_w⟩, cases lmm_w,
@@ -440,7 +440,7 @@ lemma incomparable₁ : ¬I₁ ≤ₜ I₀ :=
 begin
   assume hyp : I₁ ≤ₜ I₀,
   have : ∃ e, ⟦e⟧ᵪ^(chr I₀) = chr I₁ :=
-    rpartrec.rpartrec_univ_iff_total.mp (classical_iff.mp hyp),
+    rpartrec.exists_index_tot.mp (classical_iff.mp hyp),
   rcases this with ⟨e, lmm_e⟩,
   have lmm : ∀ n, (chr I₁ n) ∈ (⟦e⟧ᵪ^(chr I₀) n), simp[lmm_e],
   rcases requirement₁ e with ⟨w, lmm_w⟩, cases lmm_w,
