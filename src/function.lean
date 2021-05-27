@@ -418,9 +418,9 @@ theorem rpartrec.eval_tot {f : ℕ → ℕ} {c : α → code} {n : α → ℕ} {
 rpartrec.eval_w (rcomputable.option_some_iff.mpr hf) hc hn
 
 theorem rcomputable.univn_w (α σ) [primcodable α] [primcodable σ]
-  {i : γ → ℕ} {f : β → option τ} {s : γ → ℕ} {n : γ → α} {o : μ →. ν}
-  (hi : i computable_in o) (hf : f computable_in o) (hs : s computable_in o) (hn : n computable_in o) :
-  (λ x, ⟦i x⟧*f [s x] (n x) : γ → option σ) computable_in o :=
+  {i : γ → ℕ} {p : β → option τ} {s : γ → ℕ} {n : γ → α} {o : μ →. ν}
+  (hi : i computable_in o) (hp : p computable_in o) (hs : s computable_in o) (hn : n computable_in o) :
+  (λ x, ⟦i x⟧*p [s x] (n x) : γ → option σ) computable_in o :=
 begin
   simp [univn],
   refine rcomputable.option_bind' (rcomputable.evaln_w hs
@@ -428,22 +428,22 @@ begin
     ((primrec.of_nat _).to_comp.to_rcomp.comp hi)
     (primrec.encode.to_comp.to_rcomp.comp hn)) _,
   { simp, refine rcomputable.option_map' _ _,
-    { exact hf.comp rcomputable.snd },
+    { exact hp.comp rcomputable.snd },
     { simp, exact (primrec.encode.comp snd).to_comp.to_rcomp } },
   { simp, exact (primrec.decode.comp snd).to_comp.to_rcomp }
 end
 
 theorem rpartrec.univ_w (α σ) [primcodable α] [primcodable σ]
-  {i : γ → ℕ} {f : β → option τ} {n : γ → α} {o : μ →. ν}
-  (hi : i computable_in o) (hf : f computable_in o) (hn : n computable_in o) :
-  (λ x, ⟦i x⟧*f (n x) : γ →. σ) partrec_in o :=
+  {i : γ → ℕ} {p : β → option τ} {n : γ → α} {o : μ →. ν}
+  (hi : i computable_in o) (hp : p computable_in o) (hn : n computable_in o) :
+  (λ x, ⟦i x⟧*p (n x) : γ →. σ) partrec_in o :=
 begin
   simp [univ],
   refine rpartrec.bind' (rpartrec.eval_w
     (rcomputable.option_bind' primrec.decode.to_comp.to_rcomp _)
     ((primrec.of_nat _).to_comp.to_rcomp.comp hi)
     (primrec.encode.to_comp.to_rcomp.comp hn)) _,
-  { simp, refine rcomputable.option_map' (hf.comp rcomputable.snd) _,
+  { simp, refine rcomputable.option_map' (hp.comp rcomputable.snd) _,
     simp, refine (primrec.encode.comp snd).to_comp.to_rcomp },
   { simp, refine (primrec.decode.comp snd).to_comp.of_option.to_rpart }
 end
@@ -531,32 +531,35 @@ by rcases recursion α σ f with ⟨fixpoint, cf, hfix⟩;
 
 end rpartrec
 
-def use_pfun (α σ) [primcodable α] [primcodable σ] (s : ℕ) (f : β → option τ) (e : ℕ) (x : α) : roption ℕ :=
-cond ((⟦e⟧*f [s] x : option σ)).is_some
-  ((nat.rfind $ λ u : ℕ, (⟦e⟧*f [u] x : option σ).is_some).map nat.succ)
+def use_pfun (σ) [primcodable σ] (p : β → option τ) (e : ℕ) (s : ℕ) (x : α) : roption ℕ :=
+cond ((⟦e⟧*p [s] x : option σ)).is_some
+  ((nat.rfind $ λ u : ℕ, (⟦e⟧*p [u] x : option σ).is_some).map nat.succ)
   (some 0)
 
-lemma use_pfun_defined {f : β → option τ} {e : ℕ} {x : α} {s : ℕ} :
-  (use_pfun α σ s f e x).dom :=
+lemma use_pfun_defined {p : β → option τ} {e : ℕ} {s : ℕ} {x : α} :
+  (use_pfun σ p e s x).dom :=
 begin
   simp [use_pfun],
-  cases C : (⟦e⟧*f [s] x).is_some; simp [C],
-  suffices : (nat.rfind (λ u, (⟦e⟧*f [u] x).is_some)).dom,
+  cases C : (⟦e⟧*p [s] x).is_some; simp [C],
+  suffices : (nat.rfind (λ u, (⟦e⟧*p [u] x).is_some)).dom,
   { rcases roption.dom_iff_mem.mp this with ⟨_, h⟩,
     rw roption.eq_some_iff.mpr h, simp },
   refine rfind_dom_total ⟨s, C⟩
 end 
 
-def use (α σ) [primcodable α] [primcodable σ] (s : ℕ) (f : β → option τ) (e : ℕ) (x : α) : ℕ :=
-(use_pfun α σ s f e x).get use_pfun_defined
+def use (σ) [primcodable σ] (f : β → option τ) (e : ℕ) (s : ℕ) (x : α) : ℕ :=
+(use_pfun σ f e s x).get use_pfun_defined
 
-theorem rcomputable.use_tot (α σ) [primcodable α] [primcodable σ]
-  {s : γ → ℕ} {f : β → τ} {i : γ → ℕ} {a : γ → α} {o : μ → τ}
-  (hs : s computable_in! o) (hf : f computable_in! o) (hi : i computable_in! o) (ha : a computable_in! o) :
-  (λ x, use α σ (s x) ↑ₒf (i x) (a x)) computable_in! o :=
+notation `useᵪ` := use bool
+notation `useₙ` := use ℕ
+
+theorem rcomputable.use_tot (σ) [primcodable σ]
+  {f : β → τ} {i : γ → ℕ} {s : γ → ℕ} {a : γ → α} {o : μ → τ}
+  (hf : f computable_in! o) (hi : i computable_in! o) (hs : s computable_in! o) (ha : a computable_in! o) :
+  (λ x, use σ ↑ₒf (i x) (s x) (a x)) computable_in! o :=
 begin
   suffices :
-    (λ x, use_pfun α σ (s x) ↑ₒf (i x) (a x)) partrec_in! o,
+    (λ x, use_pfun σ ↑ₒf (i x) (s x) (a x)) partrec_in! o,
   from (this.of_eq $ λ n, by simp [use]),
   refine rpartrec.cond _ _ _,
   { refine primrec.option_is_some.to_rcomp.comp (rcomputable.univn_tot _ _ hi hf hs ha) },
@@ -567,56 +570,69 @@ begin
   { refine rcomputable.const _ }
 end
 
-theorem computable.use_initial (α σ) [primcodable α] [primcodable σ]
-  {s : γ → ℕ} {l : γ → list ℕ} {i : γ → ℕ} {a : γ → α} {o : μ → τ}
-  (hs : computable s) (hl : computable l) (hi : computable i) (ha : computable a) :
-  computable (λ x, use α σ (s x) (l x).rnth (i x) (a x)) :=
+theorem computable.use_initial (σ) [primcodable σ]
+  {l : γ → list ℕ} {i : γ → ℕ} {s : γ → ℕ} {a : γ → α} {o : μ → τ}
+  (hl : computable l) (hi : computable i) (hs : computable s) (ha : computable a) :
+  computable (λ x, use σ (l x).rnth (i x) (s x) (a x)) :=
 begin
   suffices :
-    partrec (λ x, use_pfun α σ (s x) (l x).rnth (i x) (a x)),
+    partrec (λ x, use_pfun σ (l x).rnth (i x) (s x) (a x)),
   from (this.of_eq $ λ n, by simp [use] ),
   refine partrec.cond _ _ _,
   { refine primrec.option_is_some.to_comp.comp (computable.univn_list _ _ hi hl hs ha) },
   { refine (partrec.rfind _).map _,
     { refine primrec.option_is_some.to_comp.comp
-        (computable.univn_list _ _ (hi.comp computable.fst) (hl.comp computable.fst) computable.snd _), },
-     },
+        (computable.univn_list _ _ (hi.comp computable.fst) (hl.comp computable.fst)
+        computable.snd (ha.comp computable.fst)) },
+    refine (primrec.succ.to_comp.comp computable.snd) },
+  { refine (const _).to_comp }
 end
 
-theorem use_eq {f : β → option τ} {e : ℕ} {x : α} {s : ℕ}
-  (h : (⟦e⟧*f [s] x : option σ).is_some = tt) :
-  use α σ s f e x = ((nat.rfind (λ u, (⟦e⟧*f [u] x).is_some)).get (rfind_dom_total ⟨_, h⟩)) + 1 :=
+theorem use_eq_tt {p : β → option τ} {e : ℕ} {s : ℕ} {x : α}
+  (h : (⟦e⟧*p [s] x : option σ).is_some = tt) :
+  use σ p e s x = ((nat.rfind (λ u, (⟦e⟧*p [u] x).is_some)).get (rfind_dom_total ⟨_, h⟩)) + 1 :=
 by simp [use, use_pfun, h, map]
 
-theorem use_step_tt {f : β → option τ} {e : ℕ} {x : α} {s : ℕ} 
-  (h : (⟦e⟧*f [s] x : option σ).is_some = tt) {u} (hu : u + 1 = use α σ s f e x) :
-  (⟦e⟧*f [u] x : option σ).is_some = tt :=
+theorem use_eq_ff {p : β → option τ} {e : ℕ} {s : ℕ} {x : α}
+  (h : (⟦e⟧*p [s] x : option σ).is_some = ff) :
+  use σ p e s x = 0 :=
+by simp [use, use_pfun, h, map]
+
+theorem use_step_tt {p : β → option τ} {e : ℕ} {s : ℕ}  {x : α}
+  (h : (⟦e⟧*p [s] x : option σ).is_some = tt) {u} (hu : u + 1 = use σ p e s x) :
+  (⟦e⟧*p [u] x : option σ).is_some = tt :=
 begin
-  simp [use_eq h] at hu,
-  have : u ∈ nat.rfind (λ u, (⟦e⟧*f [u] x).is_some), rw hu, from get_mem _,
+  simp [use_eq_tt h] at hu,
+  have : u ∈ nat.rfind (λ u, (⟦e⟧*p [u] x).is_some), rw hu, from get_mem _,
   simp at this, simp [this.1]
 end
 
-theorem use_step_tt_tot {f : ℕ → τ} {e : ℕ} {x : α} {s : ℕ}
-  (h : (⟦e⟧^f [s] x : option σ).is_some = tt) {u} (hu : u + 1 = use α σ s ↑ₒf e x) :
-  (⟦e⟧*(f↾u).rnth [u] x : option σ).is_some = tt :=
+theorem use_consumption_step_tot {f : ℕ → τ} {e : ℕ} {s : ℕ} {x : α} {y : σ}
+  {u} (hu : u + 1 = use σ ↑ₒf e s x) (h : ⟦e⟧^f [s] x = some y) :
+  ⟦e⟧*(f↾u).rnth [u] x = some y :=
 begin
+  have h' := option.is_some_iff_exists.mpr ⟨_, h⟩,
   suffices :
     (⟦e⟧*(f↾u).rnth [u] : α → option σ) = ⟦e⟧^f [u],
-  { simp [this, use_step_tt h hu] },
+  { simp [this], have := use_step_tt h' hu,
+    rcases option.is_some_iff_exists.mp this with ⟨z, hz⟩,
+    simp [rpartrec.univn_mono_eq h hz, hz] },
   apply rpartrec.univn_use, intros n eqn,
   simp [eqn], refl
 end
 
-theorem use_le {α σ} [primcodable α] [primcodable σ] {f : β → τ} {e : ℕ} {x : α} {s : ℕ}
-  (h : (⟦e⟧^f [s] x : option σ).is_some = tt) : use α σ s ↑ₒf e x ≤ s + 1 :=
+theorem use_le {α σ} [primcodable α] [primcodable σ] {p : β → option τ} {e : ℕ} {s : ℕ} {x : α} :
+  use σ p e s x ≤ s + 1 :=
 begin
-  simp [use_eq h],
-  let u := (nat.rfind ↑(λ u, (⟦e⟧^f [u] x).is_some)).get (rfind_dom_total ⟨_, h⟩),
-  suffices : u ≤ s, from this,
-  have eqn : u ≤ s ∨ s < u, from le_or_lt u s, cases eqn, refine eqn,
-  exfalso,
-  have : u ∈ nat.rfind (λ u, (⟦e⟧^f [u] x).is_some), from get_mem _,
-  simp at this,
-  have := this.2 eqn, simp [h] at this, refine this
+  cases h : (⟦e⟧*p [s] x : option σ).is_some,
+  { simp [use_eq_ff h] },
+  { simp [use_eq_tt h],
+    let u := (nat.rfind ↑(λ u, (⟦e⟧*p [u] x).is_some)).get (rfind_dom_total ⟨_, h⟩),
+    suffices : u ≤ s, from this,
+    have eqn : u ≤ s ∨ s < u, from le_or_lt u s, cases eqn, refine eqn,
+    exfalso,
+    have : u ∈ nat.rfind (λ u, (⟦e⟧*p [u] x).is_some), from get_mem _,
+    simp at this,
+    have := this.2 eqn, simp [h] at this, refine this }
 end
+
