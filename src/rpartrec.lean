@@ -450,3 +450,19 @@ theorem total_computable {f : α →. σ} (h : ∀ a, (f a).dom) :
   (λ a, (f a).get (h a)) computable_in f := (rpartrec.refl.of_eq $ by simp)
 
 end rcomputable
+
+lemma rfind_dom_total {p : ℕ → bool} :
+  (∃ n, p n = tt) → (nat.rfind p).dom :=
+begin
+  simp, intros n,
+  induction n with n0 ih generalizing p,
+  { assume h, use 0, simp [h] },
+  { assume h, 
+    let q := (λ n : ℕ, (p n.succ)),
+    have q0 : q n0 = tt, simp[q], exact h,
+    rcases ih q0 with ⟨m, qm, hm⟩, simp[q] at qm, simp[q] at hm,
+    cases ep : p 0 with p0 p0,
+    { use m.succ, split, exact qm,
+      intros l el, simp [roption.some] },
+    { use 0, exact ⟨eq.symm ep, by simp⟩ } }
+end

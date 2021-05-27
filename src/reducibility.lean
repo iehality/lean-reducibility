@@ -322,22 +322,6 @@ begin
     apply roption.ext, intros a, simp [dom_iff_mem] })
 end
 
-private lemma rfind_dom_total {p : ℕ → bool} :
-  (∃ n, p n = tt) → (nat.rfind p).dom :=
-begin
-  simp, intros n,
-  induction n with n0 ih generalizing p,
-  { assume h, use 0, simp [h] },
-  { assume h, 
-    let q := (λ n : ℕ, (p n.succ)),
-    have q0 : q n0 = tt, simp[q], exact h,
-    rcases ih q0 with ⟨m, qm, hm⟩, simp[q] at qm, simp[q] at hm,
-    cases ep : p 0 with p0 p0,
-    { use m.succ, split, exact qm,
-      intros l el, simp [roption.some] },
-    { use 0, exact ⟨eq.symm ep, by simp⟩ } }
-end
-
 theorem domex_rre [inhabited β] {f : α × β →. σ} {g : γ → τ}
   (h : f partrec_in! g) :
   {x | ∃ y, (f (x, y)).dom} re_in! g :=

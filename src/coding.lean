@@ -776,6 +776,18 @@ theorem exists_index_tot {f : α →. σ} {g : β → τ} :
   f partrec_in! g ↔ ∃ e, ⟦e⟧^g = f :=
 by rw ← exists_index; refl
 -/
+
+theorem univn_use {s e} {f g : ℕ → option β}
+  (h : ∀ x, x < s → f x = g x) : (⟦e⟧*f [s] : α → option σ) = ⟦e⟧*g [s] :=
+begin
+  simp [univn],
+  suffices :
+    code.evaln s (λ n, option.map encode (f n)) (of_nat code e) =
+    code.evaln s (λ n, option.map encode (g n)) (of_nat code e),
+  { funext, rw this },
+  apply code.evaln_use, intros u eqn, congr, exact h _ eqn
+end
+
 theorem eval_inclusion {e} {x : α} {y : σ}
   {f : ℕ → option τ} (h : y ∈ (⟦e⟧*f x : roption σ)) : ∃ s, ∀ {g : ℕ → option τ},
   (∀ x y, x < s → f x = some y → g x = some y) → y ∈ (⟦e⟧*g x : roption σ) := 
@@ -789,6 +801,7 @@ theorem eval_inclusion_tot {e} {x : α} {y : σ}
   (∀ x y, x < s → f x = y → g x = y) → y ∈ (⟦e⟧^g x : roption σ) := 
 by { rcases eval_inclusion h with ⟨s, hs⟩, refine ⟨s, λ g hfg, hs _⟩,
      simp, exact hfg }
+
 
 /--
 def univn (α σ) [primcodable α] [primcodable σ] (s : ℕ) (f : β → option τ) (e : ℕ) :
