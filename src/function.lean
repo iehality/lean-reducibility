@@ -186,9 +186,14 @@ begin
   exact c₂.map c₁.to_rpart
 end
 
-protected theorem epsilon_r [inhabited β] {p : α → β →. bool} {g : γ →. σ} :
-  prod.unpaired p partrec_in g → (λ a, epsilon_r (p a)) partrec_in g :=
-epsilon_r_rpartrec_refl.trans
+protected theorem epsilon_r [inhabited β] {p : α → β →. bool} {g : γ →. σ}
+  (hp : prod.unpaired p partrec_in g) : (λ a, epsilon_r (p a)) partrec_in g :=
+epsilon_r_rpartrec_refl.trans hp
+
+protected theorem epsilon [inhabited β] {p : α → β → bool} {g : γ →. σ}
+  (hp : prod.unpaired p computable_in g) :
+  (λ a, epsilon (p a)) partrec_in g :=
+epsilon_r_rpartrec_refl.trans hp
 
 theorem epsilon_rpartrec [inhabited β] (p : α × β → bool) :
   (λ a, epsilon (λ x, p (a, x))) partrec_in (λ x, some $ p x) :=
@@ -294,7 +299,6 @@ end rcomputable
 open nat.rpartrec primrec
 
 -- !!!! AXIOM !!!!
-
 axiom evaln_axiom :
   computable (λ x : ℕ × list (option ℕ) × code × ℕ,
     code.evaln x.1 (λ z, option.join $ x.2.1.rnth z) x.2.2.1 x.2.2.2)
@@ -328,7 +332,7 @@ roption.ext $ λ x, begin
   intros a m n hl, apply code.evaln_mono hl,
 end
 
-theorem computable.eval_list {α} [primcodable α]
+theorem partrec.eval_list {α} [primcodable α]
   {l : α → list ℕ} {c : α → code} {n : α → ℕ}
   (hl : computable l) (hc : computable c) (hn : computable n) :
   partrec (λ x, code.eval (l x).rnth (c x) (n x)) :=
@@ -341,7 +345,7 @@ begin
 end
 
 theorem computable.univn_list (α σ) [primcodable α] [primcodable σ]
-  {i : γ → ℕ} {l : γ → list τ} {s : γ → ℕ} {n : γ → α} {o : μ →. ν}
+  {i : γ → ℕ} {l : γ → list τ} {s : γ → ℕ} {n : γ → α}
   (hi : computable i) (hl : computable l) (hs : computable s) (hn : computable n) :
   computable (λ x : γ, (⟦i x⟧*(l x).rnth [s x] (n x) : option σ)) :=
 begin
@@ -353,13 +357,13 @@ begin
     (primrec.decode.comp snd).to_comp
 end
 
-theorem partrec.univn_list (α σ) [primcodable α] [primcodable σ]
-  {i : γ → ℕ} {l : γ → list τ} {n : γ → α} {o : μ →. ν}
+theorem partrec.univ_list (α σ) [primcodable α] [primcodable σ]
+  {i : γ → ℕ} {l : γ → list τ} {n : γ → α}
   (hi : computable i) (hl : computable l) (hn : computable n) :
   partrec (λ x : γ, (⟦i x⟧*(l x).rnth (n x) : roption σ)) :=
 begin
   simp [univ, ←list.rnth_map],
-  refine partrec.bind (computable.eval_list
+  refine partrec.bind (partrec.eval_list
     ((list_map primrec.id (primrec.encode.comp snd).to₂).to_comp.comp hl)
     ((primrec.of_nat _).to_comp.comp hi)
     ((primrec.encode).to_comp.comp hn)) (primrec.decode.comp snd).to_comp.of_option

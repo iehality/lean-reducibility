@@ -153,6 +153,12 @@ theorem computable.to_rcomp {α σ β τ} [primcodable α] [primcodable σ] [pri
 theorem computable.to_rcomp_in {α σ β τ} [primcodable α] [primcodable σ] [primcodable β] [primcodable τ]
   {f : α → σ} (g : β →. τ) (h : computable f) : f computable_in g := nat.rpartrec.of_partrec _ h
 
+theorem primrec.to_rcomp {α σ β τ} [primcodable α] [primcodable σ] [primcodable β] [primcodable τ]
+  {f : α → σ} {g : β →. τ} (h : primrec f) : f computable_in g := h.to_comp.to_rcomp
+
+theorem primrec.to_rcomp_in {α σ β τ} [primcodable α] [primcodable σ] [primcodable β] [primcodable τ]
+  {f : α → σ} (g : β →. τ) (h : primrec f) : f computable_in g := h.to_comp.to_rcomp
+
 namespace rpartrec
 variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
 variables [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ] [primcodable μ]
