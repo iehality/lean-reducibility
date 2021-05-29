@@ -138,8 +138,6 @@ def list.bmerge : list bool → list bool → list bool
 | l         []        := l
 | (a :: xs) (b :: ys) := (a || b) :: (xs.bmerge ys)
 
-def nat.rpartrec.code.use (f c n) := nat.rfind_opt (λ s, nat.rpartrec.code.evaln s f c n)
-
 namespace primrec
 
 variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
@@ -150,6 +148,10 @@ primrec.list_nth.comp (primrec.list_reverse.comp primrec.fst) primrec.snd
 
 theorem list_bmerge : primrec₂ list.bmerge :=
 by sorry
+
+def subseq {α} (A B : ℕ → option α) := ∀ n b, A n = some b → B n = some b
+
+infix ` ⊆* `:50 := subseq
 
 end primrec
 
@@ -272,7 +274,7 @@ theorem foldr0 [inhabited α] (f : α × β → β) (b : β) :
 (foldr f).comp (pair (const b) id)
 
 theorem graph_rcomp [decidable_eq β] (f : α → β)  : graph f computable_in (f : α →. β) :=
-  have c₀ : (λ x, to_bool (x.1 = x.2) : β × β → bool) computable_in (f : α →. β) := primrec.eq.to_comp.to_rcomp,
+  have c₀ : (λ x, to_bool (x.1 = x.2) : β × β → bool) computable_in (f : α →. β) := primrec.eq.to_rcomp,
   have c₂ : (λ x, (f x.1, x.2) : α × β → β × β) computable_in (f : α →. β) := rcomputable.pair 
   (rcomputable.refl.comp rcomputable.fst) rcomputable.snd,
 c₀.comp c₂
@@ -284,7 +286,7 @@ begin
   let subseq0 := (λ x, (list.foldr (λ y z, g (y, z)) (0, tt) x) : list α → ℕ × bool),
   let subseq1 := (λ x, (subseq0 x).2),
   have cg : g computable_in (f : ℕ →. α) := ((computable.succ.to_rcomp).comp (fst.comp snd)).pair 
-  (((primrec.dom_bool₂ band).to_comp.to_rcomp).comp $
+  (((primrec.dom_bool₂ band).to_rcomp).comp $
     (snd.comp snd).pair $
       (rcomputable.graph_rcomp f).comp ((fst.comp snd).pair fst)),
   have cic : subseq1 computable_in (f : ℕ →. α) := rcomputable.snd.comp ((rcomputable.foldr0 g (0, tt)).trans cg),
@@ -424,13 +426,13 @@ theorem rcomputable.univn_w (α σ) [primcodable α] [primcodable σ]
 begin
   simp [univn],
   refine rcomputable.option_bind' (rcomputable.evaln_w hs
-    (rcomputable.option_bind' primrec.decode.to_comp.to_rcomp _)
-    ((primrec.of_nat _).to_comp.to_rcomp.comp hi)
-    (primrec.encode.to_comp.to_rcomp.comp hn)) _,
+    (rcomputable.option_bind' primrec.decode.to_rcomp _)
+    ((primrec.of_nat _).to_rcomp.comp hi)
+    (primrec.encode.to_rcomp.comp hn)) _,
   { simp, refine rcomputable.option_map' _ _,
     { exact hp.comp rcomputable.snd },
-    { simp, exact (primrec.encode.comp snd).to_comp.to_rcomp } },
-  { simp, exact (primrec.decode.comp snd).to_comp.to_rcomp }
+    { simp, exact (primrec.encode.comp snd).to_rcomp } },
+  { simp, exact (primrec.decode.comp snd).to_rcomp }
 end
 
 theorem rpartrec.univ_w (α σ) [primcodable α] [primcodable σ]
@@ -440,11 +442,11 @@ theorem rpartrec.univ_w (α σ) [primcodable α] [primcodable σ]
 begin
   simp [univ],
   refine rpartrec.bind' (rpartrec.eval_w
-    (rcomputable.option_bind' primrec.decode.to_comp.to_rcomp _)
-    ((primrec.of_nat _).to_comp.to_rcomp.comp hi)
-    (primrec.encode.to_comp.to_rcomp.comp hn)) _,
+    (rcomputable.option_bind' primrec.decode.to_rcomp _)
+    ((primrec.of_nat _).to_rcomp.comp hi)
+    (primrec.encode.to_rcomp.comp hn)) _,
   { simp, refine rcomputable.option_map' (hp.comp rcomputable.snd) _,
-    simp, refine (primrec.encode.comp snd).to_comp.to_rcomp },
+    simp, refine (primrec.encode.comp snd).to_rcomp },
   { simp, refine (primrec.decode.comp snd).to_comp.of_option.to_rpart }
 end
 
@@ -471,7 +473,7 @@ begin
     assume h, rcases code.exists_code_opt.mp h with ⟨c, eqn_c⟩,
       refine ⟨encode c, funext $ λ a, _⟩, simp [eqn_c, roption.of_option] },
   { rintros ⟨e, rfl⟩, refine rpartrec.univ_tot _ _
-      (primrec.const e).to_comp.to_rcomp rcomputable.refl rcomputable.id }
+      (primrec.const e).to_rcomp rcomputable.refl rcomputable.id }
 end
 
 namespace rpartrec
@@ -488,7 +490,7 @@ begin
 end
 
 theorem bool_to_roption (c : α → bool):
-  (λ a, cond (c a) (some 0) none : α →. ℕ) partrec_in (c : α →. bool) :=
+  (λ a, cond (c a) (some 0) roption.none : α →. ℕ) partrec_in (c : α →. bool) :=
 rpartrec.cond rcomputable.refl (rcomputable.const 0) partrec.none.to_rpart
 
 theorem universal_index {f : β → τ} : ∃ u, ∀ (x : ℕ) (y : α),
@@ -504,7 +506,7 @@ theorem recursion (α σ) [primcodable α] [primcodable σ] (f : β → τ) :
 begin
   have : ∃ j, (⟦j⟧^f : ℕ × α →. σ) = λ a, (⟦a.1⟧^f a.1).bind (λ n : ℕ, ⟦n⟧^f a.2),
   { have this := (rpartrec.univ_tot ℕ ℕ rcomputable.fst rcomputable.refl rcomputable.fst).bind
-      ((rpartrec.univ_tot α σ rcomputable.snd rcomputable.refl (snd.comp fst).to_comp.to_rcomp)),
+      ((rpartrec.univ_tot α σ rcomputable.snd rcomputable.refl (snd.comp fst).to_rcomp)),
     exact exists_index.mp this },
   rcases this with ⟨j, lmm_j⟩,
   have : ∃ k, ⟦k⟧^f = λ (a : ℕ × ℕ), ⟦a.1⟧^f (curry j a.2),
@@ -599,7 +601,7 @@ theorem use_eq_ff {p : β → option τ} {e : ℕ} {s : ℕ} {x : α}
 by simp [use, use_pfun, h, map]
 
 theorem use_step_tt {p : β → option τ} {e : ℕ} {s : ℕ}  {x : α}
-  (h : (⟦e⟧*p [s] x : option σ).is_some = tt) {u} (hu : u + 1 = use σ p e s x) :
+  {u} (hu : u + 1 = use σ p e s x) (h : (⟦e⟧*p [s] x : option σ).is_some = tt) :
   (⟦e⟧*p [u] x : option σ).is_some = tt :=
 begin
   simp [use_eq_tt h] at hu,
@@ -607,14 +609,27 @@ begin
   simp at this, simp [this.1]
 end
 
+theorem use_consumption_step {p : ℕ → option τ} {e : ℕ} {s : ℕ} {x : α} {y : σ}
+  {u} (hu : u + 1 = use σ p e s x) :
+  ⟦e⟧*p [s] x = some y → ∀ {q : ℕ → option τ}, (∀ n, n < u → q n = p n) → ⟦e⟧*q [u] x = some y := λ h q hq,
+begin
+  have h' := option.is_some_iff_exists.mpr ⟨_, h⟩,
+  suffices :
+    (⟦e⟧*q [u] : α → option σ) = ⟦e⟧*p [u],
+  { simp [this], have := use_step_tt hu h',
+    rcases option.is_some_iff_exists.mp this with ⟨z, hz⟩,
+    simp [rpartrec.univn_mono_eq h hz, hz] },
+  apply rpartrec.univn_use, exact hq,
+end
+
 theorem use_consumption_step_tot {f : ℕ → τ} {e : ℕ} {s : ℕ} {x : α} {y : σ}
-  {u} (hu : u + 1 = use σ ↑ₒf e s x) (h : ⟦e⟧^f [s] x = some y) :
-  ⟦e⟧*(f↾u).rnth [u] x = some y :=
+  {u} (hu : u + 1 = use σ ↑ₒf e s x) :
+  ⟦e⟧^f [s] x = some y → ⟦e⟧*(f↾u).rnth [u] x = some y := λ h,
 begin
   have h' := option.is_some_iff_exists.mpr ⟨_, h⟩,
   suffices :
     (⟦e⟧*(f↾u).rnth [u] : α → option σ) = ⟦e⟧^f [u],
-  { simp [this], have := use_step_tt h' hu,
+  { simp [this], have := use_step_tt hu h',
     rcases option.is_some_iff_exists.mp this with ⟨z, hz⟩,
     simp [rpartrec.univn_mono_eq h hz, hz] },
   apply rpartrec.univn_use, intros n eqn,

@@ -50,10 +50,6 @@ by { simp[list.is_suffix], intros l hl s h₀,
      simp[←hl, list.rnth] at h₀ ⊢, rcases list.nth_eq_some.mp h₀ with ⟨e, _⟩,
      simp [list.nth_append e, h₀] }
 
-def subseq (A B : ℕ → option bool) := ∀ n b, A n = some b → B n = some b
-
-infix ` ⊆* `:50 := subseq
-
 lemma suffix_subseq {l₀ l₁ : list bool} (h : l₀ <:+ l₁) :
   l₀.rnth ⊆* l₁.rnth := λ n b eb,
 by { rcases h with ⟨l, hl⟩,

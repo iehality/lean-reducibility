@@ -9,9 +9,8 @@ lemma bnot_ne (b) : b ≠ !b := by cases b; simp
 
 open primrec
 
-theorem extendable_suffix {l₀ n e} {A : ℕ → bool}
-  (h : ∀ l : list bool, ¬(⟦e⟧ᵪ*(l ++ l₀).rnth n).dom) (hl₀ : l₀.rnth ⊆* ↑ₒA) :
-  ¬(⟦e⟧ᵪ^A n).dom := λ C,
+theorem extendable_suffix {l₀ : list bool} {n e} {A : ℕ → bool} (hl₀ : l₀.rnth ⊆* ↑ₒA) :
+  (∀ l, ¬(⟦e⟧ᵪ*(l ++ l₀).rnth n).dom) → ¬(⟦e⟧ᵪ^A n).dom := λ h C,
 begin
   rcases roption.dom_iff_mem.mp C with ⟨b, hb⟩,
   rcases rpartrec.eval_inclusion hb with ⟨s, hs⟩,
@@ -19,7 +18,7 @@ begin
   suffices : b ∈ (⟦e⟧ᵪ*(l ++ l₀).rnth n),
   { rcases this with ⟨lmm, _⟩, exact h _ lmm },
   apply hs, simp, intros m c em hc,
-  have : (initial_code (λ (x : ℕ), A x) s).rnth m = c, simp[em, hc],
+  have : (A↾s).rnth m = c, simp[em, hc],
   exact hl _ _ this
 end
 
@@ -82,11 +81,11 @@ begin
         (some (ff :: σ.1, σ.2))),
   have : h partrec_in! chr ∅′,
   { simp [h], apply rpartrec.cond,
-    { refine (nat_bodd.comp $ fst.comp snd).to_comp.to_rcomp },
+    { refine (nat_bodd.comp $ fst.comp snd).to_rcomp },
     { refine rpartrec.cond _ _ _,
       { refine (classical_iff.mp O₀_0'computable).comp
           (((nat_div2.comp fst).pair ((fst.comp snd).pair 
-          (list_length.comp $ snd.comp snd))).comp snd).to_comp.to_rcomp },
+          (list_length.comp $ snd.comp snd))).comp snd).to_rcomp },
       { refine rpartrec.bind' (rpartrec.epsilon _) _; simp,
         { suffices :
             (λ (p : (ℕ × ℕ × list bool × list bool) × list bool),
@@ -173,18 +172,10 @@ def I₀ : set ℕ := limit L₀
 def I₁ : set ℕ := limit L₁
 
 lemma L₀_0'computable : L₀ computable_in! chr ∅′ :=
-begin
-  have := (rcomputable.total_computable I_defined),
-  have : (λ (a : ℕ), (L a).get _) computable_in! chr ∅′ := rpartrec.trans this L_0'partrec,
-  exact rcomputable.fst.comp this,
-end
+rcomputable.fst.comp (rpartrec.trans (rcomputable.total_computable I_defined) L_0'partrec)
 
 lemma L₁_0'computable : L₁ computable_in! chr ∅′ :=
-begin
-  have := (rcomputable.total_computable I_defined),
-  have : (λ (a : ℕ), (L a).get _) computable_in! chr ∅′ := rpartrec.trans this L_0'partrec,
-  exact rcomputable.snd.comp this,
-end
+rcomputable.snd.comp (rpartrec.trans (rcomputable.total_computable I_defined) L_0'partrec)
 
 lemma L₀_length (e) :
   (L₀ (bit0 e)).length < (L₀ (bit0 e + 1)).length :=
@@ -317,7 +308,7 @@ begin
     simp[lmm, lmm1] },
   { right, simp [O₀] at C,
     have : (L₁ i).rnth ⊆* ↑ₒ(chr I₁), from L₁_fiss.fiss_subseq_limit _,
-    exact extendable_suffix C this }
+    exact extendable_suffix this C }
 end
 
 lemma requirement₁ (e) : ∃ w : ℕ,
@@ -350,7 +341,7 @@ begin
     simp[lmm, lmm1] },
   { right, simp [O₀] at C,
     have : (L₀ i).rnth ⊆* ↑ₒ(chr I₀), from L₀_fiss.fiss_subseq_limit _,
-    exact extendable_suffix C this }
+    exact extendable_suffix this C }
 end
 
 lemma incomparable₀ : ¬I₀ ≤ₜ I₁ :=
