@@ -138,6 +138,36 @@ def list.bmerge : list bool → list bool → list bool
 | l         []        := l
 | (a :: xs) (b :: ys) := (a || b) :: (xs.bmerge ys)
 
+def list.adde : ℕ → list bool → list bool
+| 0       []       := [tt]
+| 0       (b :: l) := tt :: l
+| (n + 1) []       := ff :: ([].adde n)
+| (n + 1) (b :: l) := b :: (l.adde n)
+
+theorem list.adde_nth : ∀ {n} {l : list bool},  (l.adde n).nth n = tt
+| 0       []       := rfl
+| 0       (b :: l) := rfl
+| (n + 1) []       := by simp[list.adde, @list.adde_nth n []]
+| (n + 1) (b :: l) := by simp[list.adde, @list.adde_nth n l]
+
+theorem list.nth_find_index {α} {p : α → Prop} [decidable_pred p] {l : list α} :
+  ∀ {a}, l.nth (l.find_index p) = some a → p a :=
+by { induction l with b l IH; simp[list.find_index],
+     by_cases C : p b; simp [C, IH], exact @IH }
+
+theorem list.nth_find_index_neg {α} {p : α → Prop} [decidable_pred p] {l : list α} :
+  ∀ {n} {a}, n < l.find_index p → l.nth n = some a → ¬p a :=
+begin
+  induction l with b l IH; simp[list.find_index],
+  by_cases C : p b; simp [C], intros n a e,
+  cases n; simp, { intros e, simp[←e, C] },
+  have : n < list.find_index p l, from nat.succ_lt_succ_iff.mp e,
+  exact IH this
+end
+
+def list.fundecode {α σ} [decidable_eq α] (c : list (α × σ)) (a : α) : option σ :=
+(c.nth (c.find_index (λ x, x.fst = a))).map prod.snd
+
 namespace primrec
 
 variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
@@ -305,6 +335,10 @@ axiom evaln_axiom :
   primrec (λ x : ℕ × list (option ℕ) × code × ℕ,
     code.evaln x.1 (λ z, option.join $ x.2.1.rnth z) x.2.2.1 x.2.2.2)
 
+axiom evaln_axiom2 :
+  primrec (λ x : ℕ × list (ℕ × ℕ) × code × ℕ,
+    code.evaln x.1 x.2.1.fundecode x.2.2.1 x.2.2.2)
+
 variables {α : Type*} {σ : Type*} {β : Type*} {τ : Type*} {γ : Type*} {μ : Type*} {ν : Type*}
 variables [primcodable α] [primcodable σ] [primcodable β] [primcodable τ] [primcodable γ] [primcodable μ] [primcodable ν]
 
@@ -313,6 +347,12 @@ theorem computable.evaln_join_list
   (hs : computable s) (hl : computable l) (hc : computable c) (hn : computable n) :
   computable (λ x, code.evaln (s x) (λ z, option.join $ (l x).rnth z) (c x) (n x)) :=
 evaln_axiom.to_comp.comp (hs.pair $ hl.pair $ hc.pair hn)
+
+theorem computable.evaln_funcode
+  {s : α → ℕ} {l : α → list (ℕ × ℕ)} {c : α → code} {n : α → ℕ}
+  (hs : computable s) (hl : computable l) (hc : computable c) (hn : computable n) :
+  computable (λ x, code.evaln (s x) (l x).fundecode (c x) (n x)) :=
+evaln_axiom2.to_comp.comp (hs.pair $ hl.pair $ hc.pair hn)
 
 theorem computable.evaln_list {α} [primcodable α]
   {s : α → ℕ} {l : α → list ℕ} {c : α → code} {n : α → ℕ}

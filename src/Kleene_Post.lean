@@ -38,8 +38,8 @@ begin
 end
 
 theorem O₁_0'computable : O₁ ≤ₜ ∅′ :=
-dom_0'computable
-  (partrec.univ_list ℕ bool fst.to_comp (fst.comp snd).to_comp (snd.comp snd).to_comp)
+dom_0'computable (partrec.univ_list ℕ bool
+  fst.to_comp (fst.comp snd).to_comp (snd.comp snd).to_comp)
 
 namespace Kleene_Post
 

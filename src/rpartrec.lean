@@ -157,7 +157,7 @@ theorem primrec.to_rcomp {α σ β τ} [primcodable α] [primcodable σ] [primco
   {f : α → σ} {g : β →. τ} (h : primrec f) : f computable_in g := h.to_comp.to_rcomp
 
 theorem primrec.to_rcomp_in {α σ β τ} [primcodable α] [primcodable σ] [primcodable β] [primcodable τ]
-  {f : α → σ} (g : β →. τ) (h : primrec f) : f computable_in g := h.to_rcomp
+  {f : α → σ} (g : β →. τ) (h : primrec f) : f computable_in g := h.to_comp.to_rcomp
 
 namespace rpartrec
 variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
@@ -270,13 +270,13 @@ of_option_refl.trans h
 
 theorem rfind_opt {f : α × ℕ → option σ} {g : β →. τ} (hf : f computable_in g) :
   (λ a, nat.rfind_opt (λ x, f ((a, x)))) partrec_in g :=
-(rfind.trans (primrec.option_is_some.to_rcomp.comp hf))
+(rfind.trans (primrec.option_is_some.to_comp.to_rcomp.comp hf))
 .bind (hf.of_option)
 
 theorem rfind_opt' {f : α → ℕ → option σ} {g : β →. τ}
   (hf : prod.unpaired f computable_in g) :
   (λ a, nat.rfind_opt (f a)) partrec_in g :=
-(rfind.trans (primrec.option_is_some.to_rcomp.comp hf))
+(rfind.trans (primrec.option_is_some.to_comp.to_rcomp.comp hf))
 .bind (hf.of_option)
 
 end rpartrec
@@ -351,7 +351,7 @@ theorem encode_iff {f : α → σ} {g : β →. τ}: (λ a, encodable.encode (f 
 iff.rfl
 
 theorem option_some_iff {f : α → σ} {g : β →. τ} : (λ a, some (f a)) computable_in g ↔ f computable_in g :=
-⟨λ h, encode_iff.1 $ primrec.pred.to_rcomp.comp $ encode_iff.2 h,
+⟨λ h, encode_iff.1 $ primrec.pred.to_comp.to_rcomp.comp $ encode_iff.2 h,
  computable.option_some.to_rcomp.comp⟩
 
 end rcomputable
@@ -437,12 +437,12 @@ theorem option_bind' {f : α → option β} {g : α → β → option σ} {h : �
 theorem option_map {f : α → option β} {g : α × β → σ} {h : γ →. τ}
   (hf : f computable_in h) (hg : g computable_in h) :
   (λ a, (f a).map (λ x, g (a, x))) computable_in h :=
-option_bind hf (primrec.option_some.to_rcomp.comp hg)
+option_bind hf (primrec.option_some.to_comp.to_rcomp.comp hg)
 
 theorem option_map' {f : α → option β} {g : α → β → σ} {h : γ →. τ}
   (hf : f computable_in h) (hg : prod.unpaired g computable_in h) :
   (λ a, (f a).map (g a)) computable_in h :=
-option_bind hf (primrec.option_some.to_rcomp.comp hg)
+option_bind hf (primrec.option_some.to_comp.to_rcomp.comp hg)
 
 theorem total_computable {f : α →. σ} (h : ∀ a, (f a).dom) :
   (λ a, (f a).get (h a)) computable_in f := (rpartrec.refl.of_eq $ by simp)
