@@ -422,6 +422,14 @@ option_some_iff.1 $
     (map_decode_iff.2 hg)).of_eq $
 λ a, by cases o a; simp [encodek]; refl
 
+theorem option_cases' {o : α → option β} {f : α → σ} {g : α → β → σ} {h : γ →. τ}
+  (ho : o computable_in h) (hf : f computable_in h) (hg : prod.unpaired g computable_in h) :
+  @rcomputable _ _ σ _ _ _ _ _ (λ a, option.cases_on (o a) (f a) (g a)) h :=
+option_some_iff.1 $
+(nat_cases (encode_iff.2 ho) (option_some_iff.2 hf)
+    (map_decode_iff.2 hg)).of_eq $
+λ a, by cases o a; simp [encodek]; refl
+
 theorem option_bind {f : α → option β} {g : α × β → option σ} {h : γ →. τ}
   (hf : f computable_in h) (hg : g computable_in h) :
   (λ a, (f a).bind (λ x, g (a, x))) computable_in h :=

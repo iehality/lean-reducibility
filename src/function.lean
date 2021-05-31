@@ -68,37 +68,145 @@ by { simp[list.rnth], exact list.nth_append (by simp; exact hn) }
 theorem list.rnth_map {α β} (f : α → β) : ∀ (l : list α) n, (l.map f).rnth n = (l.rnth n).map f :=
 by simp [list.rnth, ←list.map_reverse]
 
-@[simp] def initial_code {α} (f : ℕ → α) : ℕ → list α
-| 0       := []
-| (n + 1) := f n :: initial_code n
+theorem list.nth_find_index {α} {p : α → Prop} [decidable_pred p] {l : list α} :
+  ∀ {a}, l.nth (l.find_index p) = some a → p a :=
+by { induction l with b l IH; simp[list.find_index],
+     by_cases C : p b; simp [C, IH], exact @IH }
 
-infix `↾`:70 := initial_code
-
-@[simp] theorem nat.initial_code_length {α} (f : ℕ → α) (s) : (f↾s).length = s :=
-by { induction s with m ih; simp, simp [ih] }
-
-lemma nat.initial_code_nth0 {α} (f : ℕ → α) (s n) : (initial_code f (n + s + 1)).rnth n = f n :=
+theorem list.nth_find_index_neg {α} {p : α → Prop} [decidable_pred p] {l : list α} :
+  ∀ {n} {a}, n < l.find_index p → l.nth n = some a → ¬p a :=
 begin
-  induction s with n0 ihn0,
-  { simp[list.rnth],
-    suffices a : ((initial_code f n).reverse ++ [f n]).nth (initial_code f n).reverse.length = ↑(f n),
-    { simp at a, exact a },
-    { rw list.nth_concat_length, refl } },
-  { simp[list.rnth] at ihn0,
-    suffices a : ((initial_code f (n + n0)).reverse ++ [f (n + n0)] ++ [f (n + n0.succ)]).nth n = ↑(f n),
-    { simp[list.rnth], simp [show n + n0.succ = n+n0+1, from nat.add_succ _ _], simp at a, exact a },
-  { rw list.nth_append, exact ihn0, simp, linarith }},
+  induction l with b l IH; simp[list.find_index],
+  by_cases C : p b; simp [C], intros n a e,
+  cases n; simp, { intros e, simp[←e, C] },
+  have : n < list.find_index p l, from nat.succ_lt_succ_iff.mp e,
+  exact IH this
 end
 
-@[simp] theorem nat.initial_code_nth {s n} (h : n < s) {α} (f : ℕ → α): (f↾s).rnth n = f n :=
-by { have e : s = n + (s - n - 1) + 1, omega, rw e, exact nat.initial_code_nth0 _ _ _ }
+def list.get_elem  {α} (p : α → Prop) [decidable_pred p] (l : list α) : option α :=
+l.nth (l.find_index p)
 
-@[simp] theorem nat.initial_code_rnth_none {s n} (h : s ≤ n) {α} (f : ℕ → α)  : (f↾ s).rnth n = none :=
-list.nth_len_le (by simp; from h)
+@[simp] theorem list.get_elem_iff {α} {p : α → Prop} [decidable_pred p] {l : list α} : ∀ x,
+  l.get_elem p = some x ↔
+  ∃ n, l.nth n = some x ∧ p x ∧ ∀ m z, m < n → l.nth m = some z → ¬p z :=
+begin
+  simp [list.get_elem],
+  induction l with a l IH; simp [list.find_index],
+  intros x, by_cases C : p a; simp [C],
+  { split, 
+    { intros eqn, use 0, simp[←eqn, C] },
+    { rintros ⟨n, hyp, px, hyp1⟩,
+      cases n; simp at hyp, exact hyp,
+      exfalso,
+      have := hyp1 0 a, simp at this,
+      contradiction } },
+  { rw IH, split,
+    { rintros ⟨n, eqn_x, px, hyp_n⟩,
+      refine ⟨n+1, eqn_x, px, _⟩, 
+      intros m z eqn_m eqn_z,
+      cases m; simp at eqn_z, simp [←eqn_z, C],
+      have : m < n, from nat.succ_lt_succ_iff.mp eqn_m,
+      exact hyp_n m z this eqn_z },
+    { rintros ⟨n, eqn_x, px, hyp_n⟩,
+      cases n; simp at eqn_x, simp [eqn_x] at C, contradiction,
+      refine ⟨n, eqn_x, px, λ m z eqn_m eqn_z, _⟩,
+      have := nat.succ_lt_succ_iff.mpr eqn_m,
+      exact hyp_n (m+1) z this (by simp; exact eqn_z) } }
+end
 
-theorem initial_code_some {α} {f : ℕ → α} {s n a} :
-  (f↾ s).rnth n = some a → f n = a :=
-by { have : n < s ∨ s ≤ n := lt_or_ge n s, cases this; simp[this], unfold_coes, simp }
+@[simp] theorem list.get_elem_iff_none {α} {p : α → Prop} [decidable_pred p] {l : list α} :
+  l.get_elem p = none ↔ ∀ n x, l.nth n = some x → ¬p x :=
+begin
+  simp [list.get_elem, list.find_index],
+  induction l with a l IH; simp [list.find_index], by_cases C : p a;
+  simp[C],
+  { refine ⟨0, a, rfl, C⟩ },
+  { simp [nat.succ_le_succ_iff, IH], split,
+    { intros hyp n, cases n; simp[C], exact hyp n },
+    { intros hyp n x eqn_x, exact hyp (n+1) x eqn_x } }
+end
+
+def list.fdecode {α σ} [decidable_eq α] (c : list (α × σ)) (a : α) : option σ :=
+(c.get_elem (λ x : α × σ, x.fst = a)).map prod.snd
+
+@[simp] theorem list.fdecode_iff {α σ} [decidable_eq α] (c : list (α × σ)) {x y} :
+  c.fdecode x = some y ↔
+  ∃ n, c.nth n = some (x, y) ∧ ∀ m z, m < n → c.nth m ≠ some (x, z) :=
+begin
+  simp [list.fdecode, list.get_elem_iff], split,
+  { rintros ⟨a, n, eqn_n, eqn_a, hyp⟩,
+    refine ⟨n, (by simp [←eqn_a]; exact eqn_n), λ m z eqn_m eqn_m1, _⟩,
+    have := hyp m (x, z) eqn_m eqn_m1, simp at this, contradiction },
+  { rintros ⟨n, eqn_n, hyp⟩,
+    refine ⟨x, n, eqn_n, rfl, λ m z eqn_m eqn_m1 eqn_x, _⟩,
+    have := hyp m z.snd eqn_m, rw ←eqn_x at this, simp at this,
+    contradiction }
+end
+
+@[simp] theorem list.fdecode_iff_none {α σ} [decidable_eq α] (c : list (α × σ)) {x} :
+  c.fdecode x = none ↔ ∀ n y, c.nth n ≠ some (x, y) :=
+begin
+  simp [list.fdecode, list.get_elem_iff_none], split,
+  { intros hyp n y eqn_xy, have := hyp n (x, y) eqn_xy, simp at this, contradiction },
+  { intros hyp n z eqn_z eqn_z1, have := hyp n z.snd, rw ←eqn_z1 at this, simp at this,
+    contradiction }
+end
+
+@[simp] def initialpart {α σ} [denumerable α] (f : α → option σ) : ℕ → list (α × σ)
+| 0       := []
+| (n + 1) := option.cases_on (f (of_nat α n)) (initialpart n) (λ a, (of_nat α n, a) :: initialpart n)
+
+-- (λ n, n.elim [] (λ m IH, (f (of_nat α n)).cases_on IH (λ a, (of_nat α n, a) :: IH)))
+
+infix `↾`:70 := initialpart
+
+@[simp] theorem nat.initialpart_length {α σ} [denumerable α] (f : α → option σ) (s) : (f↾s).length ≤ s :=
+by { induction s with m ih; simp,
+     cases C : f (of_nat _ m); simp, { exact nat.le_succ_of_le ih},
+     { exact nat.succ_le_succ ih } }
+
+lemma nat.initialpart_nth {α σ} [denumerable α] {f : α → option σ} {s n : ℕ} {a}
+  (h : n < s) (hn : f (of_nat α n) = some a) :
+  ∃ i, (f↾s).nth i = some (of_nat α n, a) ∧ ∀ j b, j < i → (f↾s).nth j ≠ some (of_nat α n, b) :=
+begin
+  induction s with s IH,
+  { simp at h, contradiction },
+  { simp[initialpart], cases C : f (of_nat α s) with v; simp,
+    { have : n < s ∨ n = s, from nat.lt_succ_iff_lt_or_eq.mp h,
+      cases this,
+      { exact IH this },
+      { exfalso, simp[this, C] at hn, exact hn } },
+    { have eqn_n : n < s ∨ n = s, from nat.lt_succ_iff_lt_or_eq.mp h,
+      cases eqn_n,
+      { rcases IH eqn_n with ⟨i, eqn_na, hi⟩, use i + 1, simp, refine ⟨eqn_na, λ j b eqn_j, _⟩,
+        cases j; simp, 
+        { intros e, exfalso, 
+          have : n = s, rw ←@denumerable.encode_of_nat α _ s,
+            rw ←@denumerable.encode_of_nat α _ n, simp [e],
+          simp[this] at eqn_n, exact eqn_n },
+        { have : j < i, from nat.succ_lt_succ_iff.mp eqn_j,
+          exact hi _ _ this } },
+      { use 0, simp[eqn_n], rw eqn_n at hn, simp[C] at hn, exact hn } } }
+end
+
+lemma nat.initialpart_nth_none {α σ} [denumerable α] {f : α → option σ} (s) {n}
+  (hn : f (of_nat α n) = none) : ∀ i a, (f↾s).nth i ≠ some (of_nat α n, a) :=
+begin
+  induction s with s IH generalizing n; simp[initialpart],
+  { cases C : f (of_nat α s) with v; simp, exact IH hn,
+    intros i, cases i; simp,
+    { intros a e, exfalso, simp [e, hn] at C, exact C },
+    { exact IH hn i } }
+end
+
+lemma nat.initialpart_fdecode {α σ} [decidable_eq α] [denumerable α] {f : α → option σ} {s a b}
+  (h : encode a < s) (hn : f a = some b) : (f↾s).fdecode a = some b :=
+by simp; rw (show a = of_nat α (encode a), by simp) at hn ⊢; exact nat.initialpart_nth h hn
+
+lemma nat.initialpart_fdecode_none {α σ} [decidable_eq α] [denumerable α] {f : α → option σ} {a}
+  (hn : f a = none) (s) : (f↾s).fdecode a = none :=
+by simp; rw (show a = of_nat α (encode a), by simp) at hn ⊢;
+   intros m y; exact nat.initialpart_nth_none s hn m y
 
 def list.subseq {α} [decidable_eq α] (f : ℕ → α) : list α → bool
 | []      := tt
@@ -133,51 +241,19 @@ begin
   exact ⟨lm0, lm1⟩
 end
 
-def list.bmerge : list bool → list bool → list bool
-| []        l         := l
-| l         []        := l
-| (a :: xs) (b :: ys) := (a || b) :: (xs.bmerge ys)
-
-def list.adde : ℕ → list bool → list bool
-| 0       []       := [tt]
-| 0       (b :: l) := tt :: l
-| (n + 1) []       := ff :: ([].adde n)
-| (n + 1) (b :: l) := b :: (l.adde n)
-
-theorem list.adde_nth : ∀ {n} {l : list bool},  (l.adde n).nth n = tt
-| 0       []       := rfl
-| 0       (b :: l) := rfl
-| (n + 1) []       := by simp[list.adde, @list.adde_nth n []]
-| (n + 1) (b :: l) := by simp[list.adde, @list.adde_nth n l]
-
-theorem list.nth_find_index {α} {p : α → Prop} [decidable_pred p] {l : list α} :
-  ∀ {a}, l.nth (l.find_index p) = some a → p a :=
-by { induction l with b l IH; simp[list.find_index],
-     by_cases C : p b; simp [C, IH], exact @IH }
-
-theorem list.nth_find_index_neg {α} {p : α → Prop} [decidable_pred p] {l : list α} :
-  ∀ {n} {a}, n < l.find_index p → l.nth n = some a → ¬p a :=
-begin
-  induction l with b l IH; simp[list.find_index],
-  by_cases C : p b; simp [C], intros n a e,
-  cases n; simp, { intros e, simp[←e, C] },
-  have : n < list.find_index p l, from nat.succ_lt_succ_iff.mp e,
-  exact IH this
-end
-
-def list.fundecode {α σ} [decidable_eq α] (c : list (α × σ)) (a : α) : option σ :=
-(c.nth (c.find_index (λ x, x.fst = a))).map prod.snd
-
 namespace primrec
 
 variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
 variables [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ] [primcodable μ]
 
+theorem list_get_elem {f : α → list β} {p : α → β → Prop}
+  [∀ a b, decidable (p a b)]
+  (hf : primrec f) (hp : primrec_rel p) :
+  primrec (λ a, (f a).get_elem (p a)) :=
+list_nth.comp hf (list_find_index hf hp)
+
 theorem list_rnth : primrec₂ (@list.rnth α) := 
 primrec.list_nth.comp (primrec.list_reverse.comp primrec.fst) primrec.snd
-
-theorem list_bmerge : primrec₂ list.bmerge :=
-by sorry
 
 def subseq {α} (A B : ℕ → option α) := ∀ n b, A n = some b → B n = some b
 
@@ -242,14 +318,22 @@ protected theorem epsilon [inhabited β] {p : α → β → bool} {g : γ →. �
   prod.unpaired p computable_in g → (λ a, epsilon (p a)) partrec_in g := λ cp,
 rpartrec.epsilon_r cp
 
-theorem initial_code (f : ℕ → α) : (↾) f computable_in (f : ℕ →. α) :=
+theorem initialpart {α} [denumerable α] {f : α → option σ} {g : β →. τ}
+  (hf : f computable_in g) : (↾) f computable_in g :=
 begin
-  have c₀ := computable.const [],
-  have c₁ := computable.list_cons.to_rcomp.comp
-      (rcomputable.pair (rcomputable.refl.comp $ rcomputable.fst.comp rcomputable.snd)
-        (rcomputable.snd.comp rcomputable.snd)),
-  exact ((rcomputable.id.nat_elim c₀.to_rcomp c₁).of_eq $ λ n, 
-  by { simp, induction n with _ ih; simp, exact ih })
+  let I : ℕ → list (α × σ) := (λ n : ℕ, n.elim []
+    (λ m IH, option.cases_on (f (of_nat α m)) IH (λ a, (of_nat α m, a) :: IH))),
+  have : I computable_in g,
+  { refine rcomputable.nat_elim'
+      rcomputable.id
+      (rcomputable.const _) _, simp,
+    refine rcomputable.option_cases'
+      (hf.comp ((primrec.of_nat _).to_rcomp.comp $ fst.comp snd))
+      (snd.comp snd) _, simp,
+    refine (primrec.list_cons.comp (((primrec.of_nat _).comp $ primrec.fst.comp $
+      primrec.snd.comp primrec.fst).pair primrec.snd) $ primrec.snd.comp $
+      primrec.snd.comp primrec.fst).to_rcomp },
+  exact (this.of_eq $ λ n, by induction n with n IH; simp[I]; simp[←IH])
 end
 
 private lemma list.concat_induction {α} {C : list α → Sort*} :
@@ -331,41 +415,17 @@ end rcomputable
 open nat.rpartrec primrec
 
 -- !!!! AXIOM !!!!
-axiom evaln_axiom :
-  primrec (λ x : ℕ × list (option ℕ) × code × ℕ,
-    code.evaln x.1 (λ z, option.join $ x.2.1.rnth z) x.2.2.1 x.2.2.2)
-
-axiom evaln_axiom2 :
-  primrec (λ x : ℕ × list (ℕ × ℕ) × code × ℕ,
-    code.evaln x.1 x.2.1.fundecode x.2.2.1 x.2.2.2)
+axiom primrec.evaln_fdecode :
+  primrec (λ x : ℕ × list (ℕ × ℕ) × code × ℕ, code.evaln x.1 x.2.1.fdecode x.2.2.1 x.2.2.2)
 
 variables {α : Type*} {σ : Type*} {β : Type*} {τ : Type*} {γ : Type*} {μ : Type*} {ν : Type*}
 variables [primcodable α] [primcodable σ] [primcodable β] [primcodable τ] [primcodable γ] [primcodable μ] [primcodable ν]
 
-theorem computable.evaln_join_list
-  {s : α → ℕ} {l : α → list (option ℕ)} {c : α → code} {n : α → ℕ}
-  (hs : computable s) (hl : computable l) (hc : computable c) (hn : computable n) :
-  computable (λ x, code.evaln (s x) (λ z, option.join $ (l x).rnth z) (c x) (n x)) :=
-evaln_axiom.to_comp.comp (hs.pair $ hl.pair $ hc.pair hn)
-
-theorem computable.evaln_funcode
+theorem computable.evaln_fdecode
   {s : α → ℕ} {l : α → list (ℕ × ℕ)} {c : α → code} {n : α → ℕ}
   (hs : computable s) (hl : computable l) (hc : computable c) (hn : computable n) :
-  computable (λ x, code.evaln (s x) (l x).fundecode (c x) (n x)) :=
-evaln_axiom2.to_comp.comp (hs.pair $ hl.pair $ hc.pair hn)
-
-theorem computable.evaln_list {α} [primcodable α]
-  {s : α → ℕ} {l : α → list ℕ} {c : α → code} {n : α → ℕ}
-  (hs : computable s) (hl : computable l) (hc : computable c) (hn : computable n) :
-  computable (λ x, code.evaln (s x) (l x).rnth (c x) (n x)) :=
-begin
-  let l' := (λ x, (l x).map option.some),
-  have hl' : computable l' := (list_map primrec.id (option_some.comp snd).to₂).to_comp.comp hl,
-  have := computable.evaln_join_list hs hl' hc hn,
-  exact (this.of_eq $ λ a, by {
-    congr, funext, simp only [l', (>>=), list.rnth, ←list.map_reverse, list.nth_map],
-    cases (l a).reverse.nth z; simp })
-end
+  computable (λ x, code.evaln (s x) (l x).fdecode (c x) (n x)) :=
+primrec.evaln_fdecode.to_comp.comp (hs.pair $ hl.pair $ hc.pair hn)
 
 theorem eval_eq_rfind (f : ℕ → option ℕ) (c n) :
   code.eval f c n = nat.rfind_opt (λ s, code.evaln s f c n) :=
@@ -374,66 +434,95 @@ roption.ext $ λ x, begin
   intros a m n hl, apply code.evaln_mono hl,
 end
 
-theorem partrec.eval_list {α} [primcodable α]
-  {l : α → list ℕ} {c : α → code} {n : α → ℕ}
+theorem partrec.eval_fdecode {α} [primcodable α]
+  {l : α → list (ℕ × ℕ)} {c : α → code} {n : α → ℕ}
   (hl : computable l) (hc : computable c) (hn : computable n) :
-  partrec (λ x, code.eval (l x).rnth (c x) (n x)) :=
+  partrec (λ x, code.eval (l x).fdecode (c x) (n x)) :=
 begin
-  let f := (λ x, nat.rfind_opt (λ s, code.evaln s (l x).rnth (c x) (n x))),
+  let f := (λ x, nat.rfind_opt (λ s, code.evaln s (l x).fdecode (c x) (n x))),
   have : partrec f := (partrec.rfind_opt $
-    computable.evaln_list computable.snd
+    computable.evaln_fdecode computable.snd
     (hl.comp computable.fst) (hc.comp computable.fst) (hn.comp computable.fst)),
   exact (this.of_eq $ by simp[f, eval_eq_rfind])
 end
 
-theorem computable.univn_list (α σ) [primcodable α] [primcodable σ]
-  {i : γ → ℕ} {l : γ → list τ} {s : γ → ℕ} {n : γ → α}
-  (hi : computable i) (hl : computable l) (hs : computable s) (hn : computable n) :
-  computable (λ x : γ, (⟦i x⟧*(l x).rnth [s x] (n x) : option σ)) :=
+theorem list.fdecode_map [decidable_eq σ] [denumerable σ]
+  (f : τ → option μ) (c : list (σ × τ)) (n) :
+  (c.fdecode n).map f = (c.map (λ x : σ × τ, (x.1, f x.2))).fdecode n :=
 begin
-  simp [univn, ←list.rnth_map],
-  refine computable.option_bind (computable.evaln_list hs
-    ((list_map primrec.id (primrec.encode.comp snd).to₂).to_comp.comp hl)
+  cases C : c.fdecode n with v; simp; symmetry,
+  { simp [list.fdecode_iff_none] at C ⊢, intros m o x y eqn_xy eqn_n,
+    have := C m y, simp [eqn_n] at eqn_xy, contradiction },
+  { simp [list.fdecode_iff] at C ⊢, rcases C with ⟨m, eqn_nv, hyp⟩,
+    refine ⟨m, ⟨n, v, eqn_nv, rfl, rfl⟩, λ k p eqn_k x y eqn_xy eqn_n eqn_p, _⟩,
+    have := hyp _ y eqn_k, rw [eqn_n] at eqn_xy, contradiction }
+end
+
+theorem list.fdecode_encode_of_nat {σ} [decidable_eq σ] [denumerable σ]
+  (c : list (σ × τ)) :
+  (λ n, option.map encode (c.fdecode (of_nat σ n))) = 
+  (c.map (λ x : σ × τ, (encode x.1, encode x.2))).fdecode :=
+begin
+  funext n,
+  cases C : c.fdecode (of_nat σ n) with v; simp; symmetry,
+  { simp [list.fdecode_iff_none] at C ⊢, intros m k x y eqn_xy eqn_n eqn_k,
+    have := C m y, rw ←eqn_n at this, simp at this, contradiction },
+  { simp [list.fdecode_iff] at C ⊢, rcases C with ⟨m, eqn_nv, hyp⟩,
+    refine ⟨m, ⟨_, _, eqn_nv, (by simp), rfl⟩, λ k z eqn_k x y eqn_xy eqn_n eqn_z, _⟩,
+    have := hyp _ y eqn_k, rw ←eqn_n at this, simp at this, contradiction }
+end
+
+theorem computable.univn_fdecode (α σ) [primcodable α] [primcodable σ] {β} [decidable_eq β] [denumerable β]
+  {i : γ → ℕ} {l : γ → list (β × τ)} {s : γ → ℕ} {n : γ → α}
+  (hi : computable i) (hl : computable l) (hs : computable s) (hn : computable n) :
+  computable (λ x : γ, (⟦i x⟧*(l x).fdecode [s x] (n x) : option σ)) :=
+begin
+  simp [univn, list.fdecode_encode_of_nat],
+  refine computable.option_bind (computable.evaln_fdecode hs
+    ((list_map primrec.id ((primrec.encode.comp $ fst.comp snd).pair
+      (primrec.encode.comp $ snd.comp snd)).to₂).to_comp.comp hl)
     ((primrec.of_nat _).to_comp.comp hi)
-    ((primrec.encode).to_comp.comp hn))
+    (primrec.encode.to_comp.comp hn))
     (primrec.decode.comp snd).to_comp
 end
 
-theorem partrec.univ_list (α σ) [primcodable α] [primcodable σ]
-  {i : γ → ℕ} {l : γ → list τ} {n : γ → α}
+theorem partrec.univ_fdecode (α σ) [primcodable α] [decidable_eq σ] [denumerable σ]
+  {i : γ → ℕ} {l : γ → list (σ × τ)} {n : γ → α}
   (hi : computable i) (hl : computable l) (hn : computable n) :
-  partrec (λ x : γ, (⟦i x⟧*(l x).rnth (n x) : roption σ)) :=
+  partrec (λ x : γ, (⟦i x⟧*(l x).fdecode (n x) : roption σ)) :=
 begin
-  simp [univ, ←list.rnth_map],
-  refine partrec.bind (partrec.eval_list
-    ((list_map primrec.id (primrec.encode.comp snd).to₂).to_comp.comp hl)
-    ((primrec.of_nat _).to_comp.comp hi)
-    ((primrec.encode).to_comp.comp hn)) (primrec.decode.comp snd).to_comp.of_option
+  simp [univ, list.fdecode_encode_of_nat],
+  refine partrec.bind (partrec.eval_fdecode
+  ((list_map primrec.id ((primrec.encode.comp $ fst.comp snd).pair
+    (primrec.encode.comp $ snd.comp snd)).to₂).to_comp.comp hl)
+  ((primrec.of_nat _).to_comp.comp hi)
+  (primrec.encode.to_comp.comp hn))
+  ((primrec.of_nat _).comp snd).to_comp
 end
 
 theorem rcomputable.evaln_w {s : α → ℕ} {f : ℕ → option ℕ} {c : α → code} {n : α → ℕ} {o : β →. σ}
   (hs : s computable_in o) (hf : f computable_in o) (hc : c computable_in o) (hn : n computable_in o) : 
   (λ x, code.evaln (s x) f (c x) (n x)) computable_in o :=
 begin
-  let u := (λ x,
-    code.evaln (s x) (λ z, option.join $ (f↾s x).rnth z) (c x) (n x)),
-  have eqn_u : u = (λ x, code.evaln (s x) f (c x) (n x)),
+  let u := (λ x, code.evaln (s x) (f↾(s x)).fdecode (c x) (n x)),
+  have eqn_u : (λ x, code.evaln (s x) f (c x) (n x)) = u,
   { suffices :
-      ∀ t d, code.evaln t (λ z, option.join $ (f↾t).rnth z) d = code.evaln t f d,
+      ∀ t d, code.evaln t (f↾t).fdecode d = code.evaln t f d,
     { funext, simp[u] at this ⊢, rw this },
     intros t d,
     apply code.evaln_use,
     intros u eqn_u,
-    simp [nat.initial_code_nth eqn_u, coe_opt, (>>=)], 
-    unfold_coes, simp },
-  rw ←eqn_u,
-  simp only [u],  
+    { cases C : f u,
+      { exact nat.initialpart_fdecode_none C t },
+      { exact nat.initialpart_fdecode (show encode u < t, from eqn_u) C } } },
+  rw eqn_u,
+  simp only [u],
   let m := (λ x, (s x, f↾s x, c x, n x)),
-    have lmm_m : m computable_in o := (hs.pair $
-    (((rcomputable.initial_code _).trans hf).comp hs).pair $ hc.pair hn),
-  have := computable.evaln_join_list
-    fst.to_comp (fst.comp snd).to_comp (fst.comp $ snd.comp snd).to_comp (snd.comp $ snd.comp snd).to_comp,
-    have := this.to_rcomp.comp lmm_m,
+  have lmm_m : m computable_in o := (hs.pair $
+    (((rcomputable.initialpart rcomputable.refl).trans hf).comp hs).pair $ hc.pair hn),
+  have := computable.evaln_fdecode fst.to_comp (fst.comp snd).to_comp
+    (fst.comp $ snd.comp snd).to_comp (snd.comp $ snd.comp snd).to_comp,
+  have := this.to_rcomp.comp lmm_m,
   exact this
 end
 
@@ -612,19 +701,19 @@ begin
   { refine rcomputable.const _ }
 end
 
-theorem computable.use_initial (σ) [primcodable σ]
-  {l : γ → list ℕ} {i : γ → ℕ} {s : γ → ℕ} {a : γ → α} {o : μ → τ}
+theorem computable.use_fdecode (σ) [primcodable σ] {β} [decidable_eq β] [denumerable β]
+  {l : γ → list (β × τ)} {i : γ → ℕ} {s : γ → ℕ} {a : γ → α} {o : μ → ν}
   (hl : computable l) (hi : computable i) (hs : computable s) (ha : computable a) :
-  computable (λ x, use σ (l x).rnth (i x) (s x) (a x)) :=
+  computable (λ x, use σ (l x).fdecode (i x) (s x) (a x)) :=
 begin
   suffices :
-    partrec (λ x, use_pfun σ (l x).rnth (i x) (s x) (a x)),
+    partrec (λ x, use_pfun σ (l x).fdecode (i x) (s x) (a x)),
   from (this.of_eq $ λ n, by simp [use] ),
   refine partrec.cond _ _ _,
-  { refine primrec.option_is_some.to_comp.comp (computable.univn_list _ _ hi hl hs ha) },
+  { refine (option_is_some.to_comp.comp (computable.univn_fdecode α σ hi hl hs ha))},
   { refine (partrec.rfind _).map _,
     { refine primrec.option_is_some.to_comp.comp
-        (computable.univn_list _ _ (hi.comp computable.fst) (hl.comp computable.fst)
+        (computable.univn_fdecode _ _ (hi.comp computable.fst) (hl.comp computable.fst)
         computable.snd (ha.comp computable.fst)) },
     refine (primrec.succ.to_comp.comp computable.snd) },
   { refine (const _).to_comp }
@@ -660,20 +749,6 @@ begin
     rcases option.is_some_iff_exists.mp this with ⟨z, hz⟩,
     simp [rpartrec.univn_mono_eq h hz, hz] },
   apply rpartrec.univn_use, exact hq,
-end
-
-theorem use_consumption_step_tot {f : ℕ → τ} {e : ℕ} {s : ℕ} {x : α} {y : σ}
-  {u} (hu : u + 1 = use σ ↑ₒf e s x) :
-  ⟦e⟧^f [s] x = some y → ⟦e⟧*(f↾u).rnth [u] x = some y := λ h,
-begin
-  have h' := option.is_some_iff_exists.mpr ⟨_, h⟩,
-  suffices :
-    (⟦e⟧*(f↾u).rnth [u] : α → option σ) = ⟦e⟧^f [u],
-  { simp [this], have := use_step_tt hu h',
-    rcases option.is_some_iff_exists.mp this with ⟨z, hz⟩,
-    simp [rpartrec.univn_mono_eq h hz, hz] },
-  apply rpartrec.univn_use, intros n eqn,
-  simp [eqn], refl
 end
 
 theorem use_le {α σ} [primcodable α] [primcodable σ] {p : β → option τ} {e : ℕ} {s : ℕ} {x : α} :
