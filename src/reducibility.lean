@@ -91,10 +91,6 @@ A ≤ₜ B ∧ B ≤ₜ A
 
 infix ` ≡ₜ `:1000 := t_reducible_equiv
 
-
-
-
-
 def productive (A : set ℕ) : Prop :=
 ∃ φ : ℕ →. ℕ, partrec φ ∧ ∀ i : ℕ, W⟦i⟧ₙ⁰ ⊆ A → ∃ z, z ∈ φ i ∧ z ∈ A ∧ z ∉ W⟦i⟧ₙ⁰
 
@@ -383,7 +379,7 @@ begin
     { rintros ⟨y, hb⟩, rw eqn_e1 at hb,
       apply rfind_dom_total,
       simp [roption.dom_iff_mem, roption.some] at hb ⊢, rcases hb with ⟨z, hz⟩,
-      rcases evaln_complete.mp hz with ⟨s, hs⟩,
+      rcases univn_complete.mp hz with ⟨s, hs⟩,
       use (encode y).mkpair s,
       simp [hs] },
     { simp, intros u h0 h1, 
@@ -391,7 +387,7 @@ begin
       cases e : (⟦e⟧^g [u.unpair.snd] (x, 
         (decode β u.unpair.fst).get_or_else (default β)) : option σ) with v,
       { exfalso, simp [e] at h0, exact h0 },
-      have := evaln_sound e, simp [eqn_e1, this] } },
+      have := univn_sound e, simp [eqn_e1, this] } },
   have eqn : {x | ∃ y, (f x y).dom} = {x | (p x).dom},
   { apply set.ext, simp [lmm] },
   have : p partrec_in! g,
@@ -423,5 +419,49 @@ rre_jumpcomputable (domex_rre pf)
 theorem domex_0'computable [inhabited β] {f : α → β →. σ} (pf : partrec₂ f) :
   {x | ∃ y, (f x y).dom} ≤ₜ ∅′ :=
 domex_jumpcomputable pf.to_rpart
+
+lemma rre_enumeration_iff {A : set α} {f : β → σ} (h : ∃ a, a ∈ A) :
+  A re_in! f → ∃ e : ℕ → α, e computable_in! f ∧ (∀ x, x ∈ A ↔ ∃ n, e n = x) :=
+begin
+  rcases h with ⟨a₀, hyp_a₀⟩,
+  { intros hyp,
+    rcases rre_pred_iff.mp hyp with ⟨q, hyp_q, hyp_q1⟩,
+    let q' := (λ x : α, q (encode x)),
+    have hyp_q' : q' partrec_in! f := hyp_q.comp primrec.encode.to_rcomp,
+    rcases exists_index.mp hyp_q' with ⟨i, eqn_i⟩,
+    let e := (λ n : ℕ, cond (⟦i⟧^f [n.unpair.1] 
+      ((decode α n.unpair.2).get_or_else a₀) : option ℕ).is_some
+      ((decode α n.unpair.2).get_or_else a₀) a₀),
+    have lmm1 : e computable_in! f,
+    { refine rcomputable.cond
+        (option_is_some.to_rcomp.comp (rcomputable.univn_tot _ _
+          (rcomputable.const _)
+          rcomputable.refl
+          (fst.comp unpair).to_rcomp
+          (option_get_or_else.comp (primrec.decode.comp $ snd.comp unpair) (const _)).to_rcomp))
+        (option_get_or_else.comp (primrec.decode.comp $ snd.comp unpair)
+          (const _)).to_rcomp (const _).to_rcomp },
+    have lmm2 : ∀ x, x ∈ A ↔ ∃ n, e n = x,
+    { simp [e], intros a, split,
+      { intros hyp_a,
+        have : ∃ y : ℕ, y ∈ (⟦i⟧^f a : roption ℕ),
+        { simp [←roption.dom_iff_mem, eqn_i, q', ←hyp_q1], exact hyp_a },
+        rcases this with ⟨y, lmm_y⟩,
+        have := univn_complete.mp lmm_y, rcases this with ⟨s, lmm_s⟩,
+        refine ⟨s.mkpair (encode a), _⟩, simp, simp[lmm_s] },
+      { rintros ⟨n, hyp_n⟩,
+        cases C : (⟦i⟧^f [n.unpair.fst] ((decode α n.unpair.snd).get_or_else a₀) : option ℕ) with v;
+        simp[C] at hyp_n, simp[←hyp_n], exact hyp_a₀,
+        suffices : (⟦i⟧^f a : roption ℕ).dom,
+        { simp[eqn_i, q', ←hyp_q1] at this, exact this },
+        have := univn_sound C,
+        simp[←hyp_n, this] } },
+    refine ⟨e, lmm1, lmm2⟩ }
+end
+
+lemma re_enumeration_iff {A : set α} {f : β → σ} (h : ∃ a, a ∈ A) :
+  r.e. A → ∃ e : ℕ → α, computable e ∧ (∀ x, x ∈ A ↔ ∃ n, e n = x) := λ hyp,
+by { rcases rre_enumeration_iff h (hyp.to_rpart_in ↑ᵣ(@id ℕ)) with ⟨e, lmm1, lmm2⟩,
+     refine ⟨e, rcomputable.le_comp_comp lmm1 computable.id, lmm2⟩ }
 
 end classical

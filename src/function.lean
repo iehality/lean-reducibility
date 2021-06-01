@@ -156,8 +156,6 @@ end
 | 0       := []
 | (n + 1) := option.cases_on (f (of_nat α n)) (initialpart n) (λ a, (of_nat α n, a) :: initialpart n)
 
--- (λ n, n.elim [] (λ m IH, (f (of_nat α n)).cases_on IH (λ a, (of_nat α n, a) :: IH)))
-
 infix `↾`:70 := initialpart
 
 @[simp] theorem nat.initialpart_length {α σ} [denumerable α] (f : α → option σ) (s) : (f↾s).length ≤ s :=
@@ -204,9 +202,9 @@ lemma nat.initialpart_fdecode {α σ} [decidable_eq α] [denumerable α] {f : α
 by simp; rw (show a = of_nat α (encode a), by simp) at hn ⊢; exact nat.initialpart_nth h hn
 
 lemma nat.initialpart_fdecode_none {α σ} [decidable_eq α] [denumerable α] {f : α → option σ} {a}
-  (hn : f a = none) (s) : (f↾s).fdecode a = none :=
-by simp; rw (show a = of_nat α (encode a), by simp) at hn ⊢;
-   intros m y; exact nat.initialpart_nth_none s hn m y
+  (ha : f a = none) (s) : (f↾s).fdecode a = none :=
+by simp; rw (show a = of_nat α (encode a), by simp) at ha ⊢;
+   intros m y; exact nat.initialpart_nth_none s ha m y
 
 def list.subseq {α} [decidable_eq α] (f : ℕ → α) : list α → bool
 | []      := tt
@@ -239,6 +237,64 @@ begin
     have h' := h n (nat.lt.step ne), rw ← h',
     simp[list.rnth], symmetry, exact list.nth_append (by simp[ne]) },
   exact ⟨lm0, lm1⟩
+end
+
+def nat.rfind_fin0 (p : ℕ → bool) (m : ℕ) : ℕ → option ℕ
+| 0     := none
+| (n+1) := cond (p (m - n.succ)) (some (m - n.succ)) (nat.rfind_fin0 n)
+
+def nat.rfind_fin (p : ℕ → bool) (m : ℕ) := nat.rfind_fin0 p m m
+
+theorem rfind_fin0_iff (p : ℕ → bool) : ∀ (i m n : ℕ), i ≤ m → 
+  (nat.rfind_fin0 p m i = some n ↔ (m - i ≤ n ∧ n < m ∧ p n = tt ∧ ∀ l, m - i ≤ l → l < n → p l = ff)) :=
+begin
+  intros i, 
+  induction i with i0 ih,
+  { intros m n, simp [nat.rfind_fin0], intros c c0, exfalso, exact nat.lt_le_antisymm c0 c },
+  { intros m n i0e, simp[nat.rfind_fin0],
+    cases ep : p (m - i0.succ), simp,
+    { rw ih m n (show i0 ≤ m, by omega), split, 
+      { rintros ⟨e0, e1, e2, h0⟩, 
+        have l0 : ∀ (l : ℕ), m - i0.succ ≤ l → l < n → p l = ff,
+        { intros l el0 el1, 
+          have le : m - i0.succ = l ∨ m - i0 ≤ l, omega,
+          cases le, simp[←ep, le],  exact h0 _ le el1 },
+        exact ⟨show m - i0.succ ≤ n, by omega, e1, e2, l0⟩ },
+      { rintros ⟨e0, e1, e2, h0⟩, split,
+        { have l0 : m - i0.succ = n ∨ m - i0 ≤ n, omega, cases l0,
+          { exfalso, simp[l0, e2] at ep, exact ep },
+          { exact l0 } },
+        { have l0 : ∀ (l : ℕ), m - i0 ≤ l → l < n → p l = ff := λ _ _ el1, h0 _ (by omega) el1,
+          exact ⟨e1, e2, l0⟩ } } },
+    { simp, split,
+      { assume e, rw e at ep, simp[e],
+        exact ⟨by refl, by omega, ep, by { intros m l0 l1, exfalso, exact nat.lt_le_antisymm l1 l0 }⟩ },
+      { rintros ⟨e0, e1, e2, h0⟩,
+        have l0 : m - i0.succ < n ∨ m - i0.succ = n, omega,
+        cases l0,
+        { exfalso, have c : p (m - i0.succ) = ff , exact h0 _ (by refl) l0,
+          exact bool_iff_false.mpr c ep },
+        { exact l0 } } } }
+end
+
+@[simp] theorem rfind_fin_iff {p : ℕ → bool} {m n : ℕ} :
+  nat.rfind_fin p m = some n ↔ n < m ∧ p n = tt ∧ ∀ {l : ℕ}, l < n → p l = ff :=
+by { have h := rfind_fin0_iff p m m n (by refl), simp at h, exact h }
+
+@[simp] theorem rfind_fin_none  {p : ℕ → bool} {m : ℕ} :
+  nat.rfind_fin p m = none ↔ ∀ {l : ℕ}, l < m → p l = ff :=
+begin
+  rcases e : nat.rfind_fin p m,
+  { simp, assume l el, cases epl : p l, refl,
+    exfalso, rcases nat_bool_minimum' epl with ⟨m0, en, em0, hm0⟩,
+    have l0 : ¬nat.rfind_fin p m = some m0, { rw e, intros c, exact option.not_mem_none _ c },
+    have nc := λ n, not_congr (@rfind_fin_iff p m n), simp[-rfind_fin_iff] at nc, 
+    have l1 : ∃ (x : ℕ), x < m0 ∧ p x = tt := (nc _).mp l0 (by omega) em0,
+    rcases l1 with ⟨n, hn, en⟩,
+    have c : p n = ff := hm0 _ hn,
+    exact bool_iff_false.mpr c en },
+  { simp, use this,
+    rw rfind_fin_iff at e, exact ⟨e.1, e.2.1⟩ }
 end
 
 namespace primrec
@@ -409,6 +465,30 @@ begin
     rw ihl, simp, rw bool.band_comm, simp [eq_comm], congr },
   exact (cic.of_eq $ λ l, by simp[subseq1,e])
 end
+
+private lemma rfind_fin0 {p : α → ℕ → bool} {f : α → ℕ} {g : α → ℕ} {h : β →. τ}
+  (hp : prod.unpaired p computable_in h) (hf : f computable_in h) (hg : g computable_in h) :
+  (λ a, nat.rfind_fin0 (p a) (f a) (g a) : α → option ℕ) computable_in h :=
+begin
+  let f₁ : α × ℕ × option ℕ → option ℕ :=
+    (λ x, cond (p x.1 (f x.1 - x.2.1.succ)) (some $ f x.1 - x.2.1.succ) x.2.2),
+  have c₁ : f₁ computable_in h,
+  { refine rcomputable.cond
+      (hp.comp (fst.pair (primrec.nat_sub.to_comp.to_rcomp.comp $
+        (hf.comp fst).pair (computable.succ.to_rcomp.comp $ fst.comp snd))))
+        (primrec.option_some.to_rcomp.comp (primrec.nat_sub.to_comp.to_rcomp.comp $
+        (hf.comp fst).pair (computable.succ.to_rcomp.comp $ fst.comp snd))) (snd.comp snd) },
+  have e : ∀ a b n, nat.elim option.none (λ y IH, cond (p a (b - y.succ)) (some $ b - y.succ) IH) n = 
+    nat.rfind_fin0 (p a) b n,
+  { intros a b n, simp, induction n with n0 ih; simp[nat.rfind_fin0], rw ih },
+  have c₂ := nat_elim hg (const option.none) c₁,
+  exact (c₂.of_eq $ λ n, by simp[f₁]; simp; rw e)
+end
+
+theorem rfind_fin {p : α → ℕ → bool} {f : α → ℕ} {g : β →. τ}
+  (hp : prod.unpaired p computable_in g) (hf : f computable_in g) :
+  (λ a, nat.rfind_fin (p a) (f a)) computable_in g := 
+rfind_fin0 hp hf hf
 
 end rcomputable
 

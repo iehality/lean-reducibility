@@ -45,6 +45,8 @@ instance {α : Type*} [has_prec α] : has_prec (option α) := ⟨option.prec⟩
 instance : has_prec bool := ⟨bool.prec⟩
 
 section
+namespace strategy
+namespace order
 
 variables {Λ : Type*}
 variables [has_prec Λ]
@@ -64,6 +66,71 @@ def list.kbeq (l₀ l₁ : list Λ) := l₀ = l₁ ∨ l₀ <KB l₁
 
 infix ` ≤KB `:80 := list.kbeq
 
-end
+end order
 
-#check @list.prec
+section 
+parameters {Λ : Type*} [has_prec Λ] {α : Type*}
+  (head       : α)
+  (attention  : ℕ → ℕ → α → list Λ → bool)
+  (renovate   : ℕ → ℕ → α → list Λ → α)
+  (initialize : ℕ → α → list Λ → Λ)
+  (revise     : ℕ → ℕ → α → list Λ → list Λ)
+
+def approx : ℕ → α × list Λ
+| 0     := (head, [])
+| (s+1) := let a := (approx s).1,
+               δ := (approx s).2,
+               m := nat.rfind_fin (λ m, attention s m a δ) s in
+  match m with
+  | none   := (a, δ ++ [initialize s a δ])
+  | some m := (renovate s m a δ, revise s m a δ)
+  end
+
+def revise_wellorder : Prop := ∀ s m a δ, revise s m a δ ≤KB δ
+
+
+end
+end strategy
+end
+section FM
+
+/- Λ := bool × ℕ × option ℕ -/
+
+def attention (s m : ℕ) (A : list (ℕ × bool) × list (ℕ × bool)) (δ : list (bool × ℕ × option ℕ)) : bool :=
+let A₀ := A.1,
+    A₁ := A.2,
+    x  := (δ.inth m).2.1,
+    r  := (δ.inth m).2.2 in
+(r = none) && cond m.bodd (⟦m.div2⟧^A₀.fdecode [s] x = some ff) (⟦m.div2⟧^A₁.fdecode [s] x = some ff)
+
+def renovate (s m : ℕ) (A : list (ℕ × bool) × list (ℕ × bool)) (δ : list (bool × ℕ × option ℕ)) :
+  list (ℕ × bool) × list (ℕ × bool) :=
+let A₀ := A.1,
+    A₁ := A.2,
+    x  := (δ.inth m).2.1,
+    r  := (δ.inth m).2.2 in
+cond m.bodd ((x, tt) :: A₀, A₁) (A₀, (x, tt) :: A₁)
+
+def init (s : ℕ) (δ : list (bool × ℕ × option ℕ)) : bool × ℕ × option ℕ :=
+(ff, ((encode δ).mkpair s), none)
+
+def inititr (s : ℕ) (δ : list (bool × ℕ × option ℕ)) : ℕ → list (bool × ℕ × option ℕ)
+| 0     := δ
+| (n+1) := inititr n ++ [init s (inititr n)]
+
+def initialize (s : ℕ) (A : list (ℕ × bool) × list (ℕ × bool)) (δ : list (bool × ℕ × option ℕ)) :
+  bool × ℕ × option ℕ := init s δ
+
+def revise (s m : ℕ) (A : list (ℕ × bool) × list (ℕ × bool)) (δ : list (bool × ℕ × option ℕ)) :
+  list (bool × ℕ × option ℕ) :=
+let x  := (δ.inth m).2.1,
+    r  := (δ.inth m).2.2 in
+inititr s ((δ.take m) ++ [(tt, x, s)]) s
+
+def prec (x y : (bool × ℕ × option ℕ)) : Prop := x.1 ≺ y.1
+
+instance : has_prec (bool × ℕ × option ℕ) := ⟨prec⟩
+
+def approx := strategy.approx ([], []) attention renovate initialize revise
+#check strategy.approx
+end FM

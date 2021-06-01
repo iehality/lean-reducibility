@@ -334,7 +334,7 @@ theorem refl_in (f : α → β) : f computable_in (f : α →. β) := nat.rpartr
 @[trans] theorem trans {f : α → σ} {g : β → τ} {h : γ →. μ} :
   f computable_in (g : β →. τ) → g computable_in h → f computable_in h := nat.rpartrec.trans
 
-theorem cond {c : α → bool} {f : α → σ} {g : α → σ} {h : β →. τ}
+protected theorem cond {c : α → bool} {f : α → σ} {g : α → σ} {h : β →. τ}
   (hc : c computable_in h) (hf : f computable_in h) (hg : g computable_in h) :
   (λ a, cond (c a) (f a) (g a)) computable_in h :=
 begin
@@ -471,4 +471,29 @@ begin
     { use m.succ, split, exact qm,
       intros l el, simp [roption.some] },
     { use 0, exact ⟨eq.symm ep, by simp⟩ } }
+end
+
+lemma nat_bool_minimum {n : ℕ} : ∀ {p : ℕ → bool}, p n = tt → (∃ m, p m = tt ∧ ∀ l, l < m → p l = ff) :=
+begin
+  induction n with n0 ih,
+  { assume p h, use 0, exact ⟨h, by simp⟩ },
+  { assume p h, 
+    let q := (λ n : ℕ, (p n.succ)),
+    have q0 : q n0 = tt, simp[q], exact h,
+    rcases ih q0 with ⟨m, qm, hm⟩, simp[q] at qm, simp[q] at hm,
+    cases ep : p 0 with p0 p0,
+    { use m.succ, split, exact qm,
+      intros l el, cases l, exact ep,
+      exact hm _ (show l < m, by omega) },
+    { use 0, exact ⟨ep, by simp⟩ } }
+end
+
+lemma nat_bool_minimum' {n : ℕ} : ∀ {p : ℕ → bool}, p n = tt → (∃ m, m ≤ n ∧ p m = tt ∧ ∀ l, l < m → p l = ff) :=
+begin
+  intros p h, rcases nat_bool_minimum h with ⟨m, mh⟩, use m,
+  have l : m ≤ n,
+  { cases (nat.lt_or_ge n m) with em em, exfalso,
+    have c : p n = ff := mh.2 _ em, exact bool_iff_false.mpr c h,
+    exact em },
+  exact ⟨l, mh⟩
 end

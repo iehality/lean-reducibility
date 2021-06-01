@@ -715,12 +715,12 @@ theorem curry_prim {α} [primcodable α] : primrec₂ (@curry α _) :=
 
 open primrec
 
-theorem evaln_sound {e} {p : β → option τ} {x : α} {y : σ} {s : ℕ} :
+theorem univn_sound {e} {p : β → option τ} {x : α} {y : σ} {s : ℕ} :
   ⟦e⟧*p [s] x = some y → ⟦e⟧*p x = some y := 
 by { simp[univn, univ, roption.eq_some_iff], 
      exact λ s h e, ⟨s, code.evaln_sound h, e⟩ }
 
-theorem evaln_complete {p : β → option τ} {e x} {n : α} :
+theorem univn_complete {p : β → option τ} {e x} {n : α} :
   x ∈ (⟦e⟧*p n : roption σ) ↔ ∃ s, ⟦e⟧*p [s] n = some x :=
 by { simp[univn, univ, roption.eq_some_iff], split,
      { rintros ⟨a, ha, ea⟩,
