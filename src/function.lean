@@ -126,8 +126,12 @@ begin
     { intros hyp n x eqn_x, exact hyp (n+1) x eqn_x } }
 end
 
+
+
 def list.fdecode {α σ} [decidable_eq α] (c : list (α × σ)) (a : α) : option σ :=
 (c.get_elem (λ x : α × σ, x.fst = a)).map prod.snd
+
+def list.sdecode {α} [decidable_eq α] (a : α) (c : list (α × bool)) : Prop := c.fdecode a = some tt
 
 @[simp] theorem list.fdecode_iff {α σ} [decidable_eq α] (c : list (α × σ)) {x y} :
   c.fdecode x = some y ↔
