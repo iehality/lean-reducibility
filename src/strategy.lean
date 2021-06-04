@@ -221,7 +221,7 @@ begin
   { simp [le_of_lt this, (hyp_u₀ this), hyp_u₁1] }
 end
 
-def list.kb (l₀ l₁ : list Λ) := l₀.nth <KB l₁.nth
+def list.kb (l₀ l₁ : list Λ) := l₀.rnth <KB l₁.rnth
 
 infix ` <KB* `:80 := list.kb
 
@@ -232,8 +232,8 @@ infix ` ≤KB* `:80 := list.kbeq
 theorem list.kb.trans (trans : transitive (@precede.prec Λ _)) {l₀ l₁ l₂ : list Λ} :
   l₀ <KB* l₁ → l₁ <KB* l₂ → l₀ <KB* l₂ := kb_order.trans (option.prec.trans trans)
 
-theorem list.kb.append (a : Λ ) (l : list Λ) : (l ++ [a]) <KB* l :=
-⟨l.length, λ n eqn_n, list.nth_append eqn_n, by simp[list.nth_concat_length l a]⟩
+theorem list.kb.append (a : Λ ) (l : list Λ) : (a :: l) <KB* l :=
+⟨l.length, λ _ eqn, list.rnth_cons _ eqn, by { simp, unfold_coes, simp }⟩
 
 end kb
 
@@ -243,8 +243,55 @@ def models {Λ} (p : list Λ → Λ → Prop) : list Λ → Prop
 | []       := true
 | (a :: l) := p l a ∧ models l
 
+def list.initial {α} (l : list α) (n : ℕ) : list α := l.drop (l.length - n)
+
+@[simp] lemma list.initial_length_le {α} {l : list α} {n} : l.length ≤ n → l.initial n = l := λ h,
+by { have : l.length - n = 0, omega, simp[list.initial, this] }
+
+@[simp] lemma list.initial_length {α} {l : list α} {n : ℕ} (h : n < l.length) : (l.initial n).length = n :=
+by simp [list.initial, h]; omega
+
+@[simp] lemma list.initial_initial {α} (l : list α) (n m : ℕ) (h : n < m) : (l.initial m).initial n = l.initial n :=
+by { simp[list.initial], congr, omega nat }
+
+lemma list.initial_nth  {α} {l : list α} {n m : ℕ} {a} :
+  (l.initial m).rnth n = some a → l.rnth n = some a :=
+begin
+  have eqn : l.length ≤ m ∨ m < l.length, from le_or_lt _ _, cases eqn, simp[eqn],
+  revert eqn a m n,
+  simp [list.initial],
+  induction l with d l IH; simp,
+  intros n m a eqn_m eqn_a, simp[show l.length + 1 - m = l.length - m + 1, by omega] at eqn_a,
+  have C := eq_or_lt_of_le (nat.lt_succ_iff.mp eqn_m),
+  cases C,
+  { simp[←C] at eqn_a, simp[list.rnth_length_lt eqn_a], exact eqn_a },
+  { have : n < l.length, { have := list.rnth_length_lt eqn_a, simp at this, omega},
+    simp[this], apply IH C eqn_a }
+end
+
+theorem models_iff {α} {p : list α → α → Prop} {l} :
+  models p l ↔ ∀ n a, l.rnth n = some a → p (l.initial n) a :=
+begin
+  split,
+  { induction l with d l IH; simp[models, list.initial], { simp[list.rnth] },
+    intros hyp1 hyp2 n a eqn_a,
+    have eqn_n : n < l.length + 1, { have := list.rnth_length_lt eqn_a, simp at this, exact this },
+    simp[(show l.length + 1 - n = (l.length - n) + 1, by omega)],
+    have eqn_n' : n = l.length ∨ n < l.length, from eq_or_lt_of_le (nat.lt_succ_iff.mp eqn_n),
+    cases eqn_n',
+    { simp[eqn_n'], have : a = d, { simp[eqn_n'] at eqn_a, unfold_coes at eqn_a, simp at eqn_a, simp[eqn_a]},
+      simp[this, hyp1] },
+    { simp[eqn_n'] at eqn_a, refine IH hyp2 _ _ eqn_a } },
+  { induction l with d l IH; simp[models, list.initial],
+    intros h, have := h l.length d, simp at this, refine ⟨this rfl, IH (λ n a eqn_a, _)⟩,
+    simp[list.initial], have := h n a,
+    have eqn_n : n < l.length, { have := list.rnth_length_lt eqn_a, exact this },
+    simp[(show l.length + 1 - n = (l.length - n) + 1, by omega)] at this, apply this,
+    simp[list.rnth_cons d eqn_n], exact eqn_a }
+end
+
 structure Strategy :=
-(interpret  : ℕ → α → list Λ → Λ →Prop)
+(interpret  : ℕ → α → list Λ → Λ → Prop)
 (head       : α)
 (attention  : ℕ → ℕ → α → list Λ → bool)
 (renovate   : ℕ → ℕ → α → list Λ → α)
@@ -255,10 +302,17 @@ namespace Strategy
 variables (S : @Strategy Λ _ α)
 
 def initialize_proper := ∀ {s A δ},
-models (S.interpret s A) δ → models (S.interpret (s + 1) A) (δ ++ [S.initialize s A δ])
+models (S.interpret s A) δ → models (S.interpret (s + 1) A) (S.initialize s A δ :: δ)
 
-def renovate_revise_proper := ∀ {s A δ m}, 
-models (S.interpret s A) δ → models (S.interpret (s + 1) (S.renovate s m A δ)) (S.revise s m A δ)
+def renovate_revise_proper := ∀ {s A δ m},
+models (S.interpret s A) δ → 
+nat.rfind_fin (λ m, S.attention s m A δ) s = some m →
+models (S.interpret (s + 1) (S.renovate s m A δ)) (S.revise s m A δ)
+
+theorem rhhhth : S.renovate_revise_proper := λ s A δ m hyp1 hyp2,
+begin
+  simp[models_iff] at hyp1 hyp2 ⊢,
+end
 
 def procedure : ℕ → α × list Λ
 | 0     := (S.head, [])
@@ -266,7 +320,7 @@ def procedure : ℕ → α × list Λ
                δ := (procedure s).2,
                m := nat.rfind_fin (λ m, S.attention s m a δ) s in
   match m with
-  | none   := (a, δ ++ [S.initialize s a δ])
+  | none   := (a, S.initialize s a δ :: δ)
   | some m := (S.renovate s m a δ, S.revise s m a δ)
   end
 
@@ -288,16 +342,17 @@ begin
 end
 
 theorem truepath_exists (F : S.full) (H : ∀ s, S.approxpath (s + 1) <KB* S.approxpath s) :
-  ∃ f : ℕ → Λ, ∀ n, ∃ s, ∀ t, s < t → (S.approxpath t).nth n = f n :=
+  ∃ f : ℕ → Λ, ∀ n, ∃ s, ∀ t, s < t → (S.approxpath t).rnth n = f n :=
 begin
-  have : ∃ f : ℕ → option Λ, ∀ n, ∃ s, ∀ t, s < t → (S.approxpath t).nth n = f n,
-  from @kb.truepath _ _ (λ s, (S.approxpath s).nth) _ H,
+  have : ∃ f : ℕ → option Λ, ∀ n, ∃ s, ∀ t, s < t → (S.approxpath t).rnth n = f n,
+  from @kb.truepath _ _ (λ s, (S.approxpath s).rnth) _ H,
   rcases this with ⟨f, lmm⟩,
   have : ∀ n, (f n).is_some,
   { intros n, rcases lmm n with ⟨s₀, hyp_s₀⟩,
     rcases F n with ⟨s₁, hyp_s₁⟩,
-    have eqn_n : (S.approxpath (max s₀ s₁ + 1) ).nth n =
-      some ((S.approxpath (max s₀ s₁ + 1)).nth_le n (hyp_s₁ $ nat.lt_succ_iff.mpr (by simp; right; refl))),
+    have eqn_n : (S.approxpath (max s₀ s₁ + 1) ).rnth n =
+      some ((S.approxpath (max s₀ s₁ + 1)).reverse.nth_le n 
+        (by simp; exact hyp_s₁ (nat.lt_succ_iff.mpr (by simp; right; refl)))),
     from list.nth_le_nth _,
     have := hyp_s₀ (max s₀ s₁ + 1) (nat.lt_succ_iff.mpr (by simp; left; refl)),
     simp [←this, eqn_n] },
@@ -306,14 +361,16 @@ begin
   refine ⟨f', λ n, _⟩, unfold_coes, rw ←this, exact lmm _
 end
 
-theorem strategy_models_result (hi : S.initialize_proper) (hr : S.renovate_revise_proper) (s) :
+theorem result_models_approxpath (hi : S.initialize_proper) (hr : S.renovate_revise_proper) (s) :
   models (S.interpret s (S.result s)) (S.approxpath s) :=
 begin
   induction s with s IH; simp[Strategy.approxpath, Strategy.result, Strategy.procedure],
   cases C : nat.rfind_fin (λ m, S.attention s m (S.procedure s).fst (S.procedure s).snd) s with v;
   simp[C, Strategy.procedure],
-  exact hi IH, exact hr IH,
+  exact hi IH, exact hr IH C,
 end
+
+
 
 end Strategy
 
@@ -327,38 +384,38 @@ let e := δ.length.div2,
     A₀ := A.1,
     A₁ := A.2,
     b := a.1,
-    x := a.2.1,
-    r := a.2.2 in
-match b with
-| ff := true
-| tt := 
-  match δ.length.bodd with
-  | ff := ⟦e⟧ᵪ^A₀.fdecode [s] x = ff ∧ A₀.fdecode x = tt
-  | tt := ⟦e⟧ᵪ^A₁.fdecode [s] x = ff ∧ A₁.fdecode x = tt
-  end
-end
+    x := a.2.1 in
+cond b
+  (∃ r, a.2.2 = some r ∧ 
+    (∀ s r', s < δ.length → (δ.reverse.inth s).2.2 = some r' → r' < x) ∧
+    cond δ.length.bodd
+    (⟦e⟧ᵪ^A₁.fdecode [r] x = ff ∧ A₀.fdecode x = tt)
+    (⟦e⟧ᵪ^A₀.fdecode [r] x = ff ∧ A₁.fdecode x = tt))
+  true
+
 
 def attention (s m : ℕ) (A : list (ℕ × bool) × list (ℕ × bool)) (δ : list (bool × ℕ × option ℕ)) : bool :=
 let A₀ := A.1,
     A₁ := A.2,
-    x  := (δ.inth m).2.1,
-    r  := (δ.inth m).2.2 in
+    x  := (δ.reverse.inth m).2.1,
+    r  := (δ.reverse.inth m).2.2 in
 (r = none) && cond m.bodd (⟦m.div2⟧^A₁.fdecode [s] x = some ff) (⟦m.div2⟧^A₀.fdecode [s] x = some ff)
 
 def renovate (s m : ℕ) (A : list (ℕ × bool) × list (ℕ × bool)) (δ : list (bool × ℕ × option ℕ)) :
   list (ℕ × bool) × list (ℕ × bool) :=
 let A₀ := A.1,
     A₁ := A.2,
-    x  := (δ.inth m).2.1,
-    r  := (δ.inth m).2.2 in
-cond m.bodd (A₀, (x, tt) :: A₁) ((x, tt) :: A₀, A₁) 
+    x  := (δ.reverse.inth m).2.1,
+    r  := (δ.reverse.inth m).2.2 in
+cond m.bodd ((x, tt) :: A₀, A₁) (A₀, (x, tt) :: A₁) 
 
 def init (s : ℕ) (δ : list (bool × ℕ × option ℕ)) : bool × ℕ × option ℕ :=
 (ff, (s), none)
 
+@[simp]
 def inititr (s : ℕ) (δ : list (bool × ℕ × option ℕ)) : ℕ → list (bool × ℕ × option ℕ)
 | 0     := δ
-| (n+1) := inititr n ++ [init s (inititr n)]
+| (n+1) := init s (inititr n) :: inititr n
 
 theorem inititr_length (s δ) : ∀ n, (inititr s δ n).length = δ.length + n
 | 0       := rfl
@@ -369,16 +426,63 @@ def initialize (s : ℕ) (A : list (ℕ × bool) × list (ℕ × bool)) (δ : li
 
 def revise (s m : ℕ) (A : list (ℕ × bool) × list (ℕ × bool)) (δ : list (bool × ℕ × option ℕ)) :
   list (bool × ℕ × option ℕ) :=
-let x  := (δ.inth m).2.1,
-    r  := (δ.inth m).2.2 in
-inititr s ((δ.take m) ++ [(tt, x, s)]) (s - m)
+let x  := (δ.reverse.inth m).2.1,
+    r  := (δ.reverse.inth m).2.2 in
+inititr s ((tt, x, s) :: δ.initial m) (s - m)
 
-lemma proper1 {s A δ} (h : models (interpret s A) δ) :
-  models (interpret (s + 1) A) (δ ++ [initialize s A δ]) :=
+lemma interpret_proper {s A l d} : interpret s A l d → interpret (s + 1) A l d :=
+by simp[interpret]
+
+lemma initialize_proper {s A δ} (h : models (interpret s A) δ) :
+  models (interpret (s + 1) A) (initialize s A δ :: δ) :=
 begin
-  simp[interpret],
+  simp[models, interpret],
+  cases C : (initialize s A δ).1; simp[C, interpret],
+  { have : ∀ l, models (interpret s A) l → models (interpret (s + 1) A) l,
+    { intros l, induction l with d l IH; simp[models],
+      refine λ hyp1 hyp2, ⟨interpret_proper hyp1, IH hyp2⟩ },
+    refine this _ h },
+  { simp[initialize, init] at C, contradiction }
 end
 
+def renovate_revise_proper {s A δ m}
+  (IH : models (interpret s A) δ)
+  (ha : nat.rfind_fin (λ m, attention s m A δ) δ.length = some m) :
+  models (interpret (s + 1) (renovate s m A δ)) (revise s m A δ) :=
+begin
+  simp[attention] at ha, rcases ha with ⟨ha1, ha2, ha3⟩,
+  simp[models, revise], 
+  suffices : ∀ t,
+    models (interpret (s + 1) (renovate s m A δ))
+    (inititr s ((tt, (δ.reverse.nth m).iget.snd.fst, s) :: δ.initial m) t),
+  { exact this _ },
+  intros t, induction t; simp[models, inititr, renovate],
+  { split,
+    { cases C : m.bodd; simp[C, interpret, le_of_lt ha1] at ha2 ⊢; simp[C, ha1],
+      { refine ⟨s, rfl, ha2.2, rfl⟩, },
+      { refine ⟨s, rfl, ha2.2, rfl⟩, } },
+    { cases C : m.bodd; simp[C, interpret, le_of_lt ha1] at ha2 ⊢,
+      { simp[models_iff, interpret] at IH ⊢,
+        intros n a eqn_a, have := list.rnth_length_lt eqn_a, simp[this],
+        have eqn_n : n < δ.length, { simp[list.initial] at this, omega },
+        have := IH n a (list.initial_nth eqn_a), 
+          }
+       } }
+
+end
+
+def renovate_revise_proper {s A δ m}
+  (IH : models (interpret s A) δ)
+  (ha : nat.rfind_fin (λ m, attention s m A δ) δ.length = some m) :
+  models (interpret (s + 1) (renovate s m A δ)) (revise s m A δ) :=
+begin
+  simp[attention] at ha, rcases ha with ⟨ha1, ha2, ha3⟩,
+  simp[models_iff] at IH ⊢,
+
+end
+
+
+/-
 def prec (x y : (bool × ℕ × option ℕ)) : Prop := x.1 ≺ y.1
 
 local attribute [instance]
@@ -395,7 +499,7 @@ begin
   simp[Strategy.procedure, IH],
   simp at C, have := C.1,
   have : S.revise = revise := rfl,
-  simp[Strategy.procedure, revise, this, IH, inititr_length, le_of_lt C.1],
+  simp[Strategy.procedure, revise, this, IH, inititr_length, le_of_lt C.1, list.initial],
   omega
 end
 
@@ -407,10 +511,7 @@ begin
   simp[strategy, approx],
   induction s with s IH; simp[strategy.approx],
 end
-
-
-#check approx
-#eval approx 1
+-/
 /--
 ((
   [ (94, tt), (89, tt), (87, tt), (85, tt), (81, tt), (79, tt), (75, tt), (75, tt),
@@ -443,6 +544,5 @@ end
     (ff, (89, none)),      (ff, (89, none)),      (ff, (89, none)),      (ff, (89, none)), (ff, (89, none)), (ff, (89, none)), (ff, (89, none)), (ff, (89, none)), (ff, (89, none)), (ff, (89, none)), (ff, (89, none)), (ff, (89, none)), (ff, (89, none)), (ff, (89, none)), (tt, (89, (some 90))), (tt, (90, (some 91))), (ff, (91, none)), (ff, (91, none)), (ff, (91, none)), (ff, (91, none)), (ff, (92, none)), (ff, (93, none)), (tt, (94, (some 95))), (tt, (95, (some 96))), (ff, (96, none)), (ff, (97, none)), (ff, (98, none)), (ff, (99, none))])
 -/
 
-#eval ⟦5⟧ᵪ^(approx 15).1.2.fdecode [11] 10
-#eval (approx 15).1.1.fdecode 10
 end FM
+

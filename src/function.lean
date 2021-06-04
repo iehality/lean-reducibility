@@ -51,29 +51,50 @@ by { simp[epsilon,epsilon_r], intros x h hl he, rw he at h, simp[←h] }
 { rintros ⟨b, hb⟩, simp[epsilon,epsilon_r, roption.map, roption.some],
   use (encode b), simp[hb], use trivial} }
 
-def list.rnth {α} (l : list α) := l.reverse.nth 
+namespace list
+variables {α : Type*}
 
-theorem list.rnth_ext {α} {l₁ l₂ : list α} (h : ∀ n, l₁.rnth n = l₂.rnth n) : l₁ = l₂ :=
+def rnth (l : list α) := l.reverse.nth
+
+def rnth_le (l : list α) (n) (h : n < l.length) : α := l.reverse.nth_le n (by simp; exact h)
+
+theorem rnth_ext {l₁ l₂ : list α} (h : ∀ n, l₁.rnth n = l₂.rnth n) : l₁ = l₂ :=
 list.reverse_inj.mp (list.ext h)
 
-lemma list.rnth_concat_length {α} (n : α) (l : list α) : (n :: l).rnth l.length = n :=
+@[simp]
+lemma rnth_self_length (l : list α) : l.rnth l.length = none :=
+by simp[rnth] 
+
+@[simp]
+lemma rnth_concat_length (n : α) (l : list α) : (n :: l).rnth l.length = n :=
 by { simp[list.rnth], 
      have : l.length = l.reverse.length, simp,
      simp only [this, list.nth_concat_length], refl }
-
-lemma list.rnth_append {α} {l₀ l₁ : list α} {n : ℕ} (hn : n < l₀.length) :
+@[simp]
+lemma rnth_append {l₀ l₁ : list α} {n : ℕ} (hn : n < l₀.length) :
   (l₁ ++ l₀).rnth n = l₀.rnth n :=
 by { simp[list.rnth], exact list.nth_append (by simp; exact hn) }
 
-theorem list.rnth_map {α β} (f : α → β) : ∀ (l : list α) n, (l.map f).rnth n = (l.rnth n).map f :=
+@[simp]
+lemma rnth_cons {l : list α} {n : ℕ} (a) (hn : n < l.length) :
+  (a :: l).rnth n = l.rnth n :=
+by { simp[list.rnth], exact list.nth_append (by simp; exact hn) }
+
+lemma rnth_length_lt {l : list α} {n a} (h : l.rnth n = some a) : n < l.length :=
+begin
+  simp[list.rnth] at h, rcases list.nth_eq_some.mp h with ⟨h1, _⟩,
+  simp at h1, exact h1
+end
+
+theorem rnth_map {α β} (f : α → β) : ∀ (l : list α) n, (l.map f).rnth n = (l.rnth n).map f :=
 by simp [list.rnth, ←list.map_reverse]
 
-theorem list.nth_find_index {α} {p : α → Prop} [decidable_pred p] {l : list α} :
+theorem nth_find_index {α} {p : α → Prop} [decidable_pred p] {l : list α} :
   ∀ {a}, l.nth (l.find_index p) = some a → p a :=
 by { induction l with b l IH; simp[list.find_index],
      by_cases C : p b; simp [C, IH], exact @IH }
 
-theorem list.nth_find_index_neg {α} {p : α → Prop} [decidable_pred p] {l : list α} :
+theorem nth_find_index_neg {α} {p : α → Prop} [decidable_pred p] {l : list α} :
   ∀ {n} {a}, n < l.find_index p → l.nth n = some a → ¬p a :=
 begin
   induction l with b l IH; simp[list.find_index],
@@ -83,10 +104,10 @@ begin
   exact IH this
 end
 
-def list.get_elem  {α} (p : α → Prop) [decidable_pred p] (l : list α) : option α :=
+def get_elem  {α} (p : α → Prop) [decidable_pred p] (l : list α) : option α :=
 l.nth (l.find_index p)
 
-@[simp] theorem list.get_elem_iff {α} {p : α → Prop} [decidable_pred p] {l : list α} : ∀ x,
+@[simp] theorem get_elem_iff {α} {p : α → Prop} [decidable_pred p] {l : list α} : ∀ x,
   l.get_elem p = some x ↔
   ∃ n, l.nth n = some x ∧ p x ∧ ∀ m z, m < n → l.nth m = some z → ¬p z :=
 begin
@@ -114,7 +135,7 @@ begin
       exact hyp_n (m+1) z this (by simp; exact eqn_z) } }
 end
 
-@[simp] theorem list.get_elem_iff_none {α} {p : α → Prop} [decidable_pred p] {l : list α} :
+@[simp] theorem get_elem_iff_none {α} {p : α → Prop} [decidable_pred p] {l : list α} :
   l.get_elem p = none ↔ ∀ n x, l.nth n = some x → ¬p x :=
 begin
   simp [list.get_elem, list.find_index],
@@ -126,14 +147,12 @@ begin
     { intros hyp n x eqn_x, exact hyp (n+1) x eqn_x } }
 end
 
-
-
-def list.fdecode {α σ} [decidable_eq α] (c : list (α × σ)) (a : α) : option σ :=
+def fdecode {α σ} [decidable_eq α] (c : list (α × σ)) (a : α) : option σ :=
 (c.get_elem (λ x : α × σ, x.fst = a)).map prod.snd
 
-def list.sdecode {α} [decidable_eq α] (a : α) (c : list (α × bool)) : Prop := c.fdecode a = some tt
+def sdecode {α} [decidable_eq α] (a : α) (c : list (α × bool)) : Prop := c.fdecode a = some tt
 
-@[simp] theorem list.fdecode_iff {α σ} [decidable_eq α] (c : list (α × σ)) {x y} :
+@[simp] theorem fdecode_iff {α σ} [decidable_eq α] (c : list (α × σ)) {x y} :
   c.fdecode x = some y ↔
   ∃ n, c.nth n = some (x, y) ∧ ∀ m z, m < n → c.nth m ≠ some (x, z) :=
 begin
@@ -147,7 +166,7 @@ begin
     contradiction }
 end
 
-@[simp] theorem list.fdecode_iff_none {α σ} [decidable_eq α] (c : list (α × σ)) {x} :
+@[simp] theorem fdecode_iff_none {α σ} [decidable_eq α] (c : list (α × σ)) {x} :
   c.fdecode x = none ↔ ∀ n y, c.nth n ≠ some (x, y) :=
 begin
   simp [list.fdecode, list.get_elem_iff_none], split,
@@ -155,6 +174,12 @@ begin
   { intros hyp n z eqn_z eqn_z1, have := hyp n z.snd, rw ←eqn_z1 at this, simp at this,
     contradiction }
 end
+
+@[simp] theorem fdecode_cons {α σ} [decidable_eq α] (x y) (c : list (α × σ)) :
+  ((x, y) :: c).fdecode x = some y :=
+by simp; refine ⟨0, rfl, λ m z, by simp⟩
+
+end list
 
 @[simp] def initialpart {α σ} [denumerable α] (f : α → option σ) : ℕ → list (α × σ)
 | 0       := []
