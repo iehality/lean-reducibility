@@ -46,121 +46,130 @@ begin
   rw this, exact l0 _ _,
 end
 
-namespace kb
+def kborder {α} (r : α → α → Prop) (p q : ℕ → α) : Prop :=
+∃ u : ℕ, (∀ ⦃n⦄, n < u → p n = q n) ∧ r (p u) (q u)
 
-class precede (α : Type*) :=
-(prec : α → α → Prop)
-(wf   : well_founded prec)
+section
+parameters {α : Sort*} {r : α → α → Prop}
+local infix `≺`:50    := r
 
-infix ` ≺ `:80 := precede.prec
-
-variables {Λ : Type*}
-variables [precede Λ]
-
-lemma precede.induction {C : Λ → Prop} (a : Λ) (h : ∀ x, (∀ y, y ≺ x → C y) → C x) : C a :=
-precede.wf.induction a h
-
-lemma precede.minimal {C : Λ → Prop} (h : ∃ x, C x) : ∃ m, C m ∧ ∀ x, x ≺ m → ¬C x:=
+lemma well_founded.minimal (wf : well_founded (≺))  {C : α → Prop}(h : ∃ x, C x) :
+  ∃ m, C m ∧ ∀ x, x ≺ m → ¬C x:=
 begin
-  suffices : ∀ a, C a → ∃ (m : Λ), C m ∧ ∀ (x : Λ), x ≺ m → ¬C x,
+  suffices : ∀ a, C a → ∃ m, C m ∧ ∀ x, x ≺ m → ¬C x,
   { rcases h with ⟨a, ha⟩, refine this _ ha },
   intros a,
-  apply precede.induction a,
+  apply wf.induction a,
   intros a IH Ca,
   by_cases C : ∃ b, b ≺ a ∧ C b,
   { rcases C with ⟨b, hyp_b, hyp_b1⟩, refine IH b hyp_b hyp_b1 },
   { simp at C, refine ⟨a, Ca, C⟩ }
 end
 
-lemma precede.enum_minimal {α} [inhabited α] (f : α → Λ) : ∃ m, ∀ n, ¬f n ≺ f m :=
+lemma well_founded.enum_minimal (wf : well_founded (≺)) {β} [inhabited β] (f : β → α) :
+ ∃ m, ∀ n, ¬f n ≺ f m :=
 begin
-  let C := (λ x : Λ, ∃ n, f n = x),
-  have := @precede.minimal _ _ C ⟨f (default α), ⟨(default α), rfl⟩⟩,
+  let C := (λ x, ∃ n, f n = x),
+  have := @well_founded.minimal wf C ⟨f (default β), ⟨(default β), rfl⟩⟩,
   simp[C] at this, rcases this with ⟨w, hyp_w⟩,
   refine ⟨w, λ n A, _⟩, have := hyp_w (f n) A,
   have := this n, simp at this, exact this
 end
 
-lemma precede.antirefl {a : Λ} : ¬a ≺ a :=
-by { have := precede.enum_minimal (λ n : ℕ, a), simp at this, exact this }
+lemma well_founded.antirefl (wf : well_founded (≺)) {a : α} : ¬a ≺ a :=
+by { have := well_founded.enum_minimal wf (λ n : ℕ, a), simp at this, exact this }
 
-inductive option.prec : option Λ → option Λ → Prop
-| none {a} : option.prec (some a) none
-| some {a b} : a ≺ b → option.prec (some a) (some b)
+end
 
-lemma option.prec.trans (trans : transitive (@precede.prec Λ _)) :
-  transitive (@option.prec Λ _) :=
+namespace kb
+
+class cord (α : Type*) :=
+(ord : α → α → Prop)
+
+infix ` ≺ `:80 := cord.ord
+
+variables {Λ : Type*}
+variables [cord Λ]
+
+inductive option.ord : option Λ → option Λ → Prop
+| none {a} : option.ord (some a) none
+| some {a b} : a ≺ b → option.ord (some a) (some b)
+
+lemma option.ord.trans (trans : transitive ((≺) : Λ → Λ → Prop)) :
+  transitive (@option.ord Λ _) :=
 λ a b c ab bc,
 begin
   cases ab with a a b ab',
   { cases bc },
-  { cases bc with _ _ c bc', exact option.prec.none,
-    exact option.prec.some (trans ab' bc'), }
+  { cases bc with _ _ c bc', exact option.ord.none,
+    exact option.ord.some (trans ab' bc'), }
 end
 
-lemma option.prec.wf : well_founded (@option.prec Λ _) :=
+lemma option.ord.wf (h : well_founded ((≺) : Λ → Λ → Prop)) :
+  well_founded (@option.ord Λ _) :=
 well_founded.intro (λ a, acc.intro a $ λ b ba,
-  by { have : ∀ a : Λ, acc prec (some a),
-       { intros a, apply precede.induction a,
+  by { have : ∀ a : Λ, acc option.ord (some a),
+       { intros a, apply h.induction a,
          intros x IH, refine acc.intro _ (λ y yx, _),
          cases yx with _ z _ zx, apply IH _ zx },
        cases ba with b b a ba; exact this _ })
 
-instance : precede (option Λ) := ⟨option.prec, option.prec.wf⟩
+instance : cord (option Λ) := ⟨option.ord⟩
 
-@[simp] lemma option.prec_none_simp {a : Λ} : (some a) ≺ none := option.prec.none
+@[simp] lemma option.prec_none_simp {a : Λ} : (some a) ≺ none := option.ord.none
 
 @[simp] lemma option.prec_some_simp {a b : Λ} : (some a) ≺ (some b) ↔ a ≺ b :=
-⟨λ h, by { cases h with _ _ _ h, exact h }, option.prec.some⟩
+⟨λ h, by { cases h with _ _ _ h, exact h }, option.ord.some⟩
 
-inductive bool.prec : bool → bool → Prop
-| intro : bool.prec tt ff
+inductive bool.ord : bool → bool → Prop
+| intro : bool.ord tt ff
 
-lemma bool.prec.trans : transitive bool.prec := λ _ _ _ ab bc, by cases ab; cases bc
+lemma bool.ord.trans : transitive bool.ord := λ _ _ _ ab bc, by cases ab; cases bc
 
-lemma bool.prec.wf : well_founded bool.prec :=
+lemma bool.ord.wf : well_founded bool.ord :=
 well_founded.intro (λ a, acc.intro a $ λ b ba,
   by { cases ba, refine acc.intro _ (λ c ctt, _), cases ctt })
 
-def prod.prec {α} : Λ × α → Λ × α → Prop := λ a b, a.1 ≺ b.1
+instance : cord bool := ⟨bool.ord⟩
 
-lemma prod.prec.wf {α} : well_founded (@prod.prec Λ _ α) :=
+def prod.pord {α} : Λ × α → Λ × α → Prop := λ a b, a.1 ≺ b.1
+
+lemma prod.pord.wf {α} (h : well_founded ((≺) : Λ → Λ → Prop)) : well_founded (@prod.pord Λ _ α) :=
 well_founded.intro (λ a, acc.intro a $ λ b ba,
-  by { suffices : ∀ (a : Λ) (p : α), acc prod.prec (a, p),
+  by { suffices : ∀ (a : Λ) (p : α), acc prod.pord (a, p),
        { have := this b.1 b.2, simp at this, exact this },
-       intros a, apply precede.induction a,
+       intros a, apply h.induction a,
        intros x IH p, refine acc.intro _ (λ q eqn_q, _),
-       simp[prod.prec] at eqn_q,
+       simp[prod.pord] at eqn_q,
        have := IH _ eqn_q q.2, simp at this, exact this })
 
-theorem prod.precede (Λ α) [precede Λ] : precede (Λ × α) := ⟨prod.prec, prod.prec.wf⟩
-
-lemma prod.prec.trans {α} (trans : transitive (@precede.prec Λ _)) :
-  transitive (@prod.prec Λ _ α) :=
+lemma prod.pord.trans {α} (trans : transitive ((≺) : Λ → Λ → Prop)) :
+  transitive (@prod.pord Λ _ α) :=
 λ x y z, @trans x.1 y.1 z.1
-
-instance : precede bool := ⟨bool.prec, bool.prec.wf⟩
-
-instance : precede ℕ := ⟨(<), nat.lt_wf⟩
 
 def kb_order (p q : ℕ → Λ) : Prop := ∃ u : ℕ, (∀ ⦃n⦄, n < u → p n = q n) ∧ p u ≺ q u
 
 infix ` <KB `:80 := kb_order
 
-theorem truepath {p : ℕ → ℕ → Λ} [inhabited Λ] (h : ∀ s, p (s + 1) <KB p s) :
-  ∃ f : ℕ → Λ, ∀ n, ∃ s, ∀ t, s < t → p t n = f n :=
+noncomputable def wf_truepath_step (p : ℕ → ℕ → Λ) : ℕ → ℕ :=
+λ n₀, classical.epsilon (λ s, ∀ n t, n ≤ n₀ → s ≤ t → p t n = p s n)
+
+noncomputable def wf_truepath (p : ℕ → ℕ → Λ) : ℕ → Λ :=
+λ n, p (wf_truepath_step p n) n
+
+theorem wf_truepath_step_spec (wf : well_founded ((≺) : Λ → Λ → Prop))
+  {p : ℕ → ℕ → Λ} (h : ∀ s, p (s + 1) <KB (p s)) :
+  ∀ n₀ n t, n ≤ n₀ → wf_truepath_step p n₀ ≤ t → p t n = p (wf_truepath_step p n₀) n :=
 begin
   suffices :
-    ∀ n₀, ∃ s, ∀ n, n ≤ n₀ → ∃ v, ∀ t, s < t → p t n = v,
-  { have : ∀ n, ∃ v s, ∀ t, s < t → p t n = v,
-    { intros n, rcases this n with ⟨s, hyp_s⟩, rcases hyp_s n (by refl) with ⟨v, hyp_v⟩,
-      refine ⟨v, s, hyp_v⟩ },
-    let f := (λ n, classical.epsilon $ λ v : Λ, ∃ s, ∀ t, s < t → p t n = v),
-    have := λ n, classical.epsilon_spec (this n), simp at this, exact ⟨f, this⟩ },
+    ∀ n₀, ∃ s, ∀ n t, n ≤ n₀ → s ≤ t → p t n = p s n,
+  { have := λ n, classical.epsilon_spec (this n), simp at this, exact this },
   intros n₀, induction n₀ with n₀ IH, simp,
-  { have : ∃ m, ∀ n, ¬p n 0 ≺ p m 0, from precede.enum_minimal (λ s, p s 0), 
+  { suffices : ∃ s, ∀ t, s ≤ t → p t 0 = p s 0,
+    { rcases this with ⟨s, hyp⟩, refine ⟨s, λ n t eqn , _⟩, rw eqn, exact hyp _ },
+    have : ∃ m, ∀ n, ¬p n 0 ≺ p m 0, from wf.enum_minimal (λ s, p s 0), 
     rcases this with ⟨m, lmm_m⟩, 
-    refine ⟨m, p m 0, _⟩, 
+    refine ⟨m, _⟩, 
     suffices :
       ∀ t, p (m + t) 0 = p m 0,
     { intros t eqn_t, rw (show t = m + (t - m), by omega), exact this _ },
@@ -169,46 +178,91 @@ begin
     cases u,
     { exfalso,
       have : p (m + t + 1) 0 ≺ p m 0, simp[←IH, lmm_u2],
-      have : ¬p (m + t + 1) 0 ≺ p m 0 := lmm_m (m + t + 1), contradiction },
+      have : ¬p (m + t + 1) 0 ≺ p m 0, from lmm_m _, contradiction },
     { simp[←IH], refine lmm_u1 (nat.succ_pos _) } },
-  { rcases IH with ⟨s₀, IH⟩,
-    have : ∃ m, ∀ t, ¬p (max (s₀ + 1) t) (n₀ + 1) ≺ p (max (s₀ + 1) m) (n₀ + 1),
-    from precede.enum_minimal (λ s, p (max (s₀ + 1) s) (n₀ + 1)),
+  { suffices :
+      ∃ s, ∀ n t, n ≤ n₀.succ → p (s + t) n = p s n,
+    { rcases this with ⟨s, hyp⟩, refine ⟨s, λ n t eqn_n eqn_t, _⟩, 
+      have := hyp _ (t - s) eqn_n, simp[show s + (t - s) = t, by omega] at this,
+      exact this },
+    rcases IH with ⟨s₀, IH⟩,
+    have : ∃ m, ∀ t, ¬p (max s₀ t) (n₀ + 1) ≺ p (max s₀ m) (n₀ + 1),
+    from wf.enum_minimal (λ s, p (max s₀ s) (n₀ + 1)),
     rcases this with ⟨m, lmm_m⟩,
-    let s₁ := max (s₀ + 1) m,
-    have eqn_s₁ : s₀ < s₁, { simp[s₁], },
-    refine ⟨s₁, λ n eqn_n, _⟩,
+    let s₁ := max s₀ m,
+    have eqn_s₁ : s₀ ≤ s₁, { simp[s₁], left, refl },
+    refine ⟨s₁, λ n t eqn_n, _⟩,
     have C : n ≤ n₀ ∨ n = n₀ + 1, from nat.of_le_succ eqn_n, cases C,
-    { rcases IH _ C with ⟨v, lmm_v⟩, refine ⟨v, λ t eqn_t, _⟩, simp at eqn_t,
-      have : s₀ < t, omega, exact lmm_v _ this },
-    { refine ⟨p s₁ (n₀ + 1), _⟩,
-      suffices : 
-        ∀ t, p (s₁ + t) (n₀ + 1) = p s₁ (n₀ + 1),
-      { intros t eqn_t, simp[C], rw (show t = s₁ + (t - s₁), by omega), exact this _ },
-      intros t, induction t with t IHt, refl,
-      rcases h (s₁ + t) with ⟨u, lmm_u1, lmm_u2⟩,
+    { have eqn1 : p (s₁ + t) n = p s₀ n, from IH _ _ C (le_add_right eqn_s₁),
+      have eqn2 : p s₁ n = p s₀ n, from IH _ _ C eqn_s₁,
+      simp[eqn1, eqn2] },
+    induction t with t IHt, refl,
+    { rcases h (s₁ + t) with ⟨u, lmm_u1, lmm_u2⟩,
       have : n₀ + 1 < u,
       { have C1 : u < n₀ + 1 ∨ u = n₀ + 1 ∨ n₀ + 1 < u, from trichotomous _ _,
         cases C1,
         { exfalso,
           have C' : u ≤ n₀, from nat.lt_succ_iff.mp C1,
-          rcases IH _ C' with ⟨v, lmm_v⟩,
-          have eqn_v1 : p (s₁ + t) u = v, from lmm_v _ (nat.lt_add_right _ _ _ eqn_s₁),
-          have eqn_v2 : p (s₁ + t + 1) u = v,
-          { rw (show s₁ + t + 1 = s₁ + (t + 1), by refl), from lmm_v _ (nat.lt_add_right _ _ _ eqn_s₁) },
-          simp [eqn_v1, eqn_v2] at lmm_u2, exact precede.antirefl lmm_u2 }, cases C1,
+          have eqn1 : p (s₁ + t) u = p s₀ u, from IH _ _ C' (le_add_right eqn_s₁),
+          have eqn2 : p (s₁ + t + 1) u = p s₀ u, simp[add_assoc], from IH _ _ C' (le_add_right eqn_s₁),
+          simp[eqn1, eqn2] at lmm_u2, exact wf.antirefl lmm_u2 }, cases C1,
         { exfalso,
-          simp[C1] at lmm_u2,
-          have := lmm_m (s₁ + t + 1),
-          simp[show s₀ + 1 ≤ s₁ + t + 1, by omega] at this,
-          simp[IHt] at lmm_u2,
+          simp[C, C1] at lmm_u1 lmm_u2 IHt,
+          have : ¬p (s₁ + t + 1) (n₀ + 1) ≺ p (s₁ + t) (n₀ + 1),
+          { have := lmm_m (s₁ + t + 1), simp[show s₀ ≤ s₁ + t + 1, by omega] at this,
+            simp[IHt], exact this },
           exact this lmm_u2 },
         exact C1 },
-      rw ←IHt,
-      exact lmm_u1 this } }
+      simp[←nat.add_one, ←add_assoc],
+      have : p (s₁ + t + 1) n = p (s₁ + t) n, simp[C], from lmm_u1 this,
+      simp[this, IHt] } }
 end
 
-theorem kb_order.trans (trans : transitive (@precede.prec Λ _)) {p₀ p₁ p₂ : ℕ → Λ} :
+theorem wf_truepath_spec (wf : well_founded ((≺) : Λ → Λ → Prop))
+  {p : ℕ → ℕ → Λ} (h : ∀ s, p (s + 1) <KB (p s)) :
+  ∀ n t, wf_truepath_step p n ≤ t → p t n = wf_truepath p n :=
+λ n t eqn_t, wf_truepath_step_spec wf h n n t (by refl) eqn_t
+
+theorem wf_truepath_spec_neq (wf : well_founded ((≺) : Λ → Λ → Prop))
+  {p : ℕ → ℕ → Λ} (h : ∀ s, p (s + 1) <KB (p s))
+  {u : Λ} (hu : ∀ s n m, n < m → p s n = u → p s m = u) (n) : wf_truepath p n ≠ u := λ A,
+begin
+  let s₀ := wf_truepath_step p n,
+  have A : p s₀ n = u, from A,
+  rcases h s₀ with ⟨m, lmm_m1, lmm_m2⟩,
+  have : p (s₀ + 1) m = p s₀ m,
+  { have eqn : m ≤ n ∨ n < m, from le_or_lt _ _,
+    cases eqn,
+    { exact wf_truepath_step_spec wf h n m (s₀ + 1) eqn (by simp) },
+    { have : p s₀ m = u, refine hu _ _ _ eqn A, simp[this],
+      have : p (s₀ + 1) n = u, simp[lmm_m1 eqn, A],
+      have : p (s₀ + 1) m = u, refine hu _ _ _ eqn this, simp[this] } },
+  simp[this] at lmm_m2,
+  exact wf.antirefl lmm_m2,
+end
+
+noncomputable def lim_truepath (p : ℕ → ℕ → Λ) : ℕ → Λ ⊕ unit :=
+(λ n, classical.epsilon $ λ v,
+  ((∃ s, ∀ t, s < t → p (t + 1) n = p t n) ∧ (∃ s, ∀ t, s < t → v = sum.inl (p t n))) ∨
+  ((∀ s, ∃ t, s < t ∧ p (t + 1) n ≺ p t n) ∧ (v = sum.inr ())))
+
+theorem lim_truepath_spec [inhabited Λ] {p : ℕ → ℕ → Λ}
+  (h : ∀ s, p (s + 1) <KB (p s)) (n) :
+  ((∃ s, ∀ t, s < t → p (t + 1) n = p t n) ∧ (∃ s, ∀ t, s < t → lim_truepath p n = sum.inl (p t n))) ∨
+  ((∀ s, ∃ t, s < t ∧ p (t + 1) n ≺ p t n) ∧ (lim_truepath p n = sum.inr ())) :=
+begin
+  suffices : ∃ z,
+    ((∃ s, ∀ t, s < t → p (t + 1) n = p t n) ∧ (∃ s, ∀ t, s < t → z = sum.inl (p t n))) ∨
+    ((∀ s, ∃ t, s < t ∧ p (t + 1) n ≺ p t n) ∧ (z = sum.inr ())),
+  from classical.epsilon_spec this,
+  by_cases C : ∃ s, ∀ t, s < t → p (t + 1) n = p t n,
+  { rcases C with ⟨s, C⟩, use sum.inl (p (s + 1) n), left,
+    refine ⟨⟨s, C⟩, s, λ t eqn_t, _⟩, simp,
+     }
+  
+end
+
+theorem kb_order.trans (trans : transitive ((≺) : Λ → Λ → Prop)) {p₀ p₁ p₂ : ℕ → Λ} :
   p₀ <KB p₁ → p₁ <KB p₂ → p₀ <KB p₂ :=
 begin
   rintros ⟨u₀, hyp_u₀, hyp_u₀1⟩,
@@ -229,65 +283,40 @@ def list.kbeq (l₀ l₁ : list Λ) := l₀ = l₁ ∨ l₀ <KB* l₁
 
 infix ` ≤KB* `:80 := list.kbeq
 
-theorem list.kb.trans (trans : transitive (@precede.prec Λ _)) {l₀ l₁ l₂ : list Λ} :
-  l₀ <KB* l₁ → l₁ <KB* l₂ → l₀ <KB* l₂ := kb_order.trans (option.prec.trans trans)
+theorem list.kb.trans (trans : transitive ((≺) : Λ → Λ → Prop)) {l₀ l₁ l₂ : list Λ} :
+  l₀ <KB* l₁ → l₁ <KB* l₂ → l₀ <KB* l₂ := kb_order.trans (option.ord.trans trans)
 
 theorem list.kb.append (a : Λ ) (l : list Λ) : (a :: l) <KB* l :=
-⟨l.length, λ _ eqn, list.rnth_cons _ eqn, by { simp, unfold_coes, simp }⟩
+⟨l.length, λ _ eqn, list.rnth_cons eqn, by simp⟩
 
 end kb
 
-variables {Λ : Type*} [kb.precede Λ] {α : Type*} 
+variables {Λ : Type*} [kb.cord Λ] {α : Type*} 
 
+@[simp]
 def models {Λ} (p : list Λ → Λ → Prop) : list Λ → Prop
 | []       := true
 | (a :: l) := p l a ∧ models l
 
-def list.initial {α} (l : list α) (n : ℕ) : list α := l.drop (l.length - n)
-
-@[simp] lemma list.initial_length_le {α} {l : list α} {n} : l.length ≤ n → l.initial n = l := λ h,
-by { have : l.length - n = 0, omega, simp[list.initial, this] }
-
-@[simp] lemma list.initial_length {α} {l : list α} {n : ℕ} (h : n < l.length) : (l.initial n).length = n :=
-by simp [list.initial, h]; omega
-
-@[simp] lemma list.initial_initial {α} (l : list α) (n m : ℕ) (h : n < m) : (l.initial m).initial n = l.initial n :=
-by { simp[list.initial], congr, omega nat }
-
-lemma list.initial_nth  {α} {l : list α} {n m : ℕ} {a} :
-  (l.initial m).rnth n = some a → l.rnth n = some a :=
-begin
-  have eqn : l.length ≤ m ∨ m < l.length, from le_or_lt _ _, cases eqn, simp[eqn],
-  revert eqn a m n,
-  simp [list.initial],
-  induction l with d l IH; simp,
-  intros n m a eqn_m eqn_a, simp[show l.length + 1 - m = l.length - m + 1, by omega] at eqn_a,
-  have C := eq_or_lt_of_le (nat.lt_succ_iff.mp eqn_m),
-  cases C,
-  { simp[←C] at eqn_a, simp[list.rnth_length_lt eqn_a], exact eqn_a },
-  { have : n < l.length, { have := list.rnth_length_lt eqn_a, simp at this, omega},
-    simp[this], apply IH C eqn_a }
-end
-
 theorem models_iff {α} {p : list α → α → Prop} {l} :
-  models p l ↔ ∀ n a, l.rnth n = some a → p (l.initial n) a :=
+  models p l ↔ ∀ n a, l.rnth n = some a → p (l↾*n) a :=
 begin
+  induction l with d l IH; simp,
   split,
-  { induction l with d l IH; simp[models, list.initial], { simp[list.rnth] },
-    intros hyp1 hyp2 n a eqn_a,
-    have eqn_n : n < l.length + 1, { have := list.rnth_length_lt eqn_a, simp at this, exact this },
-    simp[(show l.length + 1 - n = (l.length - n) + 1, by omega)],
-    have eqn_n' : n = l.length ∨ n < l.length, from eq_or_lt_of_le (nat.lt_succ_iff.mp eqn_n),
-    cases eqn_n',
-    { simp[eqn_n'], have : a = d, { simp[eqn_n'] at eqn_a, unfold_coes at eqn_a, simp at eqn_a, simp[eqn_a]},
-      simp[this, hyp1] },
-    { simp[eqn_n'] at eqn_a, refine IH hyp2 _ _ eqn_a } },
-  { induction l with d l IH; simp[models, list.initial],
-    intros h, have := h l.length d, simp at this, refine ⟨this rfl, IH (λ n a eqn_a, _)⟩,
-    simp[list.initial], have := h n a,
-    have eqn_n : n < l.length, { have := list.rnth_length_lt eqn_a, exact this },
-    simp[(show l.length + 1 - n = (l.length - n) + 1, by omega)] at this, apply this,
-    simp[list.rnth_cons d eqn_n], exact eqn_a }
+  { rintros ⟨hyp1, hyp2⟩, intros n a eqn_a,
+    have : n = l.length ∨ n < l.length,
+    { have := list.rnth_some_lt eqn_a, simp at this,
+      exact eq_or_lt_of_le (nat.lt_succ_iff.mp this) },
+    cases this, { simp[this] at eqn_a, simp[←eqn_a, this], exact hyp1 },
+    { simp[list.initial_cons this, list.rnth_cons this] at eqn_a ⊢,
+      refine IH.mp hyp2 _ _ eqn_a } },
+  { intros h, split,
+    { have := h l.length d, simp at this, exact this },
+    { refine IH.mpr (λ n a eqn_a, _),
+      have lmm := h n a,
+      have := list.rnth_some_lt eqn_a,
+      simp[list.rnth_cons this, list.initial_cons this] at lmm, 
+      refine lmm eqn_a } }
 end
 
 structure Strategy :=
@@ -341,11 +370,12 @@ begin
   exact hr _ _ _ _
 end
 
-theorem truepath_exists (F : S.full) (H : ∀ s, S.approxpath (s + 1) <KB* S.approxpath s) :
+theorem wf_truepath_exists (wf : well_founded ((≺) : Λ → Λ → Prop))
+  (F : S.full) (H : ∀ s, S.approxpath (s + 1) <KB* S.approxpath s) :
   ∃ f : ℕ → Λ, ∀ n, ∃ s, ∀ t, s < t → (S.approxpath t).rnth n = f n :=
 begin
   have : ∃ f : ℕ → option Λ, ∀ n, ∃ s, ∀ t, s < t → (S.approxpath t).rnth n = f n,
-  from @kb.truepath _ _ (λ s, (S.approxpath s).rnth) _ H,
+  from @kb.wf_truepath _ _ _ (kb.option.ord.wf wf) (λ s, (S.approxpath s).rnth) H,
   rcases this with ⟨f, lmm⟩,
   have : ∀ n, (f n).is_some,
   { intros n, rcases lmm n with ⟨s₀, hyp_s₀⟩,
@@ -387,32 +417,30 @@ let e := δ.length.div2,
     x := a.2.1 in
 cond b
   (∃ r, a.2.2 = some r ∧ 
-    (∀ s r', s < δ.length → (δ.reverse.inth s).2.2 = some r' → r' < x) ∧
+    (∀ s r', s < δ.length → (δ.irnth s).2.2 = some r' → r' < x) ∧
     cond δ.length.bodd
     (⟦e⟧ᵪ^A₁.fdecode [r] x = ff ∧ A₀.fdecode x = tt)
     (⟦e⟧ᵪ^A₀.fdecode [r] x = ff ∧ A₁.fdecode x = tt))
   true
 
-
 def attention (s m : ℕ) (A : list (ℕ × bool) × list (ℕ × bool)) (δ : list (bool × ℕ × option ℕ)) : bool :=
 let A₀ := A.1,
     A₁ := A.2,
-    x  := (δ.reverse.inth m).2.1,
-    r  := (δ.reverse.inth m).2.2 in
+    x  := (δ.irnth m).2.1,
+    r  := (δ.irnth m).2.2 in
 (r = none) && cond m.bodd (⟦m.div2⟧^A₁.fdecode [s] x = some ff) (⟦m.div2⟧^A₀.fdecode [s] x = some ff)
 
 def renovate (s m : ℕ) (A : list (ℕ × bool) × list (ℕ × bool)) (δ : list (bool × ℕ × option ℕ)) :
   list (ℕ × bool) × list (ℕ × bool) :=
 let A₀ := A.1,
     A₁ := A.2,
-    x  := (δ.reverse.inth m).2.1,
-    r  := (δ.reverse.inth m).2.2 in
+    x  := (δ.irnth m).2.1,
+    r  := (δ.irnth m).2.2 in
 cond m.bodd ((x, tt) :: A₀, A₁) (A₀, (x, tt) :: A₁) 
 
 def init (s : ℕ) (δ : list (bool × ℕ × option ℕ)) : bool × ℕ × option ℕ :=
 (ff, (s), none)
 
-@[simp]
 def inititr (s : ℕ) (δ : list (bool × ℕ × option ℕ)) : ℕ → list (bool × ℕ × option ℕ)
 | 0     := δ
 | (n+1) := init s (inititr n) :: inititr n
@@ -426,8 +454,8 @@ def initialize (s : ℕ) (A : list (ℕ × bool) × list (ℕ × bool)) (δ : li
 
 def revise (s m : ℕ) (A : list (ℕ × bool) × list (ℕ × bool)) (δ : list (bool × ℕ × option ℕ)) :
   list (bool × ℕ × option ℕ) :=
-let x  := (δ.reverse.inth m).2.1,
-    r  := (δ.reverse.inth m).2.2 in
+let x  := (δ.irnth m).2.1,
+    r  := (δ.irnth m).2.2 in
 inititr s ((tt, x, s) :: δ.initial m) (s - m)
 
 lemma interpret_proper {s A l d} : interpret s A l d → interpret (s + 1) A l d :=
@@ -454,16 +482,16 @@ begin
   simp[models, revise], 
   suffices : ∀ t,
     models (interpret (s + 1) (renovate s m A δ))
-    (inititr s ((tt, (δ.reverse.nth m).iget.snd.fst, s) :: δ.initial m) t),
+    (inititr s ((tt, (δ.irnth m).2.1, s) :: δ.initial m) t),
   { exact this _ },
   intros t, induction t; simp[models, inititr, renovate],
-  { split,
-    { cases C : m.bodd; simp[C, interpret, le_of_lt ha1] at ha2 ⊢; simp[C, ha1],
-      { refine ⟨s, rfl, ha2.2, rfl⟩, },
-      { refine ⟨s, rfl, ha2.2, rfl⟩, } },
+  { simp[models_iff, interpret] at IH ⊢, split,
+    { cases C : m.bodd; simp[C, interpret, le_of_lt ha1] at ha2 ⊢, simp[C, ha1],
+      { have := IH m ((δ.initial m).irnth s), refine ⟨s, rfl, _, ha2.2, rfl⟩, sorry },
+      { refine ⟨s, rfl, _, ha2.2, rfl⟩, sorry } },
     { cases C : m.bodd; simp[C, interpret, le_of_lt ha1] at ha2 ⊢,
-      { simp[models_iff, interpret] at IH ⊢,
-        intros n a eqn_a, have := list.rnth_length_lt eqn_a, simp[this],
+      { 
+intros n a eqn_a, have := list.rnth_some_lt eqn_a, simp[this],
         have eqn_n : n < δ.length, { simp[list.initial] at this, omega },
         have := IH n a (list.initial_nth eqn_a), 
           }
@@ -486,7 +514,7 @@ end
 def prec (x y : (bool × ℕ × option ℕ)) : Prop := x.1 ≺ y.1
 
 local attribute [instance]
-theorem Λ_prec : kb.precede (bool × ℕ × option ℕ) := kb.prod.precede _ _
+theorem Λ_prec : kb.cord (bool × ℕ × option ℕ) := kb.prod.cord _ _
 
 def S : Strategy := ⟨interpret, ([], []), attention, renovate, initialize, revise⟩
 

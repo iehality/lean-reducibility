@@ -4,6 +4,7 @@ import computability.partrec_code
 import computability.halting
 import data.pfun
 import tactic
+import lib
 
 open encodable denumerable roption
 
@@ -88,36 +89,6 @@ end
 end rpartrec
 
 end nat
-
-@[simp, reducible] def prod.unpaired {α β γ} (f : α → β → γ) : α × β → γ := λ p, f p.1 p.2
-
-@[simp, reducible] def prod.unpaired3 {α β γ δ} (f : α → β → γ → δ) : α × β × γ → δ := λ p, f p.1 p.2.1 p.2.2
-
-def coe_ropt {α σ} (f : α → σ) : α →. σ := λ x, roption.some (f x)
-
-prefix `↑ᵣ`:max := coe_ropt
-
-@[simp] theorem coe_ropt_app {α σ} (f : α → σ) (a : α) : ↑ᵣf a = some (f a) := rfl
-
-def coe_opt {α σ} (f : α → σ) : α → option σ := λ x, option.some (f x)
-
-prefix `↑ₒ`:max := coe_opt
-
-@[simp] theorem coe_opt_app {α σ} (f : α → σ) (a : α) : ↑ₒf a = some (f a) := rfl
-
-def coe_opt_ropt {α σ} (f : α → option σ) : α →. σ := λ x, roption.of_option (f x)
-
-prefix `↑ʳ`:max := coe_opt_ropt
-
-@[simp] theorem coe_opt_ropt_app {α σ} (f : α → option σ) (a : α) : ↑ʳf a = f a := rfl
-
-def coe_ropt_opt {α σ} (f : α →. σ) [D : decidable_pred f.dom] : α → option σ := λ x, 
-@roption.to_option _ (f x) (D x)
-
-prefix `↑ᵒ`:max := coe_ropt_opt
-
-@[simp] theorem coe_ropt_opt_app {α σ} (f : α →. σ) [D : decidable_pred f.dom] (a : α) :
-  ↑ᵒf a = @roption.to_option _ (f a) (D a) := rfl
 
 def rpartrec {α β σ τ} [primcodable α] [primcodable β] [primcodable σ] [primcodable τ] 
   (f : α →. σ) (g : β →. τ) := nat.rpartrec.reducible
