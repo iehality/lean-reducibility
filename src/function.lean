@@ -126,11 +126,11 @@ begin
     cases e,
     simp[list.rnth, list.nth_append (show n < l0.reverse.length, by simp[list.length_reverse, e])],
     exact ih0 e,
-    simp[e, list.rnth_concat_length, h.1], refl },
+    simp[e, list.rnth_concat_length, h.1] },
   have lm0 : n0 = f l0.length,
   { have h' := h l0.length (lt_add_one (list.length l0)),
     simp [list.rnth_concat_length] at h',
-    exact option.some_inj.mp h' },
+    exact option.some_inj.mp (by simp; exact h') },
   have lm1 : (l0 ⊂ₘ f) = tt,
   { apply ih.mpr, intros n ne,
     have h' := h n (nat.lt.step ne), rw ← h',
@@ -640,6 +640,21 @@ by rcases recursion α σ f with ⟨fixpoint, cf, hfix⟩;
    exact ⟨fixpoint i, hfix hi⟩
 
 end rpartrec
+
+noncomputable def bounded_computation (f : α →. σ) (h : β → τ) (s : ℕ) : α → option σ :=
+⟦classical.epsilon (λ e : ℕ, ⟦e⟧^h = f)⟧^h [s]
+
+notation f`^`h` .[`s`]` := bounded_computation f h s
+  
+theorem bounded_computation_spec {f : α →. σ} {h : β → τ} (hf : f partrec_in! h)
+  {x y} : y ∈ f x ↔ ∃ s, f^h.[s] x = some y :=
+begin
+  have : y ∈ ⟦classical.epsilon (λ (y : ℕ), ⟦y⟧^h = f)⟧^h x ↔
+    ∃ (s : ℕ), ⟦classical.epsilon (λ e, ⟦e⟧^h = f)⟧^h [s] x = some y,
+  from rpartrec.univn_complete,
+  have eqn := classical.epsilon_spec (rpartrec.exists_index.mp hf), simp[eqn] at this,
+  exact this
+end
 
 def use_pfun (σ) [primcodable σ] (p : β → option τ) (e : ℕ) (s : ℕ) (x : α) : roption ℕ :=
 cond ((⟦e⟧*p [s] x : option σ)).is_some

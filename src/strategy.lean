@@ -225,8 +225,14 @@ theorem wf_truepath_spec (wf : well_founded ((≺) : Λ → Λ → Prop))
 
 theorem wf_truepath_spec_neq (wf : well_founded ((≺) : Λ → Λ → Prop))
   {p : ℕ → ℕ → Λ} (h : ∀ s, p (s + 1) <KB (p s))
-  {u : Λ} (hu : ∀ s n m, n < m → p s n = u → p s m = u) (n) : wf_truepath p n ≠ u := λ A,
+  {u : Λ} (hu : ∀ s n, p s n = u → p s (n + 1) = u) (n) : wf_truepath p n ≠ u := λ A,
 begin
+  have hu' : ∀ s n m, n < m → p s n = u → p s m = u,
+  { suffices :
+      ∀ s n m, p s n = u → p s (n + m) = u,
+    { intros s n m eqn eqn_n, rw (show m = n + (m - n), by omega), refine this _ _ _ eqn_n },
+    intros s n m hyp, induction m with m IH, exact hyp,
+    simp[←nat.add_one, ←add_assoc], refine hu _ _ IH },
   let s₀ := wf_truepath_step p n,
   have A : p s₀ n = u, from A,
   rcases h s₀ with ⟨m, lmm_m1, lmm_m2⟩,
@@ -234,9 +240,9 @@ begin
   { have eqn : m ≤ n ∨ n < m, from le_or_lt _ _,
     cases eqn,
     { exact wf_truepath_step_spec wf h n m (s₀ + 1) eqn (by simp) },
-    { have : p s₀ m = u, refine hu _ _ _ eqn A, simp[this],
+    { have : p s₀ m = u, refine hu' _ _ _ eqn A, simp[this],
       have : p (s₀ + 1) n = u, simp[lmm_m1 eqn, A],
-      have : p (s₀ + 1) m = u, refine hu _ _ _ eqn this, simp[this] } },
+      have : p (s₀ + 1) m = u, refine hu' _ _ _ eqn this, simp[this] } },
   simp[this] at lmm_m2,
   exact wf.antirefl lmm_m2,
 end
@@ -319,11 +325,13 @@ begin
       refine lmm eqn_a } }
 end
 
+notation `∞` := tt
+
 structure Strategy :=
 (interpret  : ℕ → α → list Λ → Λ → Prop)
 (head       : α)
 (attention  : ℕ → ℕ → α → list Λ → bool)
-(renovate   : ℕ → ℕ → α → list Λ → α)
+(validate   : ℕ → ℕ → α → list Λ → α)
 (initialize : ℕ → α → list Λ → Λ)
 (revise     : ℕ → ℕ → α → list Λ → list Λ)
 
@@ -333,12 +341,12 @@ variables (S : @Strategy Λ _ α)
 def initialize_proper := ∀ {s A δ},
 models (S.interpret s A) δ → models (S.interpret (s + 1) A) (S.initialize s A δ :: δ)
 
-def renovate_revise_proper := ∀ {s A δ m},
+def validate_revise_proper := ∀ {s A δ m},
 models (S.interpret s A) δ → 
 nat.rfind_fin (λ m, S.attention s m A δ) s = some m →
-models (S.interpret (s + 1) (S.renovate s m A δ)) (S.revise s m A δ)
+models (S.interpret (s + 1) (S.validate s m A δ)) (S.revise s m A δ)
 
-theorem rhhhth : S.renovate_revise_proper := λ s A δ m hyp1 hyp2,
+theorem rhhhth : S.validate_revise_proper := λ s A δ m hyp1 hyp2,
 begin
   simp[models_iff] at hyp1 hyp2 ⊢,
 end
@@ -350,7 +358,7 @@ def procedure : ℕ → α × list Λ
                m := nat.rfind_fin (λ m, S.attention s m a δ) s in
   match m with
   | none   := (a, S.initialize s a δ :: δ)
-  | some m := (S.renovate s m a δ, S.revise s m a δ)
+  | some m := (S.validate s m a δ, S.revise s m a δ)
   end
 
 def result (s : ℕ) : α := (S.procedure s).1
@@ -370,28 +378,38 @@ begin
   exact hr _ _ _ _
 end
 
-theorem wf_truepath_exists (wf : well_founded ((≺) : Λ → Λ → Prop))
-  (F : S.full) (H : ∀ s, S.approxpath (s + 1) <KB* S.approxpath s) :
-  ∃ f : ℕ → Λ, ∀ n, ∃ s, ∀ t, s < t → (S.approxpath t).rnth n = f n :=
+noncomputable def wf_trupath_aux : ℕ → option Λ := kb.wf_truepath (λ s, (S.approxpath s).rnth)
+
+noncomputable def wf_truepath_step : ℕ → ℕ := kb.wf_truepath_step (λ s, (S.approxpath s).rnth)
+
+private lemma wf_truepath_some
+  (wf : well_founded ((≺) : Λ → Λ → Prop))
+  (H : ∀ s, S.approxpath (s + 1) <KB* S.approxpath s) :
+  ∀ n, (S.wf_trupath_aux n).is_some := λ n,
 begin
-  have : ∃ f : ℕ → option Λ, ∀ n, ∃ s, ∀ t, s < t → (S.approxpath t).rnth n = f n,
-  from @kb.wf_truepath _ _ _ (kb.option.ord.wf wf) (λ s, (S.approxpath s).rnth) H,
-  rcases this with ⟨f, lmm⟩,
-  have : ∀ n, (f n).is_some,
-  { intros n, rcases lmm n with ⟨s₀, hyp_s₀⟩,
-    rcases F n with ⟨s₁, hyp_s₁⟩,
-    have eqn_n : (S.approxpath (max s₀ s₁ + 1) ).rnth n =
-      some ((S.approxpath (max s₀ s₁ + 1)).reverse.nth_le n 
-        (by simp; exact hyp_s₁ (nat.lt_succ_iff.mpr (by simp; right; refl)))),
-    from list.nth_le_nth _,
-    have := hyp_s₀ (max s₀ s₁ + 1) (nat.lt_succ_iff.mpr (by simp; left; refl)),
-    simp [←this, eqn_n] },
-  let f' := (λ n, option.get $ this n),
-  have : ∀ n, f n = some (f' n), intros n, simp[f', this],  
-  refine ⟨f', λ n, _⟩, unfold_coes, rw ←this, exact lmm _
+  suffices : S.wf_trupath_aux n ≠ none,
+  { cases S.wf_trupath_aux n; simp at this ⊢, exact this },
+  have := @kb.wf_truepath_spec_neq _ _ (kb.option.ord.wf wf) (λ s, (S.approxpath s).rnth) H,
+  apply this, simp[list.rnth],
+  intros s n hyp, exact le_add_right hyp
 end
 
-theorem result_models_approxpath (hi : S.initialize_proper) (hr : S.renovate_revise_proper) (s) :
+noncomputable def wf_truepath
+  (wf : well_founded ((≺) : Λ → Λ → Prop))
+  (H : ∀ s, S.approxpath (s + 1) <KB* S.approxpath s) : ℕ → Λ :=
+(λ n, option.get $ wf_truepath_some S wf H n)
+
+theorem wf_truepath_exists (wf : well_founded ((≺) : Λ → Λ → Prop))
+  (H : ∀ s, S.approxpath (s + 1) <KB* S.approxpath s) {n t} :
+  S.wf_truepath_step n ≤ t → (S.approxpath t).rnth n = S.wf_truepath wf H n := λ hyp,
+begin
+  have eqn1 : (S.approxpath t).rnth n = S.wf_trupath_aux n,
+  from @kb.wf_truepath_spec _ _ (kb.option.ord.wf wf) (λ s, (S.approxpath s).rnth) H n t hyp,
+  have eqn2 : S.wf_truepath wf H n = (option.get $ wf_truepath_some S wf H n), refl,
+  unfold_coes, simp[eqn1, eqn2],
+end
+
+theorem result_models_approxpath (hi : S.initialize_proper) (hr : S.validate_revise_proper) (s) :
   models (S.interpret s (S.result s)) (S.approxpath s) :=
 begin
   induction s with s IH; simp[Strategy.approxpath, Strategy.result, Strategy.procedure],
@@ -430,7 +448,7 @@ let A₀ := A.1,
     r  := (δ.irnth m).2.2 in
 (r = none) && cond m.bodd (⟦m.div2⟧^A₁.fdecode [s] x = some ff) (⟦m.div2⟧^A₀.fdecode [s] x = some ff)
 
-def renovate (s m : ℕ) (A : list (ℕ × bool) × list (ℕ × bool)) (δ : list (bool × ℕ × option ℕ)) :
+def validate (s m : ℕ) (A : list (ℕ × bool) × list (ℕ × bool)) (δ : list (bool × ℕ × option ℕ)) :
   list (ℕ × bool) × list (ℕ × bool) :=
 let A₀ := A.1,
     A₁ := A.2,
@@ -473,18 +491,18 @@ begin
   { simp[initialize, init] at C, contradiction }
 end
 
-def renovate_revise_proper {s A δ m}
+def validate_revise_proper {s A δ m}
   (IH : models (interpret s A) δ)
   (ha : nat.rfind_fin (λ m, attention s m A δ) δ.length = some m) :
-  models (interpret (s + 1) (renovate s m A δ)) (revise s m A δ) :=
+  models (interpret (s + 1) (validate s m A δ)) (revise s m A δ) :=
 begin
   simp[attention] at ha, rcases ha with ⟨ha1, ha2, ha3⟩,
   simp[models, revise], 
   suffices : ∀ t,
-    models (interpret (s + 1) (renovate s m A δ))
+    models (interpret (s + 1) (validate s m A δ))
     (inititr s ((tt, (δ.irnth m).2.1, s) :: δ.initial m) t),
   { exact this _ },
-  intros t, induction t; simp[models, inititr, renovate],
+  intros t, induction t; simp[models, inititr, validate],
   { simp[models_iff, interpret] at IH ⊢, split,
     { cases C : m.bodd; simp[C, interpret, le_of_lt ha1] at ha2 ⊢, simp[C, ha1],
       { have := IH m ((δ.initial m).irnth s), refine ⟨s, rfl, _, ha2.2, rfl⟩, sorry },
@@ -499,10 +517,10 @@ intros n a eqn_a, have := list.rnth_some_lt eqn_a, simp[this],
 
 end
 
-def renovate_revise_proper {s A δ m}
+def validate_revise_proper {s A δ m}
   (IH : models (interpret s A) δ)
   (ha : nat.rfind_fin (λ m, attention s m A δ) δ.length = some m) :
-  models (interpret (s + 1) (renovate s m A δ)) (revise s m A δ) :=
+  models (interpret (s + 1) (validate s m A δ)) (revise s m A δ) :=
 begin
   simp[attention] at ha, rcases ha with ⟨ha1, ha2, ha3⟩,
   simp[models_iff] at IH ⊢,
@@ -516,7 +534,7 @@ def prec (x y : (bool × ℕ × option ℕ)) : Prop := x.1 ≺ y.1
 local attribute [instance]
 theorem Λ_prec : kb.cord (bool × ℕ × option ℕ) := kb.prod.cord _ _
 
-def S : Strategy := ⟨interpret, ([], []), attention, renovate, initialize, revise⟩
+def S : Strategy := ⟨interpret, ([], []), attention, validate, initialize, revise⟩
 
 theorem approxpath_length (s) : (S.approxpath s).length = s :=
 begin
