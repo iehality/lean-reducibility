@@ -73,6 +73,13 @@ theorem rre_pred.re {α β σ} [primcodable α] [primcodable β] [primcodable σ
   {A : set α} {f : β →. σ} (hA : A re_in f) (hf : partrec f) : r.e. A :=
 hA.le_part_part hf
 
+theorem rre_pred.re0 {α} [primcodable α]
+  {A : set α} (hA : A re_in! chr (∅ : set ℕ)) : r.e. A :=
+by { have : partrec ↑ᵣ(chr ∅ : ℕ → bool),
+     { exact ((computable.const ff).of_eq $ λ x,
+       by { symmetry, simp [chr_ff_iff], exact not_false }) },
+     exact hA.re this }
+
 def t_reducible {α β} [primcodable α] [primcodable β] (A : set α) (B : set β)  : Prop := 
 ∃ [D0 : decidable_pred A] [D1 : decidable_pred B],
 by exactI (λ x, to_bool (A x)) computable_in (λ x, to_bool (B x) : β →. bool) 
@@ -108,7 +115,7 @@ theorem classical_iff {A : set α} {B : set β} :
 by simp[t_reducible, to_bool_chr_eq]; exact
   ⟨λ ⟨_, _, h⟩, h, λ h, ⟨classical.dec_pred _, classical.dec_pred _, h⟩⟩
 
-theorem of_eq {A B : set α} {C : set β} (hA : A ≤ₜ C) (H : ∀ n, A n ↔ B n) : B ≤ₜ C :=
+theorem t_reducible.of_eq {A B : set α} {C : set β} (hA : A ≤ₜ C) (H : ∀ n, A n ↔ B n) : B ≤ₜ C :=
 (set.ext H : A = B) ▸ hA
 
 @[refl] theorem t_reducible.refl (A : set α) [D : decidable_pred A] : A ≤ₜ A := ⟨D, D, nat.rpartrec.refl⟩
@@ -129,7 +136,7 @@ have e0 : ∀ x, @to_bool (Aᶜ x) (Dc x) = !to_bool (A x), from λ x, bool.to_b
 have cb : computable bnot, from (primrec.dom_bool _).to_comp,
 ⟨Dc, D, (cb.to_rpart.comp rcomputable.refl).of_eq $ λ x, by simp[e0]⟩
 
-theorem equiv_compl (A : set ℕ) [D : decidable_pred A] : Aᶜ ≡ₜ A :=
+theorem equiv_compl (A : set α) [D : decidable_pred A] : Aᶜ ≡ₜ A :=
 have cc : Aᶜᶜ = A, from compl_compl A,
 ⟨reducible_compl A, by { 
   suffices : Aᶜᶜ ≤ₜ Aᶜ, rw cc at this, exact this, exact @reducible_compl _ _ Aᶜ D.compl, }⟩ 
@@ -177,7 +184,11 @@ by {by_cases h : p x; simp [h], simp [(chr_iff p x).mpr h], simp [(chr_ff_iff p 
 
 def jump (A : set ℕ) : set ℕ := {x | (⟦x.unpair.1⟧ₙ^(chr A) x.unpair.2).dom}
 
-def kleene (A : set ℕ) : set ℕ := {x | (⟦x⟧ₙ^(chr A) x).dom}
+def Kleene (A : set ℕ) : set ℕ := {x | (⟦x⟧ₙ^(chr A) x).dom}
+
+def Tot (A : set ℕ) : set ℕ := {e | ∀ x, (⟦e⟧ₙ^(chr A) x).dom}
+
+def Inf (A : set ℕ) : set ℕ := {e | ∀ x, ∃ y, x ≤ y ∧ (⟦e⟧ₙ^(chr A) y).dom}
 
 notation A`′`:1200 := jump A
 
@@ -252,21 +263,21 @@ end
 
 open primrec
 
-theorem kleene_equiv_jump (A : set ℕ) : kleene A ≡ₜ A′ :=
+theorem Kleene_equiv_jump (A : set ℕ) : Kleene A ≡ₜ A′ :=
 ⟨classical_iff.mpr 
   begin
-    show chr (kleene A) computable_in! chr A′,
+    show chr (Kleene A) computable_in! chr A′,
     let f := (λ n : ℕ, chr A′ (n.mkpair n)),
-    have : chr (kleene A) = f,
+    have : chr (Kleene A) = f,
     { funext n, apply chr_ext.mpr,
-      simp [kleene, f, jump] },
+      simp [Kleene, f, jump] },
     rw this,
     have := rcomputable.refl.comp
       (primrec₂.mkpair.comp primrec.id primrec.id).to_rcomp,
     exact this
   end, classical_iff.mpr
   begin
-    show chr A′ computable_in! chr (kleene A),
+    show chr A′ computable_in! chr (Kleene A),
     let t := (λ x : ℕ × (ℕ × ℕ), ⟦x.1⟧ₙ^(chr A) x.2.1),
     have : ∃ e, ⟦e⟧^(chr A) = t,
     { have : t partrec_in! chr A :=
@@ -276,10 +287,10 @@ theorem kleene_equiv_jump (A : set ℕ) : kleene A ≡ₜ A′ :=
     let k := (λ n m : ℕ, curry (curry e n) m),
     have eqn_k : ∀ z i x, ⟦k i x⟧ₙ^(chr A) z = ⟦i⟧ₙ^(chr A) x,
     { intros z i x, simp [k, eqn_e] },
-    let f := (λ x : ℕ, chr (kleene A) (k x.unpair.1 x.unpair.2)),
+    let f := (λ x : ℕ, chr (Kleene A) (k x.unpair.1 x.unpair.2)),
     have : chr A′ = f,
     { funext n, apply chr_ext.mpr,
-      simp [kleene, f, jump, eqn_k, eqn_e] },
+      simp [Kleene, f, jump, eqn_k, eqn_e] },
     rw this,
     have : primrec₂ k := curry_prim.comp
       (curry_prim.comp (const e) fst) snd,
@@ -310,6 +321,25 @@ end
 lemma rre_pred.rre {f : α →. σ} {g : β →. τ} {A : set γ} :
   A re_in f → f partrec_in g → A re_in g :=
 by simp [rre_pred_iff]; exact λ q pq h pf, ⟨q, pq.trans pf, h⟩
+
+theorem t_reducible.rre {A : set α} {B : set β} :
+  A ≤ₜ B → A re_in! chr B := λ h,
+begin
+  have : (λ a, cond (chr A a) (some ()) none) partrec_in! chr B,
+  { refine rpartrec.cond (classical_iff.mp h) (rcomputable.const _) rpartrec.none },
+  exact (this.of_eq $ λ a,
+    by { apply roption.ext, simp, intros u, cases C : chr A a; simp at C ⊢; exact C })
+end
+
+theorem t_reducible.compl_rre {A : set α} {B : set β} :
+  A ≤ₜ B → Aᶜ re_in! chr B := λ h,
+begin
+  have : (λ a, cond (chr A a) none (some ())) partrec_in! chr B,
+  { refine rpartrec.cond (classical_iff.mp h) rpartrec.none (rcomputable.const _) },
+  exact (this.of_eq $ λ a, by {
+    apply roption.ext, simp, intros u, cases C : chr A a; simp at C ⊢, exact C,
+    exact not_not.mpr C })
+end
 
 theorem rre_jumpcomputable {A : set α} {B : set ℕ} : A re_in! chr B → A ≤ₜ B′ := 
 λ h, classical_iff.mpr 
@@ -355,8 +385,9 @@ theorem rre_iff_one_one_reducible {A : set ℕ} {B : set ℕ} : A re_in! chr B �
     refine ⟨q, lmm, lmm1⟩,
   end⟩
 
-theorem re_many_one_reducible_to_0' {A : set ℕ} : r.e. A → A ≤₁ ∅′ := 
-λ h, rre_iff_one_one_reducible.mp (show A re_in! chr (∅ : set ℕ), from h.to_rpart)
+theorem re_many_one_reducible_to_0' {A : set ℕ} : r.e. A ↔ A ≤₁ ∅′ :=
+⟨λ h, rre_iff_one_one_reducible.mp (h.to_rpart),
+ λ h, (rre_iff_one_one_reducible.mpr h).re0 ⟩
 
 lemma dom_rre (f : α →. σ) : {x | (f x).dom} re_in f :=
 begin
@@ -366,16 +397,17 @@ begin
     apply roption.ext, intros a, simp [dom_iff_mem] })
 end
 
-theorem domex_rre [inhabited β] {f : α → β →. σ} {g : γ → τ} (h : prod.unpaired f partrec_in! g) :
-  {x | ∃ y, (f x y).dom} re_in! g :=
+theorem exists_rre [inhabited β] {p : α → β → Prop} {g : γ → τ} (h : prod.unpaired p re_in! g) :
+  {x | ∃ y, p x y} re_in! g :=
 begin
   have := rpartrec.exists_index.mp h,
   rcases this with ⟨e, eqn_e⟩,
-  have eqn_e1 : ∀ (x : α) (y : β), f x y = ⟦e⟧^g (x, y), simp [eqn_e],
-  let p := (λ x : α, nat.rfind (λ u, (⟦e⟧^g [u.unpair.2]
-    (x, (decode β u.unpair.1).get_or_else (default β)) : option σ).is_some)),
-  have lmm : ∀ x : α, (∃ y : β, (f x y).dom) ↔ (p x).dom,
-  { intros x, simp only [p], split,
+  have eqn_e1 : ∀ x y, p x y ↔ (⟦e⟧^g (x, y) : roption unit).dom,
+  { simp [eqn_e, roption.assert, roption.some] },
+  let p' := (λ x : α, nat.rfind (λ u, (⟦e⟧^g [u.unpair.2]
+    (x, (decode β u.unpair.1).get_or_else (default β)) : option unit).is_some)),
+  have lmm : ∀ x, (∃ y, p x y) ↔ (p' x).dom,
+  { intros x, simp only [p'], split,
     { rintros ⟨y, hb⟩, rw eqn_e1 at hb,
       apply rfind_dom_total,
       simp [roption.dom_iff_mem, roption.some] at hb ⊢, rcases hb with ⟨z, hz⟩,
@@ -385,12 +417,12 @@ begin
     { simp, intros u h0 h1, 
       use (decode β u.unpair.fst).get_or_else (default β),
       cases e : (⟦e⟧^g [u.unpair.snd] (x, 
-        (decode β u.unpair.fst).get_or_else (default β)) : option σ) with v,
+        (decode β u.unpair.fst).get_or_else (default β)) : option unit) with v,
       { exfalso, simp [e] at h0, exact h0 },
       have := univn_sound e, simp [eqn_e1, this] } },
-  have eqn : {x | ∃ y, (f x y).dom} = {x | (p x).dom},
+  have eqn : {x | ∃ y, p x y} = {x | (p' x).dom},
   { apply set.ext, simp [lmm] },
-  have : p partrec_in! g,
+  have : p' partrec_in! g,
   { apply rpartrec.rfind', simp,
     refine primrec.option_is_some.to_rcomp.comp
       (rcomputable.univn_tot _ _ 
@@ -400,8 +432,30 @@ begin
       (primrec.decode.comp $ fst.comp $ unpair.comp snd)
       (const (default β))))), exact this.to_rcomp },
   rw eqn,
-  show {x | (p x).dom} re_in! g,
-  from (dom_rre p).rre this
+  show {x | (p' x).dom} re_in! g,
+  from (dom_rre p').rre this
+end
+
+theorem exists_reducible [inhabited β] {p : α → β → Prop} {A : set ℕ}
+  (h : prod.unpaired p ≤ₜ A) : {x | ∃ y, p x y} ≤ₜ A′ :=
+rre_jumpcomputable (exists_rre h.rre)
+
+theorem forall_reducible [inhabited β] {p : α → β → Prop} {A : set ℕ}
+  (h : prod.unpaired p ≤ₜ A) : {x | ∀ y, p x y} ≤ₜ A′ :=
+begin
+  have : {x | ∀ y, p x y}ᶜ ≤ₜ A′,
+  { have : {x | ∃ y, ¬p x y} ≤ₜ A′,
+    { apply exists_reducible, simp,
+      have := (equiv_compl {x : α × β | p x.1 x.2}).1.trans (h.of_eq $ by { intros a, simp }),
+      exact (this.of_eq $ λ a, by refl) },
+    exact (this.of_eq $ λ a, by { simp, exact not_forall.symm }) },
+  apply (equiv_compl {x | ∀ y, p x y}).2.trans this
+end
+
+theorem domex_rre [inhabited β] {f : α → β →. σ} {g : γ → τ} (h : prod.unpaired f partrec_in! g) :
+  {x | ∃ y, (f x y).dom} re_in! g := exists_rre
+begin
+  exact (dom_rre (λ p : α × β, f p.1 p.2)).rre h,
 end
 
 theorem dom_jumpcomputable {f : α →. σ} {A : set ℕ} (h : f partrec_in! chr A) :
