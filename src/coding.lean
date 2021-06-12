@@ -696,8 +696,8 @@ def wert (α σ) [primcodable α] [primcodable σ] (p : β → option τ) (e : �
 def wert0 (α σ) [primcodable α] [primcodable σ] (e : ℕ) : set α :=
 {x | (univ0 α σ e x : roption σ).dom}
 
-notation `W⟦`e`⟧ᵪ^`f:max := wert ℕ bool f e
-notation `W⟦`e`⟧ₙ^`f:max := wert ℕ ℕ f e
+notation `W⟦`e`⟧ᵪ^`f:max := wert ℕ bool ↑ₒf e
+notation `W⟦`e`⟧ₙ^`f:max := wert ℕ ℕ ↑ₒf e
 notation `W⟦`e`⟧ᵪ⁰`:max := wert0 ℕ bool e
 notation `W⟦`e`⟧ₙ⁰`:max := wert0 ℕ ℕ e
 

@@ -28,16 +28,19 @@ lemma decidable_pred.compl {α} {A : set α} :
 noncomputable def chr {α} (p : set α)  : α → bool := λ x : α,
 decidable.cases_on (classical.dec (p x)) (λ h₁, bool.ff) (λ h₂, bool.tt)
 
-@[simp] theorem chr_iff {α} (A : set α) (x : α) : chr A x = tt ↔ A x :=
+@[simp] theorem chr_tt_iff {α} (A : set α) (x : α) : chr A x = tt ↔ A x :=
 by simp[chr]; cases (classical.dec (A x)); simp[h]
 
 @[simp] theorem chr_ff_iff {α} (A : set α) (x : α) : chr A x = ff ↔ ¬A x :=
 by simp[chr]; cases (classical.dec (A x)); simp[h]
 
+theorem chr_iff {α} (A : set α) (x : α) (b : bool) : chr A x = b ↔ (A x ↔ b = tt) :=
+by cases b; simp
+
 theorem to_bool_chr_eq {α} (A : set α) (x : α) (D : decidable (A x)) :
   to_bool (A x) = chr A x :=
 by { cases (@decidable.em (A x) D) with h,
-     simp[to_bool_tt h, (chr_iff _ _).2 h],
+     simp[to_bool_tt h, (chr_tt_iff _ _).2 h],
      simp[to_bool_ff h, (chr_ff_iff _ _).2 h] }
 
 theorem chr_ext {α β} {A : set α} {B : set β} {x y} : chr A x = chr B y ↔ (A x ↔ B y) :=
@@ -47,14 +50,14 @@ begin
     cases e : chr A x, 
     have ax := (chr_ff_iff _ _).mp e,
     have bx := (chr_ff_iff B y).mp (by simp[←h, e]), simp[ax,bx],
-    have ax := (chr_iff _ _).mp e,
-    have bx := (chr_iff B y).mp (by simp[←h, e]), simp[ax,bx] },
+    have ax := (chr_tt_iff _ _).mp e,
+    have bx := (chr_tt_iff B y).mp (by simp[←h, e]), simp[ax,bx] },
   { assume h, 
     cases e : chr B y,
     have bx := (chr_ff_iff _ _).mp e,
     exact (chr_ff_iff A x).mpr (by simp [h, bx]),
-    have bx := (chr_iff _ _).mp e,
-    exact (chr_iff A x).mpr (by simp [h, bx]) }
+    have bx := (chr_tt_iff _ _).mp e,
+    exact (chr_tt_iff A x).mpr (by simp [h, bx]) }
 end
 
 @[simp] lemma chr_coe_bool {α} (f : α → bool) : chr {x | f x = tt} = f :=
@@ -185,17 +188,9 @@ open rpartrec
 
 theorem cond_if_eq {α β} (p : set α) (x) (a b : β) :
   cond (chr p x) a b = if p x then a else b :=
-by {by_cases h : p x; simp [h], simp [(chr_iff p x).mpr h], simp [(chr_ff_iff p x).mpr h] }
+by {by_cases h : p x; simp [h], simp [(chr_tt_iff p x).mpr h], simp [(chr_ff_iff p x).mpr h] }
 
 def Jump (A : set ℕ) : set ℕ := {x | (⟦x.unpair.1⟧ₙ^(chr A) x.unpair.2).dom}
-
-def Kleene (A : set ℕ) : set ℕ := {x | (⟦x⟧ₙ^(chr A) x).dom}
-
-def Tot (A : set ℕ) : set ℕ := {e | ∀ x, (⟦e⟧ₙ^(chr A) x).dom}
-
-def Inf (A : set ℕ) : set ℕ := {e | ∀ x, ∃ y, x ≤ y ∧ (⟦e⟧ₙ^(chr A) y).dom}
-
-def Conv (A : set ℕ) := {x : ℕ × ℕ × ℕ | (⟦x.1⟧ₙ^(chr A) [x.2.1] x.2.2).is_some = tt}
 
 notation A`′`:1200 := Jump A
 
@@ -216,7 +211,7 @@ theorem lt_Jump (A : set ℕ) : A <ₜ A′ :=
       simp [he],
       cases e : chr A x,
       simp[(chr_ff_iff _ _).1 e], rintros ⟨f, _⟩, 
-      simp[(chr_iff _ _).1 e] },
+      simp[(chr_tt_iff _ _).1 e] },
     rcases this with ⟨e, he⟩,
     let f := λ x, chr A′ (e.mkpair x),
     have lmm_f : f computable_in! chr A′ :=
@@ -240,7 +235,7 @@ theorem lt_Jump (A : set ℕ) : A <ₜ A′ :=
       simp[he, set.mem_def, f],
       cases e : chr A′ (x.mkpair x),
       simp[(chr_ff_iff _ _).1 e],
-      simp[(chr_iff _ _).1 e], rintros ⟨_, _⟩ },
+      simp[(chr_tt_iff _ _).1 e], rintros ⟨_, _⟩ },
     rcases this with ⟨e, he⟩,
     have : (e.mkpair e) ∉ A′ ↔ (e.mkpair e) ∈ A′,
     calc
@@ -422,18 +417,13 @@ begin
   apply (equiv_compl {x | ∀ y, p x y}).2.trans this
 end
 
-theorem Tot_equiv_Jump2 (A : set ℕ) : Tot A ≤ₜ A′′ :=
-begin
-  have : Tot A = {e | ∀ x, ∃ s, (⟦e⟧ₙ^(chr A) [s] x).is_some},
-  { apply set.ext, simp[Tot], intros e,
-    refine forall_congr _, intros x,
-    exact rpartrec.univn_dom_complete },
-  rw this,
-  refine forall_reducible (exists_reducible $ classical_iff.mpr _),
-  simp, 
-  refine option_is_some.to_rcomp.comp (rcomputable.univn_tot _ _
-    (fst.comp fst).to_rcomp rcomputable.refl snd.to_rcomp (snd.comp fst).to_rcomp),
-end
+def Kleene (A : set ℕ) : set ℕ := {x | (⟦x⟧ₙ^(chr A) x).dom}
+
+def Tot (A : set ℕ) : set ℕ := {e | ∀ x, (⟦e⟧ₙ^(chr A) x).dom}
+
+def Unbound (A : set ℕ) : set ℕ := {e | ∀ x, ∃ y, x ≤ y ∧ (⟦e⟧ₙ^(chr A) y).dom}
+
+def Rec (A : set ℕ) : set ℕ := {e | W⟦e⟧ₙ^(chr A) ≤ₜ A}
 
 theorem Kleene_equiv_Jump (A : set ℕ) : Kleene A ≡ₜ A′ :=
 ⟨classical_iff.mpr 
@@ -472,7 +462,40 @@ theorem Kleene_equiv_Jump (A : set ℕ) : Kleene A ≡ₜ A′ :=
     exact this
   end⟩
 
+theorem Tot_equiv_Jump2 (A : set ℕ) : Tot A ≤ₜ A′′ :=
+begin
+  have : Tot A = {e | ∀ x, ∃ s, (⟦e⟧ₙ^(chr A) [s] x).is_some},
+  { simp[Tot, rpartrec.univn_dom_complete] },
+  rw this,
+  refine forall_reducible (exists_reducible $ classical_iff.mpr _),
+  simp, 
+  refine option_is_some.to_rcomp.comp (rcomputable.univn_tot _ _
+    (fst.comp fst).to_rcomp rcomputable.refl snd.to_rcomp (snd.comp fst).to_rcomp),
+end
 
+theorem Unbound_equiv_Jump2 (A : set ℕ) : Unbound A ≤ₜ A′′ :=
+begin
+  have : Unbound A = {e | ∀ x, ∃ y : ℕ × ℕ, x ≤ y.2 ∧ (⟦e⟧ₙ^(chr A) [y.1] y.2).is_some},
+  { simp[Unbound, rpartrec.univn_dom_complete], funext n,
+    simp, refine forall_congr (λ x, _), split,
+    { rintros ⟨y, eqn, s, h⟩, refine ⟨s, y, eqn, h⟩ },
+    { rintros ⟨s, y, eqn, h⟩, refine ⟨y, eqn, s, h⟩ } },
+  rw this,
+  refine forall_reducible (exists_reducible $ classical_iff.mpr _),
+  let f := (λ x : (ℕ × ℕ) × ℕ × ℕ, to_bool (x.fst.snd ≤ x.snd.snd) &&
+    (⟦x.fst.fst⟧ₙ^(chr A) [x.snd.fst] x.snd.snd).is_some),
+  have : f computable_in! chr A,
+  { refine (primrec.dom_bool₂ (&&)).to_rcomp.comp₂
+      (primrec₂.comp primrec.nat_le (snd.comp fst) (snd.comp snd)).to_rcomp
+      (primrec.option_is_some.to_rcomp.comp (rcomputable.univn_tot _ _
+        (fst.comp fst).to_rcomp rcomputable.refl (fst.comp snd).to_rcomp (snd.comp snd).to_rcomp)) },
+  exact (this.of_eq $ λ x, by symmetry; simp[f, chr_iff])
+end
+
+theorem Rec_equiv_Jump3 (A : set ℕ) : Rec A ≤ₜ A′′′ :=
+begin
+  simp[Rec, wert], sorry
+end
 
 lemma rre_enumeration_iff {A : set α} {f : β → σ} (h : ∃ a, a ∈ A) :
   A re_in! f → ∃ e : ℕ → α, e computable_in! f ∧ (∀ x, x ∈ A ↔ ∃ n, e n = x) :=

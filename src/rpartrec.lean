@@ -90,55 +90,52 @@ end rpartrec
 
 end nat
 
-def rpartrec {α β σ τ} [primcodable α] [primcodable β] [primcodable σ] [primcodable τ] 
-  (f : α →. σ) (g : β →. τ) := nat.rpartrec.reducible
+variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
+variables [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ] [primcodable μ]
+
+def rpartrec (f : α →. σ) (g : β →. τ) := nat.rpartrec.reducible
 (λ n, roption.bind (decode α n) (λ a, (f a).map encode))
 (λ n, roption.bind (decode β n) (λ a, (g a).map encode))
 
 infix ` partrec_in `:80 := rpartrec
 
-def rpartrec_tot {α β σ τ} [primcodable α] [primcodable β] [primcodable σ] [primcodable τ]
-  (f : α →. σ) (g : β → τ) := f partrec_in ↑ᵣg
+def rpartrec_tot (f : α →. σ) (g : β → τ) := f partrec_in ↑ᵣg
 
 infix ` partrec_in! `:80 := rpartrec_tot
 
-def rcomputable {α β σ τ} [primcodable α] [primcodable β] [primcodable σ] [primcodable τ]
-  (f : α → σ) (g : β →. τ) := ↑ᵣf partrec_in g
+def rcomputable (f : α → σ) (g : β →. τ) := ↑ᵣf partrec_in g
 
 infix ` computable_in `:80 := rcomputable
 
-def rcomputable_tot {α β σ τ} [primcodable α] [primcodable β] [primcodable σ] [primcodable τ]
-  (f : α → σ) (g : β → τ) := f computable_in ↑ᵣg
+def rcomputable_tot (f : α → σ) (g : β → τ) := f computable_in ↑ᵣg
 
 infix ` computable_in! `:80 := rcomputable_tot
 
-theorem partrec.to_rpart {α σ β τ} [primcodable α] [primcodable σ] [primcodable β] [primcodable τ]
-  {f : α →. σ} {g : β →. τ} (h : partrec f) : f partrec_in g := nat.rpartrec.of_partrec _ h
+theorem partrec.to_rpart {f : α →. σ} {g : β →. τ} (h : partrec f) : f partrec_in g :=
+nat.rpartrec.of_partrec _ h
 
-theorem partrec.to_rpart_in {α σ β τ} [primcodable α] [primcodable σ] [primcodable β] [primcodable τ]
-  {f : α →. σ} (g : β →. τ) (h : partrec f) : f partrec_in g := nat.rpartrec.of_partrec _ h
+theorem partrec.to_rpart_in {f : α →. σ} (g : β →. τ) (h : partrec f) : f partrec_in g :=
+nat.rpartrec.of_partrec _ h
 
-theorem computable.to_rcomp {α σ β τ} [primcodable α] [primcodable σ] [primcodable β] [primcodable τ]
-  {f : α → σ} {g : β →. τ} (h : computable f) : f computable_in g := nat.rpartrec.of_partrec _ h
+theorem computable.to_rcomp {f : α → σ} {g : β →. τ} (h : computable f) : f computable_in g :=
+nat.rpartrec.of_partrec _ h
 
-theorem computable.to_rcomp_in {α σ β τ} [primcodable α] [primcodable σ] [primcodable β] [primcodable τ]
-  {f : α → σ} (g : β →. τ) (h : computable f) : f computable_in g := nat.rpartrec.of_partrec _ h
+theorem computable.to_rcomp_in {f : α → σ} (g : β →. τ) (h : computable f) : f computable_in g :=
+nat.rpartrec.of_partrec _ h
 
-theorem primrec.to_rcomp {α σ β τ} [primcodable α] [primcodable σ] [primcodable β] [primcodable τ]
-  {f : α → σ} {g : β →. τ} (h : primrec f) : f computable_in g := h.to_comp.to_rcomp
+theorem primrec.to_rcomp {f : α → σ} {g : β →. τ} (h : primrec f) : f computable_in g :=
+h.to_comp.to_rcomp
 
-theorem primrec.to_rcomp_in {α σ β τ} [primcodable α] [primcodable σ] [primcodable β] [primcodable τ]
-  {f : α → σ} (g : β →. τ) (h : primrec f) : f computable_in g := h.to_comp.to_rcomp
+theorem primrec.to_rcomp_in {f : α → σ} (g : β →. τ) (h : primrec f) : f computable_in g :=
+h.to_comp.to_rcomp
 
 namespace rpartrec
-variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
-variables [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ] [primcodable μ]
 
 theorem of_eq {f g : α →. σ} {h : β →. τ} (hf : f partrec_in h) (H : ∀ n, f n = g n) : g partrec_in h :=
 (funext H : f = g) ▸ hf
 
 theorem comp {f : β →. γ} {g : α → β} {h : σ →. τ} 
-  (hf : f partrec_in h) (hg : (g : α →. β) partrec_in h) : (λ a, f (g a)) partrec_in h :=
+  (hf : f partrec_in h) (hg : g computable_in h) : (λ a, f (g a)) partrec_in h :=
 (nat.rpartrec.comp hf hg).of_eq $ λ n, by simp; cases e : decode α n with a; simp [e, encodek]
 
 theorem nat_elim {f : α → ℕ} {g : α →. σ} {h : α × ℕ × σ →. σ} {i : β →. γ}
@@ -254,9 +251,6 @@ end rpartrec
 
 namespace rcomputable
 
-variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
-variables [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ] [primcodable μ]
-
 theorem of_eq {f g : α → σ} {h : β →. τ} (hf : f computable_in h) (H : ∀ n, f n = g n) :
   g computable_in h := (funext H : f = g) ▸ hf
 
@@ -330,8 +324,10 @@ end rcomputable
 namespace rpartrec
 open rcomputable
 
-variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
-variables [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ] [primcodable μ]
+theorem comp₂ {f : β × γ →. σ} {g : α → β} {h : α → γ} {o : τ →. μ} 
+  (hf : f partrec_in o) (hg : g computable_in o) (hh : h computable_in o) :
+  (λ a, f (g a, h a)) partrec_in o :=
+hf.comp (hg.pair hh)
 
 theorem nat_cases_right
   {f : α → ℕ} {g : α → σ} {h : α × ℕ →. σ} {o : γ →. τ}
@@ -353,8 +349,10 @@ end rpartrec
 namespace rcomputable
 open rpartrec
 
-variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
-variables [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ] [primcodable μ]
+theorem comp₂ {f : β × γ → σ} {g : α → β} {h : α → γ} {o : τ →. μ} 
+  (hf : f computable_in o) (hg : g computable_in o) (hh : h computable_in o) :
+  (λ a, f (g a, h a)) computable_in o :=
+hf.comp (hg.pair hh)
 
 theorem nat_cases {f : α → ℕ} {g : α → σ} {h : α × ℕ → σ} {o : β →. τ}
   (hf : f computable_in o) (hg : g computable_in o) (hh : h computable_in o) :
