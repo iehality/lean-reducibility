@@ -730,6 +730,12 @@ by { simp[univn, univ, roption.eq_some_iff], split,
        have := code.evaln_complete.mpr ⟨s, ha⟩,
        refine ⟨a, this, ea⟩ } }
 
+theorem univn_dom_complete {p : β → option τ} {e} {n : α} :
+  (⟦e⟧*p n : roption σ).dom ↔ ∃ s, (⟦e⟧*p [s] n : option σ).is_some :=
+by { simp[roption.dom_iff_mem, option.is_some_iff_exists], split,
+     { rintros ⟨y, h⟩, rcases univn_complete.mp h with ⟨s, h⟩, refine ⟨s, y, h⟩ },
+     { rintros ⟨s, y, h⟩, have := univn_complete.mpr ⟨s, h⟩, refine ⟨y, this⟩ } }
+
 theorem univn_mono {e} {p : β → option τ} {s₀ s₁ : ℕ} {x : α} {y : σ}
   (eqn : s₀ ≤ s₁) : ⟦e⟧*p [s₀] x = some y → ⟦e⟧*p [s₁] x = some y :=
 by { simp [univn], intros z h eqn_z,

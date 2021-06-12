@@ -112,18 +112,27 @@ by { have : l.length - n = 0, omega, simp[list.initial, this] }
 lemma initial_length {α} {l : list α} {n : ℕ} (h : n < l.length) : (l↾*n).length = n :=
 by simp [list.initial, h]; omega
 
-lemma initial_initial {α} (l : list α) (n m : ℕ) (h : n < m) :
-  (l↾*m)↾*n = l↾*n :=
+@[simp] lemma initial_initial {α} (l : list α) (n m : ℕ) :
+  (l↾*m)↾*n = l↾*(min m n) :=
 begin
   simp[list.initial], congr,
-  have : ∀ k, k - (k - m) - n + (k - m) = k - n,
-  { intros k,
-    have eqn := le_or_lt m k, cases eqn,
-    { simp [nat.sub_sub_assoc (show k ≤ k, by refl) eqn,
-        nat.sub_add_eq_add_sub (le_of_lt h), nat.add_sub_cancel' eqn] },
-    { have : k - m = 0, from nat.sub_eq_zero_of_le (le_of_lt eqn),
-      simp[this] } },
-  exact this _,
+  have C : n ≤ m ∨ m ≤ n, exact le_total n m, cases C; simp[C],
+  { have : ∀ k, k - (k - m) - n + (k - m) = k - n,
+    { intros k,
+      have eqn := le_or_lt m k, cases eqn,
+      { simp [nat.sub_sub_assoc (show k ≤ k, by refl) eqn,
+          nat.sub_add_eq_add_sub C, nat.add_sub_cancel' eqn] },
+      { have : k - m = 0, from nat.sub_eq_zero_of_le (le_of_lt eqn),
+        simp[this] } },
+    exact this _ },
+  { have : ∀ k, k - (k - m) - n = 0,
+    { intros k, 
+      have eqn := le_or_lt m k, cases eqn,
+      { simp [nat.sub_sub_assoc (show k ≤ k, by refl) eqn], exact nat.sub_eq_zero_of_le C },
+      { have eqn1 : k - m = 0, from nat.sub_eq_zero_of_le (le_of_lt eqn),
+        have eqn2 : k - n = 0, from nat.sub_eq_zero_of_le (le_of_lt $ gt_of_ge_of_gt C eqn),
+        simp[eqn1, eqn2] } },
+    exact this _ }
 end
 
 lemma initial_rnth  {α} {l : list α} {n m : ℕ} {a} :
