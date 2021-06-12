@@ -82,7 +82,7 @@ by { have : partrec ↑ᵣ(chr ∅ : ℕ → bool),
 
 def t_reducible {α β} [primcodable α] [primcodable β] (A : set α) (B : set β)  : Prop := 
 ∃ [D0 : decidable_pred A] [D1 : decidable_pred B],
-by exactI (λ x, to_bool (A x)) computable_in (λ x, to_bool (B x) : β →. bool) 
+by exactI (λ x, to_bool (A x)) computable_in! (λ x, to_bool (B x)) 
 
 infix ` ≤ₜ `:1000 := t_reducible
 
@@ -436,43 +436,21 @@ begin
   from (dom_rre p').rre this
 end
 
-theorem exists_reducible [inhabited β] {p : α → β → Prop} {A : set ℕ}
-  (h : prod.unpaired p ≤ₜ A) : {x | ∃ y, p x y} ≤ₜ A′ :=
-rre_jumpcomputable (exists_rre h.rre)
+theorem exists_reducible [inhabited β] {p : α → β → Prop} {A : set ℕ} :
+  {x : α × β | p x.1 x.2} ≤ₜ A → {x | ∃ y, p x y} ≤ₜ A′ :=
+λ h, rre_jumpcomputable (exists_rre h.rre)
 
-theorem forall_reducible [inhabited β] {p : α → β → Prop} {A : set ℕ}
-  (h : prod.unpaired p ≤ₜ A) : {x | ∀ y, p x y} ≤ₜ A′ :=
+theorem forall_reducible [inhabited β] {p : α → β → Prop} {A : set ℕ} :
+  {x : α × β | p x.1 x.2} ≤ₜ A → {x | ∀ y, p x y} ≤ₜ A′ := λ h,
 begin
   have : {x | ∀ y, p x y}ᶜ ≤ₜ A′,
   { have : {x | ∃ y, ¬p x y} ≤ₜ A′,
-    { apply exists_reducible, simp,
+    { apply exists_reducible, 
       have := (equiv_compl {x : α × β | p x.1 x.2}).1.trans (h.of_eq $ by { intros a, simp }),
       exact (this.of_eq $ λ a, by refl) },
     exact (this.of_eq $ λ a, by { simp, exact not_forall.symm }) },
   apply (equiv_compl {x | ∀ y, p x y}).2.trans this
 end
-
-theorem domex_rre [inhabited β] {f : α → β →. σ} {g : γ → τ} (h : prod.unpaired f partrec_in! g) :
-  {x | ∃ y, (f x y).dom} re_in! g := exists_rre
-begin
-  exact (dom_rre (λ p : α × β, f p.1 p.2)).rre h,
-end
-
-theorem dom_jumpcomputable {f : α →. σ} {A : set ℕ} (h : f partrec_in! chr A) :
-  {x | (f x).dom} ≤ₜ A′ := 
-rre_jumpcomputable ((dom_rre f).rre h)
-
-theorem dom_0'computable {f : α →. σ} (pf : partrec f) :
-  {x | (f x).dom} ≤ₜ ∅′ := 
-dom_jumpcomputable pf.to_rpart
-
-theorem domex_jumpcomputable [inhabited β] {f : α → β →. σ} {A} (pf : prod.unpaired f partrec_in! chr A) :
-  {x | ∃ y, (f x y).dom} ≤ₜ A′ := 
-rre_jumpcomputable (domex_rre pf)
-
-theorem domex_0'computable [inhabited β] {f : α → β →. σ} (pf : partrec₂ f) :
-  {x | ∃ y, (f x y).dom} ≤ₜ ∅′ :=
-domex_jumpcomputable pf.to_rpart
 
 lemma rre_enumeration_iff {A : set α} {f : β → σ} (h : ∃ a, a ∈ A) :
   A re_in! f → ∃ e : ℕ → α, e computable_in! f ∧ (∀ x, x ∈ A ↔ ∃ n, e n = x) :=

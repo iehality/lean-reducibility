@@ -1,4 +1,4 @@
-import tactic data.pfun
+import tactic data.pfun computability.primrec
 
 open encodable roption
 
@@ -233,3 +233,37 @@ section rel
 
 
 end rel
+
+section classical
+local attribute [instance, priority 0] classical.prop_decidable
+
+noncomputable def Prop_encode : Prop → ℕ := λ P, if P then 1 else 0
+
+def Prop_decode : ℕ → option Prop
+| 0       := some false
+| 1       := some true
+| (n + 2) := none
+
+noncomputable instance encodable.Prop : encodable Prop :=
+⟨Prop_encode, Prop_decode, λ P, by by_cases C : P; simp[C, Prop_encode, Prop_decode]⟩
+
+theorem Prop_prim : nat.primrec (λ n, encodable.encode (encodable.decode Prop n)) :=
+begin
+  let f : ℕ → ℕ := (λ n, cond (n = 0) (encode $ some false)
+    (cond (n = 1) (encode $ some true) (encode (none : option Prop)))),
+  have : (λ n, encode (decode Prop n)) = f,
+  { funext n, simp[f], cases n; simp[decode, Prop_decode],
+    cases n; simp[decode, Prop_decode] },
+  rw this, apply primrec.nat_iff.mp,
+  refine primrec.cond
+    (primrec₂.comp primrec.eq primrec.id (primrec.const _))
+    (primrec.const _)
+    (primrec.cond
+      (primrec₂.comp primrec.eq primrec.id (primrec.const _))
+      (primrec.const _)
+      (primrec.const _))
+end
+
+noncomputable instance primcodable.Prop : primcodable Prop := ⟨Prop_prim⟩
+
+end classical
