@@ -331,7 +331,7 @@ structure Strategy :=
 (interpret  : ℕ → α → list Λ → Λ → Prop)
 (head       : α)
 (attention  : ℕ → ℕ → α → list Λ → bool)
-(validate   : ℕ → ℕ → α → list Λ → α)
+(action     : ℕ → ℕ → α → list Λ → α)
 (initialize : ℕ → α → list Λ → Λ)
 (revise     : ℕ → ℕ → α → list Λ → list Λ)
 
@@ -344,7 +344,7 @@ models (S.interpret s A) δ → models (S.interpret (s + 1) A) (S.initialize s A
 def validate_revise_proper := ∀ {s A δ m},
 models (S.interpret s A) δ → 
 nat.rfind_fin (λ m, S.attention s m A δ) s = some m →
-models (S.interpret (s + 1) (S.validate s m A δ)) (S.revise s m A δ)
+models (S.interpret (s + 1) (S.action s m A δ)) (S.revise s m A δ)
 
 theorem rhhhth : S.validate_revise_proper := λ s A δ m hyp1 hyp2,
 begin
@@ -358,7 +358,7 @@ def procedure : ℕ → α × list Λ
                m := nat.rfind_fin (λ m, S.attention s m a δ) s in
   match m with
   | none   := (a, S.initialize s a δ :: δ)
-  | some m := (S.validate s m a δ, S.revise s m a δ)
+  | some m := (S.action s m a δ, S.revise s m a δ)
   end
 
 def result (s : ℕ) : α := (S.procedure s).1
@@ -448,7 +448,7 @@ let A₀ := A.1,
     r  := (δ.irnth m).2.2 in
 (r = none) && cond m.bodd (⟦m.div2⟧^A₁.fdecode [s] x = some ff) (⟦m.div2⟧^A₀.fdecode [s] x = some ff)
 
-def validate (s m : ℕ) (A : list (ℕ × bool) × list (ℕ × bool)) (δ : list (bool × ℕ × option ℕ)) :
+def action (s m : ℕ) (A : list (ℕ × bool) × list (ℕ × bool)) (δ : list (bool × ℕ × option ℕ)) :
   list (ℕ × bool) × list (ℕ × bool) :=
 let A₀ := A.1,
     A₁ := A.2,
@@ -494,15 +494,15 @@ end
 def validate_revise_proper {s A δ m}
   (IH : models (interpret s A) δ)
   (ha : nat.rfind_fin (λ m, attention s m A δ) δ.length = some m) :
-  models (interpret (s + 1) (validate s m A δ)) (revise s m A δ) :=
+  models (interpret (s + 1) (action s m A δ)) (revise s m A δ) :=
 begin
   simp[attention] at ha, rcases ha with ⟨ha1, ha2, ha3⟩,
   simp[models, revise], 
   suffices : ∀ t,
-    models (interpret (s + 1) (validate s m A δ))
+    models (interpret (s + 1) (action s m A δ))
     (inititr s ((tt, (δ.irnth m).2.1, s) :: δ.initial m) t),
   { exact this _ },
-  intros t, induction t; simp[models, inititr, validate],
+  intros t, induction t; simp[models, inititr, action],
   { simp[models_iff, interpret] at IH ⊢, split,
     { cases C : m.bodd; simp[C, interpret, le_of_lt ha1] at ha2 ⊢, simp[C, ha1],
       { have := IH m ((δ.initial m).irnth s), refine ⟨s, rfl, _, ha2.2, rfl⟩, sorry },
@@ -520,7 +520,7 @@ end
 def validate_revise_proper {s A δ m}
   (IH : models (interpret s A) δ)
   (ha : nat.rfind_fin (λ m, attention s m A δ) δ.length = some m) :
-  models (interpret (s + 1) (validate s m A δ)) (revise s m A δ) :=
+  models (interpret (s + 1) (action s m A δ)) (revise s m A δ) :=
 begin
   simp[attention] at ha, rcases ha with ⟨ha1, ha2, ha3⟩,
   simp[models_iff] at IH ⊢,
@@ -534,7 +534,7 @@ def prec (x y : (bool × ℕ × option ℕ)) : Prop := x.1 ≺ y.1
 local attribute [instance]
 theorem Λ_prec : kb.cord (bool × ℕ × option ℕ) := kb.prod.cord _ _
 
-def S : Strategy := ⟨interpret, ([], []), attention, validate, initialize, revise⟩
+def S : Strategy := ⟨interpret, ([], []), attention, action, initialize, revise⟩
 
 theorem approxpath_length (s) : (S.approxpath s).length = s :=
 begin
