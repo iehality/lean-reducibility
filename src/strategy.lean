@@ -91,6 +91,12 @@ infix ` ≺ `:80 := cord.ord
 variables {Λ : Type*}
 variables [cord Λ]
 
+inductive cordeq : Λ → Λ → Prop
+| eq {x}     : cordeq x x
+| cord {x y} : x ≺ y → cordeq x y
+
+infix ` ≼ `:80 := cordeq
+
 inductive option.ord : option Λ → option Λ → Prop
 | none {a} : option.ord (some a) none
 | some {a b} : a ≺ b → option.ord (some a) (some b)
@@ -120,6 +126,10 @@ instance : cord (option Λ) := ⟨option.ord⟩
 
 @[simp] lemma option.prec_some_simp {a b : Λ} : (some a) ≺ (some b) ↔ a ≺ b :=
 ⟨λ h, by { cases h with _ _ _ h, exact h }, option.ord.some⟩
+
+lemma option.ord_cases {x y : option Λ} :
+  x ≺ y → (∃ x', x = some x' ∧ y = none) ∨ (∃ x' y', x = some x' ∧ y = some y' ∧ x' ≺ y') := λ hyp,
+by { cases hyp with x' x' y' hyp1; simp, exact hyp1 }
 
 inductive bool.ord : bool → bool → Prop
 | intro : bool.ord tt ff
@@ -283,18 +293,60 @@ end
 
 def list.kb (l₀ l₁ : list Λ) := l₀.rnth <KB l₁.rnth
 
-infix ` <KB* `:80 := list.kb
+infix ` <KB* `:40 := list.kb
 
-def list.kbeq (l₀ l₁ : list Λ) := l₀ = l₁ ∨ l₀ <KB* l₁
+def list.kbeq (l₀ l₁ : list Λ) := l₀ <KB* l₁ ∨ l₀ = l₁ 
 
-infix ` ≤KB* `:80 := list.kbeq
+infix ` ≤KB* `:40 := list.kbeq
 
 theorem list.kb.trans (trans : transitive ((≺) : Λ → Λ → Prop)) {l₀ l₁ l₂ : list Λ} :
   l₀ <KB* l₁ → l₁ <KB* l₂ → l₀ <KB* l₂ := kb_order.trans (option.ord.trans trans)
 
-theorem list.kb.append (a : Λ ) (l : list Λ) : (a :: l) <KB* l :=
-⟨l.length, λ _ eqn, list.rnth_cons eqn, by simp⟩
+@[simp]theorem list.kb.append (a : Λ) (u : list Λ) : (a :: u) <KB* u :=
+⟨u.length, λ _ eqn, list.rnth_cons eqn, by simp⟩
 
+theorem list.kb.concat {u₀ u₁ : list Λ} (h : u₀ <KB* u₁) (v₀ v₁ : list Λ) :
+  v₀ ++ u₀ <KB* v₁ ++ u₁ :=
+begin
+  rcases h with ⟨m, hyp1, hyp2⟩,
+  cases option.ord_cases hyp2 with C C;
+  refine ⟨m, _, _⟩,
+  { intros n eqn_m,
+    rcases C with ⟨a, C1, C2⟩,
+      have eqn1 : n < u₀.length := lt_trans eqn_m (list.rnth_some_lt C1),
+      have eqn2 : n < u₁.length, 
+      { have : u₀.rnth n = some _ := list.rnth_le_rnth eqn1,
+        simp[hyp1 eqn_m] at this, exact list.rnth_some_lt this },
+      simp[list.rnth_append eqn1, list.rnth_append eqn2],
+      exact hyp1 eqn_m },
+  { rcases C with ⟨a, C1, C2⟩,
+    have : (v₁ ++ u₁).rnth m = none,
+    { simp,  } }
+end
+
+theorem list.kb.concat {u₀ u₁ : list Λ} (h : u₀ <KB* u₁) (v₀ v₁ : list Λ) :
+  v₀ ++ u₀ <KB* v₁ ++ u₁ :=
+begin
+  rcases h with ⟨m, hyp1, hyp2⟩,
+  refine ⟨m, _, _⟩,
+  { intros n eqn_m,
+    cases option.ord_cases hyp2 with C C,
+    { rcases C with ⟨a, C1, C2⟩,
+      have eqn1 : n < u₀.length := lt_trans eqn_m (list.rnth_some_lt C1),
+      have eqn2 : n < u₁.length, 
+      { have : u₀.rnth n = some _ := list.rnth_le_rnth eqn1,
+        simp[hyp1 eqn_m] at this, exact list.rnth_some_lt this },
+      simp[list.rnth_append eqn1, list.rnth_append eqn2],
+      exact hyp1 eqn_m },
+    { rcases C with ⟨a, b, C1, C2, eqn⟩,
+      have eqn1 : n < u₀.length := lt_trans eqn_m (list.rnth_some_lt C1),
+      have eqn2 : n < u₁.length := lt_trans eqn_m (list.rnth_some_lt C2),
+      simp[list.rnth_append eqn1, list.rnth_append eqn2],
+      exact hyp1 eqn_m } },
+  {  }
+end
+
+@[simp] theorem list.kbeq.refl (x : list Λ) : x ≤KB* x := by simp[list.kbeq]
 end kb
 
 variables {Λ : Type*} [kb.cord Λ] {α : Type*} 
@@ -326,6 +378,67 @@ begin
 end
 
 notation `∞` := tt
+
+
+
+structure prio (Λ : Type*) [kb.cord Λ] (α : Type*) :=
+(head    : α)
+(outcome : ℕ → α → list Λ → Λ)
+(action  : ℕ → α → list Λ → α)
+
+namespace prio
+variables (S : prio Λ α)
+
+def procedure (s : ℕ) : ℕ → α × list Λ
+| 0     := (S.head, [])
+| (n+1) := let A₀ := (procedure n).1,
+               u₀ := (procedure n).2 in
+  (S.action s A₀ u₀, u₀ ++ [S.outcome s A₀ u₀])
+
+def result (s : ℕ) : α := (S.procedure s s).1
+
+def approxpath (s : ℕ) := (S.procedure s s).2
+
+lemma approxpath_length (s) : (S.approxpath s).length = s :=
+begin
+  suffices : ∀ n, (S.procedure s n).2.length = n,
+  { exact this s },
+  intros n, induction n with n IH; simp[procedure], simp[IH]
+end
+
+end prio
+
+structure iipm (Λ : Type*) [kb.cord Λ] (α : Type*) extends prio Λ α :=
+(infty : Λ)
+(infty_proper : ∀ u, infty ≼ u)
+(outcome_proper : ∀ s A u, outcome (s+1) A u ≼ outcome s A u ∨ outcome s A u = infty)
+
+structure fipm (Λ : Type*) [kb.cord Λ] (α : Type*) extends prio Λ α :=
+(infty : Λ)
+(infty_proper : ∀ u, infty ≼ u)
+(wf : well_founded ((≺) : Λ → Λ → Prop))
+(outcome_proper : ∀ s A u, outcome (s+1) A u ≼ outcome s A u)
+
+namespace fipm
+variables (S : fipm Λ α)
+
+#check S.head
+
+def finiteinjury : Prop := ∀ s A u, S.outcome (s+1) A u ≼ S.outcome s A u 
+
+theorem finiteinjury_kbprec (h : S.finiteinjury) :
+  ∀ s, S.to_prio.approxpath (s+1) <KB* S.to_prio.approxpath s :=
+begin
+  have : ∀ s n, (S.to_prio.procedure (s+1) n).2 ≤KB* (S.to_prio.procedure s n).2,
+  { intros s n, induction n with n IH; simp[prio.procedure],
+    cases IH,
+    {  } }
+
+end
+end fipm
+
+
+
 
 structure Strategy :=
 (interpret  : ℕ → α → list Λ → Λ → Prop)

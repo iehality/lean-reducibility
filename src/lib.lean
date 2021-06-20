@@ -69,6 +69,10 @@ lemma rnth_cons {l : list α} {n : ℕ} {a} (hn : n < l.length) :
   (a :: l).rnth n = l.rnth n :=
 by { simp[list.rnth], exact list.nth_append (by simp; exact hn) }
 
+lemma rnth_le_rnth {l : list α} {n} (h : n < l.length) :
+  l.rnth n = some (l.rnth_le n h) :=
+by simp[list.rnth, list.rnth_le]; exact nth_le_nth _
+
 lemma irnth_rnth [inhabited α] {l : list α} :
   ∀ {n}, n < l.length → l.rnth n = some (l.irnth n) :=
 begin
@@ -83,6 +87,9 @@ begin
   simp[list.rnth] at h, rcases list.nth_eq_some.mp h with ⟨h1, _⟩,
   simp at h1, exact h1
 end
+
+@[simp] lemma rnth_none {l : list α} {n} : l.rnth n = none ↔ l.length ≤ n :=
+by simp[list.rnth]
 
 theorem rnth_map {α β} (f : α → β) : ∀ (l : list α) n, (l.map f).rnth n = (l.rnth n).map f :=
 by simp [list.rnth, ←list.map_reverse]
