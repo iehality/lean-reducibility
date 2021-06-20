@@ -81,14 +81,12 @@ by { have := well_founded.enum_minimal wf (λ n : ℕ, a), simp at this, exact t
 
 end
 
-namespace kb
-
 class cord (α : Type*) :=
 (ord : α → α → Prop)
 
 infix ` ≺ `:80 := cord.ord
-
-variables {Λ : Type*}
+universes u
+variables {Λ : Type u}
 variables [cord Λ]
 
 inductive cordeq : Λ → Λ → Prop
@@ -164,6 +162,7 @@ infix ` <KB `:80 := kb_order
 noncomputable def wf_truepath_step (p : ℕ → ℕ → Λ) : ℕ → ℕ :=
 λ n₀, classical.epsilon (λ s, ∀ n t, n ≤ n₀ → s ≤ t → p t n = p s n)
 
+/- wf_truepath p = lim_{n → ∞} p n -/
 noncomputable def wf_truepath (p : ℕ → ℕ → Λ) : ℕ → Λ :=
 λ n, p (wf_truepath_step p n) n
 
@@ -229,9 +228,9 @@ begin
 end
 
 theorem wf_truepath_spec (wf : well_founded ((≺) : Λ → Λ → Prop))
-  {p : ℕ → ℕ → Λ} (h : ∀ s, p (s + 1) <KB (p s)) :
-  ∀ n t, wf_truepath_step p n ≤ t → p t n = wf_truepath p n :=
-λ n t eqn_t, wf_truepath_step_spec wf h n n t (by refl) eqn_t
+  {p : ℕ → ℕ → Λ} (h : ∀ s, p (s + 1) <KB (p s)) {n t} :
+  wf_truepath_step p n ≤ t → p t n = wf_truepath p n :=
+λ eqn_t, wf_truepath_step_spec wf h n n t (by refl) eqn_t
 
 theorem wf_truepath_spec_neq (wf : well_founded ((≺) : Λ → Λ → Prop))
   {p : ℕ → ℕ → Λ} (h : ∀ s, p (s + 1) <KB (p s))
@@ -274,8 +273,8 @@ begin
   by_cases C : ∃ s, ∀ t, s < t → p (t + 1) n = p t n,
   { rcases C with ⟨s, C⟩, use sum.inl (p (s + 1) n), left,
     refine ⟨⟨s, C⟩, s, λ t eqn_t, _⟩, simp,
-     }
-  
+    sorry },
+  sorry
 end
 
 theorem kb_order.trans (trans : transitive ((≺) : Λ → Λ → Prop)) {p₀ p₁ p₂ : ℕ → Λ} :
@@ -299,409 +298,171 @@ def list.kbeq (l₀ l₁ : list Λ) := l₀ <KB* l₁ ∨ l₀ = l₁
 
 infix ` ≤KB* `:40 := list.kbeq
 
+@[refl, simp] theorem list.kbeq.refl (x : list Λ) : x ≤KB* x := by simp[list.kbeq]
+
 theorem list.kb.trans (trans : transitive ((≺) : Λ → Λ → Prop)) {l₀ l₁ l₂ : list Λ} :
   l₀ <KB* l₁ → l₁ <KB* l₂ → l₀ <KB* l₂ := kb_order.trans (option.ord.trans trans)
 
-@[simp]theorem list.kb.append (a : Λ) (u : list Λ) : (a :: u) <KB* u :=
+@[simp]theorem list.kb.cons (a : Λ) (u : list Λ) : (a :: u) <KB* u :=
 ⟨u.length, λ _ eqn, list.rnth_cons eqn, by simp⟩
 
-theorem list.kb.concat {u₀ u₁ : list Λ} (h : u₀ <KB* u₁) (v₀ v₁ : list Λ) :
+theorem list.kb.length_append {u₀ u₁ : list Λ}
+  (h : u₀ <KB* u₁) (eqn : u₀.length = u₁.length) (v₀ v₁ : list Λ) :
   v₀ ++ u₀ <KB* v₁ ++ u₁ :=
 begin
   rcases h with ⟨m, hyp1, hyp2⟩,
-  cases option.ord_cases hyp2 with C C;
+  cases option.ord_cases hyp2 with C C,
+  { exfalso, rcases C with ⟨a, C1, C2⟩,
+    simp[←eqn] at C2, 
+    exact nat.lt_le_antisymm (list.rnth_some_lt C1) C2 },
+  rcases C with ⟨a, b, C1, C2, C3⟩,
   refine ⟨m, _, _⟩,
-  { intros n eqn_m,
-    rcases C with ⟨a, C1, C2⟩,
-      have eqn1 : n < u₀.length := lt_trans eqn_m (list.rnth_some_lt C1),
-      have eqn2 : n < u₁.length, 
-      { have : u₀.rnth n = some _ := list.rnth_le_rnth eqn1,
-        simp[hyp1 eqn_m] at this, exact list.rnth_some_lt this },
-      simp[list.rnth_append eqn1, list.rnth_append eqn2],
-      exact hyp1 eqn_m },
-  { rcases C with ⟨a, C1, C2⟩,
-    have : (v₁ ++ u₁).rnth m = none,
-    { simp,  } }
+  { intros n eqn_n,
+    have eqn1 : n < u₀.length := lt_trans eqn_n (list.rnth_some_lt C1),
+    have eqn2 : n < u₁.length := lt_trans eqn_n (list.rnth_some_lt C2),
+    simp[list.rnth_append eqn1, list.rnth_append eqn2],
+    exact hyp1 eqn_n },
+  { have eqn1 : m < u₀.length := list.rnth_some_lt C1,
+    have eqn2 : m < u₁.length := list.rnth_some_lt C2,
+    simp[list.rnth_append eqn1, list.rnth_append eqn2],
+    exact hyp2 }
 end
 
-theorem list.kb.concat {u₀ u₁ : list Λ} (h : u₀ <KB* u₁) (v₀ v₁ : list Λ) :
-  v₀ ++ u₀ <KB* v₁ ++ u₁ :=
+theorem list.kb.length_cons {u₀ u₁ : list Λ}
+  (h : u₀ <KB* u₁) (eqn : u₀.length = u₁.length) (a₀ a₁ : Λ) :
+  a₀ :: u₀ <KB* a₁ :: u₁ :=
+list.kb.length_append h eqn [a₀] [a₁]
+
+theorem list.kb.length_cons_left {u₀ u₁ : list Λ}
+  (h : u₀ ≤KB* u₁) (eqn : u₀.length = u₁.length) (a : Λ) : a :: u₀ <KB* u₁ :=
+by { cases h, have := list.kb.length_append h eqn [a] [], simp at this, exact this,
+     simp[h] }
+
+theorem list.kb.cons_cons {u : list Λ} {a b : Λ} (h : a ≺ b) : a :: u <KB* b :: u :=
+⟨u.length, λ n eqn_n, by simp[list.rnth_cons eqn_n], by simp[h]⟩
+
+theorem list.kbeq.cons_cons {u : list Λ} {a b : Λ} (h : a ≼ b) : a :: u ≤KB* b :: u :=
+by { cases h with h _ _ h, refl, left, exact list.kb.cons_cons h }
+
+namespace wford
+variables {p : ℕ → list Λ}  
+
+noncomputable def wf_truepath_aux (p : ℕ → list Λ) : ℕ → option Λ :=
+wf_truepath (λ s, (p s).rnth)
+
+noncomputable def wf_truepath_step (p : ℕ → list Λ) : ℕ → ℕ :=
+wf_truepath_step (λ s, (p s).rnth)
+
+private lemma wf_truepath_some
+  (wf : well_founded ((≺) : Λ → Λ → Prop)) (H : ∀ s, p (s + 1) <KB* p s) :
+  ∀ n, (wf_truepath_aux p n).is_some := λ n,
 begin
-  rcases h with ⟨m, hyp1, hyp2⟩,
-  refine ⟨m, _, _⟩,
-  { intros n eqn_m,
-    cases option.ord_cases hyp2 with C C,
-    { rcases C with ⟨a, C1, C2⟩,
-      have eqn1 : n < u₀.length := lt_trans eqn_m (list.rnth_some_lt C1),
-      have eqn2 : n < u₁.length, 
-      { have : u₀.rnth n = some _ := list.rnth_le_rnth eqn1,
-        simp[hyp1 eqn_m] at this, exact list.rnth_some_lt this },
-      simp[list.rnth_append eqn1, list.rnth_append eqn2],
-      exact hyp1 eqn_m },
-    { rcases C with ⟨a, b, C1, C2, eqn⟩,
-      have eqn1 : n < u₀.length := lt_trans eqn_m (list.rnth_some_lt C1),
-      have eqn2 : n < u₁.length := lt_trans eqn_m (list.rnth_some_lt C2),
-      simp[list.rnth_append eqn1, list.rnth_append eqn2],
-      exact hyp1 eqn_m } },
-  {  }
+  suffices : wf_truepath_aux p n ≠ none,
+  { cases wf_truepath_aux p n; simp at this ⊢, exact this },
+  have := @wf_truepath_spec_neq _ _ (option.ord.wf wf) (λ s, (p s).rnth) H,
+  apply this, simp[list.rnth],
+  intros s n hyp, exact le_add_right hyp
 end
 
-@[simp] theorem list.kbeq.refl (x : list Λ) : x ≤KB* x := by simp[list.kbeq]
-end kb
+noncomputable def wf_truepath (wf : well_founded ((≺) : Λ → Λ → Prop)) (H : ∀ s, p (s + 1) <KB* p s) : ℕ → Λ :=
+λ n, option.get $ wf_truepath_some wf H n
 
-variables {Λ : Type*} [kb.cord Λ] {α : Type*} 
-
-@[simp]
-def models {Λ} (p : list Λ → Λ → Prop) : list Λ → Prop
-| []       := true
-| (a :: l) := p l a ∧ models l
-
-theorem models_iff {α} {p : list α → α → Prop} {l} :
-  models p l ↔ ∀ n a, l.rnth n = some a → p (l↾*n) a :=
+theorem wf_truepath_spec (wf : well_founded ((≺) : Λ → Λ → Prop)) (H : ∀ s, p (s + 1) <KB* p s) {n t} :
+  wf_truepath_step p n ≤ t → (p t).rnth n = some (wf_truepath wf H n) := λ eqn_t,
 begin
-  induction l with d l IH; simp,
-  split,
-  { rintros ⟨hyp1, hyp2⟩, intros n a eqn_a,
-    have : n = l.length ∨ n < l.length,
-    { have := list.rnth_some_lt eqn_a, simp at this,
-      exact eq_or_lt_of_le (nat.lt_succ_iff.mp this) },
-    cases this, { simp[this] at eqn_a, simp[←eqn_a, this], exact hyp1 },
-    { simp[list.initial_cons this, list.rnth_cons this] at eqn_a ⊢,
-      refine IH.mp hyp2 _ _ eqn_a } },
-  { intros h, split,
-    { have := h l.length d, simp at this, exact this },
-    { refine IH.mpr (λ n a eqn_a, _),
-      have lmm := h n a,
-      have := list.rnth_some_lt eqn_a,
-      simp[list.rnth_cons this, list.initial_cons this] at lmm, 
-      refine lmm eqn_a } }
+  have := @wf_truepath_spec _ _ (option.ord.wf wf) (λ s, (p s).rnth) H _ _ eqn_t,
+  simp at this, simp[this, wford.wf_truepath, wford.wf_truepath_aux], 
 end
 
-notation `∞` := tt
+end wford
 
-
-
-structure prio (Λ : Type*) [kb.cord Λ] (α : Type*) :=
-(head    : α)
-(outcome : ℕ → α → list Λ → Λ)
-(action  : ℕ → α → list Λ → α)
+structure prio (Λ : Type*) [cord Λ] (α : Type*) :=
+(head          : α)
+(outcome       : ℕ → α → list Λ → Λ)
+(action        : ℕ → α → list Λ → α)
+(action_proper : ∀ {s A u}, outcome (s+1) A u = outcome s A u → action (s+1) A u = action s A u)
 
 namespace prio
-variables (S : prio Λ α)
+variables {α : Type u} (S : prio Λ α)
+
+mutual def result_itr, approxpath_itr (s) 
+with result_itr : ℕ → α
+| 0     := S.head
+| (n+1) := S.action s (result_itr n) (approxpath_itr n)
+with approxpath_itr : ℕ → list Λ
+| 0     := []
+| (n+1) := (S.outcome s (result_itr n) (approxpath_itr n)) :: (approxpath_itr n)
+
+def result (s) : α := S.result_itr s s
+
+def approxpath (s) : list Λ := S.approxpath_itr s s
 
 def procedure (s : ℕ) : ℕ → α × list Λ
 | 0     := (S.head, [])
 | (n+1) := let A₀ := (procedure n).1,
                u₀ := (procedure n).2 in
-  (S.action s A₀ u₀, u₀ ++ [S.outcome s A₀ u₀])
+  (S.action s A₀ u₀, S.outcome s A₀ u₀ :: u₀)
 
-def result (s : ℕ) : α := (S.procedure s s).1
+lemma procedure_eq (s n) :
+  S.procedure s n = (S.result_itr s n, S.approxpath_itr s n) :=
+by induction n with n IH;
+   simp[prio.procedure, prio.result_itr, prio.approxpath_itr] at*;
+   simp[IH]
 
-def approxpath (s : ℕ) := (S.procedure s s).2
+@[simp] lemma approxpath_length (s n) : (S.approxpath_itr s n).length = n :=
+by induction n with n IH; simp[prio.approxpath_itr]; simp[IH]
 
-lemma approxpath_length (s) : (S.approxpath s).length = s :=
+theorem result_proper {s n} :
+  S.approxpath_itr (s+1) n = S.approxpath_itr s n → S.result_itr (s+1) n = S.result_itr s n :=  
 begin
-  suffices : ∀ n, (S.procedure s n).2.length = n,
-  { exact this s },
-  intros n, induction n with n IH; simp[procedure], simp[IH]
+  induction n with n IH; simp[prio.result_itr, prio.approxpath_itr],
+  intros hyp1 hyp2, simp[hyp2, IH hyp2] at hyp1 ⊢, exact S.action_proper hyp1
 end
 
 end prio
 
-structure iipm (Λ : Type*) [kb.cord Λ] (α : Type*) extends prio Λ α :=
+structure iipm (Λ : Type*) [cord Λ] (α : Type*) extends prio Λ α :=
 (infty : Λ)
 (infty_proper : ∀ u, infty ≼ u)
 (outcome_proper : ∀ s A u, outcome (s+1) A u ≼ outcome s A u ∨ outcome s A u = infty)
 
-structure fipm (Λ : Type*) [kb.cord Λ] (α : Type*) extends prio Λ α :=
+structure fipm (Λ : Type*) [cord Λ] (α : Type*) extends prio Λ α :=
 (infty : Λ)
 (infty_proper : ∀ u, infty ≼ u)
 (wf : well_founded ((≺) : Λ → Λ → Prop))
 (outcome_proper : ∀ s A u, outcome (s+1) A u ≼ outcome s A u)
 
 namespace fipm
-variables (S : fipm Λ α)
+variables {α : Type u} (S : fipm Λ α)
 
-#check S.head
-
-def finiteinjury : Prop := ∀ s A u, S.outcome (s+1) A u ≼ S.outcome s A u 
-
-theorem finiteinjury_kbprec (h : S.finiteinjury) :
-  ∀ s, S.to_prio.approxpath (s+1) <KB* S.to_prio.approxpath s :=
+@[simp] theorem approxpath_itr_kble (s n) :
+  S.to_prio.approxpath_itr (s+1) n ≤KB* S.to_prio.approxpath_itr s n :=
 begin
-  have : ∀ s n, (S.to_prio.procedure (s+1) n).2 ≤KB* (S.to_prio.procedure s n).2,
-  { intros s n, induction n with n IH; simp[prio.procedure],
-    cases IH,
-    {  } }
-
+  induction n with n IH; simp[prio.result_itr, prio.approxpath_itr] at*,
+  cases IH,
+  { left, refine list.kb.length_cons IH _ _ _, simp },
+  { simp[IH], apply list.kbeq.cons_cons,
+    simp[S.to_prio.result_proper IH], exact S.outcome_proper _ _ _ }
 end
+
+theorem approxpath_kblt (s) :
+  S.to_prio.approxpath (s+1) <KB* S.to_prio.approxpath s :=
+by simp[prio.approxpath, prio.approxpath_itr];
+   apply list.kb.length_cons_left; simp
+
+noncomputable def wf_truepath : ℕ → Λ :=
+wford.wf_truepath S.wf S.approxpath_kblt
+
+noncomputable def wf_truepath_step : ℕ → ℕ := 
+wford.wf_truepath_step S.to_prio.approxpath
+
+theorem truepath_spec {n t} :
+  S.wf_truepath_step n ≤ t → (S.to_prio.approxpath t).rnth n = some (S.wf_truepath n) :=
+wford.wf_truepath_spec _ _
+
 end fipm
 
 
 
 
-structure Strategy :=
-(interpret  : ℕ → α → list Λ → Λ → Prop)
-(head       : α)
-(attention  : ℕ → ℕ → α → list Λ → bool)
-(action     : ℕ → ℕ → α → list Λ → α)
-(initialize : ℕ → α → list Λ → Λ)
-(revise     : ℕ → ℕ → α → list Λ → list Λ)
-
-namespace Strategy
-variables (S : @Strategy Λ _ α)
-
-def initialize_proper := ∀ {s A δ},
-models (S.interpret s A) δ → models (S.interpret (s + 1) A) (S.initialize s A δ :: δ)
-
-def validate_revise_proper := ∀ {s A δ m},
-models (S.interpret s A) δ → 
-nat.rfind_fin (λ m, S.attention s m A δ) s = some m →
-models (S.interpret (s + 1) (S.action s m A δ)) (S.revise s m A δ)
-
-theorem rhhhth : S.validate_revise_proper := λ s A δ m hyp1 hyp2,
-begin
-  simp[models_iff] at hyp1 hyp2 ⊢,
-end
-
-def procedure : ℕ → α × list Λ
-| 0     := (S.head, [])
-| (s+1) := let a := (procedure s).1,
-               δ := (procedure s).2,
-               m := nat.rfind_fin (λ m, S.attention s m a δ) s in
-  match m with
-  | none   := (a, S.initialize s a δ :: δ)
-  | some m := (S.action s m a δ, S.revise s m a δ)
-  end
-
-def result (s : ℕ) : α := (S.procedure s).1
-
-def approxpath (s : ℕ) : list Λ := (S.procedure s).2
-
-def full : Prop := ∀ n, ∃ s, ∀ {t}, s < t → n < (S.approxpath t).length
-
-theorem revise_order_path (hr : ∀ s m a δ, S.revise s m a δ <KB* δ) :
-  ∀ s, S.approxpath (s + 1) <KB* S.approxpath s :=
-begin
-  intros s, 
-  simp[Strategy.approxpath, Strategy.procedure],
-  cases C : nat.rfind_fin (λ m, S.attention s m (S.procedure s).1 (S.procedure s).2) s;
-  simp[C, Strategy.procedure],
-  exact kb.list.kb.append _ _,
-  exact hr _ _ _ _
-end
-
-noncomputable def wf_trupath_aux : ℕ → option Λ := kb.wf_truepath (λ s, (S.approxpath s).rnth)
-
-noncomputable def wf_truepath_step : ℕ → ℕ := kb.wf_truepath_step (λ s, (S.approxpath s).rnth)
-
-private lemma wf_truepath_some
-  (wf : well_founded ((≺) : Λ → Λ → Prop))
-  (H : ∀ s, S.approxpath (s + 1) <KB* S.approxpath s) :
-  ∀ n, (S.wf_trupath_aux n).is_some := λ n,
-begin
-  suffices : S.wf_trupath_aux n ≠ none,
-  { cases S.wf_trupath_aux n; simp at this ⊢, exact this },
-  have := @kb.wf_truepath_spec_neq _ _ (kb.option.ord.wf wf) (λ s, (S.approxpath s).rnth) H,
-  apply this, simp[list.rnth],
-  intros s n hyp, exact le_add_right hyp
-end
-
-noncomputable def wf_truepath
-  (wf : well_founded ((≺) : Λ → Λ → Prop))
-  (H : ∀ s, S.approxpath (s + 1) <KB* S.approxpath s) : ℕ → Λ :=
-(λ n, option.get $ wf_truepath_some S wf H n)
-
-theorem wf_truepath_exists (wf : well_founded ((≺) : Λ → Λ → Prop))
-  (H : ∀ s, S.approxpath (s + 1) <KB* S.approxpath s) {n t} :
-  S.wf_truepath_step n ≤ t → (S.approxpath t).rnth n = S.wf_truepath wf H n := λ hyp,
-begin
-  have eqn1 : (S.approxpath t).rnth n = S.wf_trupath_aux n,
-  from @kb.wf_truepath_spec _ _ (kb.option.ord.wf wf) (λ s, (S.approxpath s).rnth) H n t hyp,
-  have eqn2 : S.wf_truepath wf H n = (option.get $ wf_truepath_some S wf H n), refl,
-  unfold_coes, simp[eqn1, eqn2],
-end
-
-theorem result_models_approxpath (hi : S.initialize_proper) (hr : S.validate_revise_proper) (s) :
-  models (S.interpret s (S.result s)) (S.approxpath s) :=
-begin
-  induction s with s IH; simp[Strategy.approxpath, Strategy.result, Strategy.procedure],
-  cases C : nat.rfind_fin (λ m, S.attention s m (S.procedure s).fst (S.procedure s).snd) s with v;
-  simp[C, Strategy.procedure],
-  exact hi IH, exact hr IH C,
-end
-
-
-
-end Strategy
-
-section FM
-
-/- Λ := bool × ℕ × option ℕ -/
-
-def interpret (s : ℕ) (A : list (ℕ × bool) × list (ℕ × bool)) (δ : list (bool × ℕ × option ℕ))
-  (a : bool × ℕ × option ℕ) : Prop :=
-let e := δ.length.div2,
-    A₀ := A.1,
-    A₁ := A.2,
-    b := a.1,
-    x := a.2.1 in
-cond b
-  (∃ r, a.2.2 = some r ∧ 
-    (∀ s r', s < δ.length → (δ.irnth s).2.2 = some r' → r' < x) ∧
-    cond δ.length.bodd
-    (⟦e⟧ᵪ^A₁.fdecode [r] x = ff ∧ A₀.fdecode x = tt)
-    (⟦e⟧ᵪ^A₀.fdecode [r] x = ff ∧ A₁.fdecode x = tt))
-  true
-
-def attention (s m : ℕ) (A : list (ℕ × bool) × list (ℕ × bool)) (δ : list (bool × ℕ × option ℕ)) : bool :=
-let A₀ := A.1,
-    A₁ := A.2,
-    x  := (δ.irnth m).2.1,
-    r  := (δ.irnth m).2.2 in
-(r = none) && cond m.bodd (⟦m.div2⟧^A₁.fdecode [s] x = some ff) (⟦m.div2⟧^A₀.fdecode [s] x = some ff)
-
-def action (s m : ℕ) (A : list (ℕ × bool) × list (ℕ × bool)) (δ : list (bool × ℕ × option ℕ)) :
-  list (ℕ × bool) × list (ℕ × bool) :=
-let A₀ := A.1,
-    A₁ := A.2,
-    x  := (δ.irnth m).2.1,
-    r  := (δ.irnth m).2.2 in
-cond m.bodd ((x, tt) :: A₀, A₁) (A₀, (x, tt) :: A₁) 
-
-def init (s : ℕ) (δ : list (bool × ℕ × option ℕ)) : bool × ℕ × option ℕ :=
-(ff, (s), none)
-
-def inititr (s : ℕ) (δ : list (bool × ℕ × option ℕ)) : ℕ → list (bool × ℕ × option ℕ)
-| 0     := δ
-| (n+1) := init s (inititr n) :: inititr n
-
-theorem inititr_length (s δ) : ∀ n, (inititr s δ n).length = δ.length + n
-| 0       := rfl
-| (n + 1) := by simp[inititr, inititr_length n]; refl
-
-def initialize (s : ℕ) (A : list (ℕ × bool) × list (ℕ × bool)) (δ : list (bool × ℕ × option ℕ)) :
-  bool × ℕ × option ℕ := init s δ
-
-def revise (s m : ℕ) (A : list (ℕ × bool) × list (ℕ × bool)) (δ : list (bool × ℕ × option ℕ)) :
-  list (bool × ℕ × option ℕ) :=
-let x  := (δ.irnth m).2.1,
-    r  := (δ.irnth m).2.2 in
-inititr s ((tt, x, s) :: δ.initial m) (s - m)
-
-lemma interpret_proper {s A l d} : interpret s A l d → interpret (s + 1) A l d :=
-by simp[interpret]
-
-lemma initialize_proper {s A δ} (h : models (interpret s A) δ) :
-  models (interpret (s + 1) A) (initialize s A δ :: δ) :=
-begin
-  simp[models, interpret],
-  cases C : (initialize s A δ).1; simp[C, interpret],
-  { have : ∀ l, models (interpret s A) l → models (interpret (s + 1) A) l,
-    { intros l, induction l with d l IH; simp[models],
-      refine λ hyp1 hyp2, ⟨interpret_proper hyp1, IH hyp2⟩ },
-    refine this _ h },
-  { simp[initialize, init] at C, contradiction }
-end
-
-def validate_revise_proper {s A δ m}
-  (IH : models (interpret s A) δ)
-  (ha : nat.rfind_fin (λ m, attention s m A δ) δ.length = some m) :
-  models (interpret (s + 1) (action s m A δ)) (revise s m A δ) :=
-begin
-  simp[attention] at ha, rcases ha with ⟨ha1, ha2, ha3⟩,
-  simp[models, revise], 
-  suffices : ∀ t,
-    models (interpret (s + 1) (action s m A δ))
-    (inititr s ((tt, (δ.irnth m).2.1, s) :: δ.initial m) t),
-  { exact this _ },
-  intros t, induction t; simp[models, inititr, action],
-  { simp[models_iff, interpret] at IH ⊢, split,
-    { cases C : m.bodd; simp[C, interpret, le_of_lt ha1] at ha2 ⊢, simp[C, ha1],
-      { have := IH m ((δ.initial m).irnth s), refine ⟨s, rfl, _, ha2.2, rfl⟩, sorry },
-      { refine ⟨s, rfl, _, ha2.2, rfl⟩, sorry } },
-    { cases C : m.bodd; simp[C, interpret, le_of_lt ha1] at ha2 ⊢,
-      { 
-intros n a eqn_a, have := list.rnth_some_lt eqn_a, simp[this],
-        have eqn_n : n < δ.length, { simp[list.initial] at this, omega },
-        have := IH n a (list.initial_nth eqn_a), 
-          }
-       } }
-
-end
-
-def validate_revise_proper {s A δ m}
-  (IH : models (interpret s A) δ)
-  (ha : nat.rfind_fin (λ m, attention s m A δ) δ.length = some m) :
-  models (interpret (s + 1) (action s m A δ)) (revise s m A δ) :=
-begin
-  simp[attention] at ha, rcases ha with ⟨ha1, ha2, ha3⟩,
-  simp[models_iff] at IH ⊢,
-
-end
-
-
-/-
-def prec (x y : (bool × ℕ × option ℕ)) : Prop := x.1 ≺ y.1
-
-local attribute [instance]
-theorem Λ_prec : kb.cord (bool × ℕ × option ℕ) := kb.prod.cord _ _
-
-def S : Strategy := ⟨interpret, ([], []), attention, action, initialize, revise⟩
-
-theorem approxpath_length (s) : (S.approxpath s).length = s :=
-begin
-  simp[Strategy.approxpath],
-  induction s with s IH; 
-  simp[Strategy.procedure], 
-  cases C : nat.rfind_fin (λ m, S.attention s m (S.procedure s).1 (S.procedure s).2) s with m,
-  simp[Strategy.procedure, IH],
-  simp at C, have := C.1,
-  have : S.revise = revise := rfl,
-  simp[Strategy.procedure, revise, this, IH, inititr_length, le_of_lt C.1, list.initial],
-  omega
-end
-
-theorem full : S.full := λ n, ⟨n, by simp[approxpath_length]⟩
-
-theorem witness {s} : ∀ n x r, (strategy s).nth (bit0 n) = some ⟨tt, x, r⟩ →
-  (A₀ s).fdecode x = tt ∧ ⟦x⟧ᵪ^(A₀ s).fdecode [s] (x) = ff :=
-begin
-  simp[strategy, approx],
-  induction s with s IH; simp[strategy.approx],
-end
--/
-/--
-((
-  [ (94, tt), (89, tt), (87, tt), (85, tt), (81, tt), (79, tt), (75, tt), (75, tt),
-    (73, tt), (71, tt), (45, tt), #(55, tt), (51, tt), (49, tt), (47, tt), (45, tt),
-    (43, tt), (42, tt), (23, tt), (38, tt), (34, tt), (30, tt), (26, tt), (21, tt),
-    (18, tt), (12, tt), (10, tt), (2, tt),  (0, tt) ],
-  [ (95, tt), (90, tt), (87, tt), (83, tt), (80, tt), (76, tt), (74, tt), (72, tt),
-    #(57, tt), (53, tt), (50, tt), (48, tt), (46, tt), (44, tt), (41, tt), (39, tt),
-    (35, tt), (31, tt), (27, tt), (23, tt), (22, tt), (20, tt), (13, tt), (15, tt),
-    (11, tt), (3, tt),  (1, tt) ] ),
-
-  [ (tt, (0, (some 1))),   (tt, (1, (some 2))),   (tt, (2, (some 3))),   (tt, (3, (some 4))),
-    (ff, (4, none)),       (ff, (5, none)),       (ff, (6, none)),       (ff, (7, none)),
-    (ff, (8, none)),       (ff, (9, none)),       (tt, (10, (some 11))), (tt, (11, (some 12))),
-    (tt, (12, (some 13))), (tt, (13, (some 20))), (ff, (20, none)),      (tt, (20, (some 21))),
-    (ff, (21, none)),      (ff, (21, none)),      (tt, (21, (some 22))), (tt, (22, (some 23))),
-    (tt, (23, (some 41))), (ff, (41, none)),      (ff, (41, none)),      (tt, (41, (some 42))),
-    (tt, (42, (some 43))), (ff, (43, none)),      (tt, (43, (some 44))), (tt, (44, (some 45))),
-    (tt, (45, (some 71))), (ff, (71, none)),      (tt, (71, (some 72))), (tt, (72, (some 73))),
-    (ff, (73, none)),      (ff, (73, none)),      (tt, (73, (some 74))), (tt, (74, (some 75))),
-    (tt, (75, (some 79))), (ff, (79, none)),      (tt, (79, (some 80))), (tt, (80, (some 81))),
-    (ff, (81, none)),      (ff, (81, none)),      (ff, (81, none)),      (ff, (81, none)),
-    (ff, (81, none)),      (ff, (81, none)),      (tt, (81, (some 83))), (tt, (83, (some 85))),
-    (ff, (85, none)),      (ff, (85, none)),      (ff, (85, none)),      (ff, (85, none)),
-    (ff, (85, none)),      (ff, (85, none)),      (tt, (85, (some 87))), (tt, (87, (some 89))),
-    (ff, (89, none)),      (ff, (89, none)),      (ff, (89, none)),      (ff, (89, none)),
-    (ff, (89, none)),      (ff, (89, none)),      (ff, (89, none)),      (ff, (89, none)),
-    (ff, (89, none)),      (ff, (89, none)),      (ff, (89, none)),      (ff, (89, none)),
-    (ff, (89, none)),      (ff, (89, none)),      (ff, (89, none)),      (ff, (89, none)),
-    (ff, (89, none)),      (ff, (89, none)),      (ff, (89, none)),      (ff, (89, none)), (ff, (89, none)), (ff, (89, none)), (ff, (89, none)), (ff, (89, none)), (ff, (89, none)), (ff, (89, none)), (ff, (89, none)), (ff, (89, none)), (ff, (89, none)), (ff, (89, none)), (tt, (89, (some 90))), (tt, (90, (some 91))), (ff, (91, none)), (ff, (91, none)), (ff, (91, none)), (ff, (91, none)), (ff, (92, none)), (ff, (93, none)), (tt, (94, (some 95))), (tt, (95, (some 96))), (ff, (96, none)), (ff, (97, none)), (ff, (98, none)), (ff, (99, none))])
--/
-
-end FM
 
