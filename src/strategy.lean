@@ -460,6 +460,9 @@ theorem truepath_spec {n t} :
   S.wf_truepath_step n ≤ t → (S.to_prio.approxpath t).rnth n = some (S.wf_truepath n) :=
 wford.wf_truepath_spec _ _
 
+theorem truepath_part {u : list Λ} (h : ∀ n a, u.rnth n = some a → S.wf_truepath n = a) :
+  ∃ v, u ⊆ v ∧  
+
 end fipm
 
 
