@@ -24,6 +24,9 @@ def Tree (n : ℕ) := Tree' (n + 1)
 
 def subTree {n} (η : Tree n) := { μ : Tree n // μ <:+ η }
 
+def subTree.cons' {n} {η : Tree n} {a} (μ : subTree η) : subTree (a :: η) :=
+⟨μ.val, list.suffix_cons_iff.mpr(or.inr μ.property)⟩
+
 instance : has_zero (zero ⊕ infinity) := ⟨sum.inl zero.zero⟩
 instance {n} : has_emptyc (Tree n) := ⟨[]⟩
 
@@ -77,11 +80,10 @@ variables {R : Type*} (S : strategy R)
 notation `out[` η `] ` μ ` ↝ ` ν := out μ η ν
 
 namespace approx
-variables υ : Π (n : ℕ) (η : Tree 0) (h : η.length < n), option (Tree 1)
 
 def weight (μ : Tree 1) : Π (η : Tree 0) (υ : subTree η → option (Tree 1)), ℕ
 | []       _ := 0
-| (_ :: η) υ := weight η (λ ν, υ ⟨ν.val, list.suffix_cons_iff.mpr(or.inr ν.property)⟩) +
+| (_ :: η) υ := weight η (λ ν, υ ν.cons') +
   (if υ ⟨η, by simp⟩ = ↑μ then 1 else 0)
 
 /--
@@ -90,15 +92,18 @@ def weight (η : Tree 1) : Tree 0 → ℕ
 | (_ :: μ) := weight μ + (if υ μ = ↑η then 1 else 0)
 -/
 
-def is_exists_inv_infinity (η : Tree 1) : Tree 0 → option (Tree 0)
-| []               := none
-| (sum.inl _ :: μ) := is_exists_inv_infinity μ
-| (∞ :: μ)        :=
-    if (is_exists_inv_infinity μ).is_some then is_exists_inv_infinity μ
-    else if υ μ = ↑η then some μ else none
+def is_exists_inv_infinity (μ : Tree 1) :
+  Π (η : Tree 0) (υ : subTree η → option (Tree 1)), option (Tree 0)
+| []               _ := none
+| (sum.inl _ :: η) υ := is_exists_inv_infinity η (λ ν, υ ν.cons')
+| (∞ :: η)        υ :=
+    if (is_exists_inv_infinity η (λ ν, υ ν.cons')).is_some then
+      is_exists_inv_infinity η (λ ν, υ ν.cons') else
+    if υ ⟨η, by simp⟩ = ↑μ then some η else none
 
-lemma is_exists_inv_infinity_infinity (η : Tree 1) (μ : Tree 0) {μ₀ : Tree 0}
-  (h1 : out[μ] μ₀ ↝ ∞) (h2 : υ μ₀ = η) : (is_exists_inv_infinity υ η μ).is_some :=
+#check is_exists_inv_infinity
+lemma is_exists_inv_infinity_infinity (η : Tree 1) (μ : Tree 0) (υ : subTree μ → option (Tree 1)) {μ₀ : Tree 0}
+  (h1 : out[μ] μ₀ ↝ ∞) (h2 : υ ⟨μ₀, by { sorry }⟩ = η) : (is_exists_inv_infinity η μ υ).is_some :=
 begin
   induction μ with ν μ IH μ IH generalizing μ₀,
   { exfalso, simp[out] at*, exact h1 },
@@ -116,38 +121,75 @@ begin
       { exfalso, have := IH this h2, exact bool_iff_false.mpr C this } } }
 end
 
-def lambda' (η : Tree 0) : ℕ → Tree 1
+def lambda' (η : Tree 0) (υ : subTree η → option (Tree 1)) : ℕ → Tree 1
 | 0       := []
 | (n + 1) :=
-    if 0 < weight υ (lambda' n) η then
-      if h : (is_exists_inv_infinity υ (lambda' n) η).is_some then
+    if 0 < weight (lambda' n) η υ then
+      if h : (is_exists_inv_infinity (lambda' n) η υ).is_some then
         sum.inl (option.get h) :: lambda' n
       else ∞ :: lambda' n
     else lambda' n 
 
-def lambda (η : Tree 0) : Tree 1 := lambda' υ η η.length
+def lambda (η : Tree 0) (υ : subTree η → option (Tree 1)) : Tree 1 := lambda' η υ η.length
 
-def assign (η : Tree 0) : Tree 1 → option (Tree 1 × ℕ)
+def assign (η : Tree 0) (υ : subTree η → option (Tree 1)) : Tree 1 → option (Tree 1 × ℕ)
 | []               := none
 | (sum.inl _ :: μ) := assign μ
 | (∞ :: μ)        :=
-  if h : (assign μ).is_some then S.inf (option.get h) (μ, weight υ μ η) else
-  some (μ, weight υ μ η)
+  if h : (assign μ).is_some then S.inf (option.get h) (μ, weight μ η υ) else
+  some (μ, weight μ η υ)
 
-def assign_eq (η : Tree 0) : Tree 1 → option (Tree 1 × ℕ) := λ μ,
-if h : (assign S υ η μ).is_some then S.inf (option.get h) (μ, weight υ μ η) else
-  some (μ, weight υ μ η)
+def assign_eq (η : Tree 0) (υ : subTree η → option (Tree 1)) : Tree 1 → option (Tree 1 × ℕ) := λ μ,
+if h : (assign S η υ μ).is_some then S.inf (option.get h) (μ, weight μ η υ) else
+  some (μ, weight μ η υ)
 
-def up (η : Tree 0) : option (Tree 1 × ℕ) := assign_eq S υ η (lambda υ η)
+def up (η : Tree 0) (υ : subTree η → option (Tree 1)) : option (Tree 1 × ℕ) := assign_eq S η υ (lambda η υ)
 
-def requirement (η : Tree 0) : option R := (up S υ η).map S.requirement
+def requirement (η : Tree 0) (υ : subTree η → option (Tree 1)) : option R := (up S η υ).map S.requirement
 
 end approx
 
-def up : Tree 0 → option (Tree 1 × ℕ)
-| [] 
+mutual def weight, is_exists_inv_infinity, lambda', assign, up
+with weight : Tree 0 → Tree 1 → ℕ
+| []       _ := 0
+| (_ :: η) μ := weight η μ + (if (up η).map prod.fst = ↑μ then 1 else 0)
 
+with is_exists_inv_infinity : Tree 0 → Tree 1 → option (Tree 0)
+| []               _ := none
+| (sum.inl _ :: η) μ := is_exists_inv_infinity η μ
+| (∞ :: η)        μ :=
+    if (is_exists_inv_infinity η μ).is_some then is_exists_inv_infinity η μ
+    else if (up η).map prod.fst = ↑μ then some η else none
 
+with lambda' : ℕ → Tree 0 → Tree 1
+| 0       _ := []
+| (n + 1) η :=
+    if 0 < weight η (lambda' n η) then
+      if h : (is_exists_inv_infinity η (lambda' n η)).is_some then
+        sum.inl (option.get h) :: lambda' n η
+      else ∞ :: lambda' n η
+    else lambda' n η
+
+with assign : Tree 0 → Tree 1 → option (Tree 1 × ℕ)
+| η []               := none
+| η (sum.inl _ :: μ) := assign η μ
+| η (∞ :: μ)        :=
+  if h : (assign η μ).is_some then S.inf (option.get h) (μ, weight η μ) else
+  some (μ, weight η μ)
+
+with up : Tree 0 → option (Tree 1 × ℕ)
+| η := 
+  let
+    assign : Tree 0 → Tree 1 → option (Tree 1 × ℕ) := λ η μ,
+      match μ with
+      | []               := none
+      | (sum.inl _ :: μ) := assign η μ
+      | (∞ :: μ)        := none end,
+    lambda (η : Tree 0) : Tree 1 := lambda' η.length η,
+    assign_eq (η : Tree 0) : Tree 1 → option (Tree 1 × ℕ) := λ μ,
+      if h : (assign η μ).is_some then S.inf (option.get h) (μ, weight η μ) else
+      some (μ, weight η μ) in
+  assign_eq η (lambda η)
 
 end strategy
 
