@@ -1,6 +1,6 @@
-import tactic data.pfun computability.primrec
+import tactic data.pfun computability.primrec data.list.basic
 
-open encodable roption
+open encodable part
 
 section
 
@@ -8,7 +8,7 @@ section
 
 @[simp, reducible] def prod.unpaired3 {α β γ δ} (f : α → β → γ → δ) : α × β × γ → δ := λ p, f p.1 p.2.1 p.2.2
 
-def coe_ropt {α σ} (f : α → σ) : α →. σ := λ x, roption.some (f x)
+def coe_ropt {α σ} (f : α → σ) : α →. σ := λ x, part.some (f x)
 
 prefix `↑ᵣ`:max := coe_ropt
 
@@ -20,19 +20,19 @@ prefix `↑ₒ`:max := coe_opt
 
 @[simp] theorem coe_opt_app {α σ} (f : α → σ) (a : α) : ↑ₒf a = some (f a) := rfl
 
-def coe_opt_ropt {α σ} (f : α → option σ) : α →. σ := λ x, roption.of_option (f x)
+def coe_opt_ropt {α σ} (f : α → option σ) : α →. σ := λ x, part.of_option (f x)
 
 prefix `↑ʳ`:max := coe_opt_ropt
 
 @[simp] theorem coe_opt_ropt_app {α σ} (f : α → option σ) (a : α) : ↑ʳf a = f a := rfl
 
 def coe_ropt_opt {α σ} (f : α →. σ) [D : decidable_pred f.dom] : α → option σ := λ x, 
-@roption.to_option _ (f x) (D x)
+@part.to_option _ (f x) (D x)
 
 prefix `↑ᵒ`:max := coe_ropt_opt
 
 @[simp] theorem coe_ropt_opt_app {α σ} (f : α →. σ) [D : decidable_pred f.dom] (a : α) :
-  ↑ᵒf a = @roption.to_option _ (f a) (D a) := rfl
+  ↑ᵒf a = @part.to_option _ (f a) (D a) := rfl
 
 end
 
@@ -212,8 +212,10 @@ end
 
 def fdecode {α σ} [decidable_eq α] (c : list (α × σ)) (a : α) : option σ :=
 (c.get_elem (λ x : α × σ, x.fst = a)).map prod.snd
+-- fdecode c a = ε b. ⟨a, b⟩ ∈ c
 
 def sdecode {α} [decidable_eq α] (a : α) (c : list (α × bool)) : Prop := c.fdecode a = some tt
+-- sdecode c a = ⟨a, tt⟩ ∈ c
 
 @[simp] theorem fdecode_iff {α σ} [decidable_eq α] (c : list (α × σ)) {x y} :
   c.fdecode x = some y ↔
@@ -246,9 +248,64 @@ end list
 
 section rel
 
-
-
 end rel
+
+namespace fin
+
+def add' {n} (i : fin n) : fin (n + 1) := ⟨i, nat.lt.step i.property⟩
+
+lemma cases' {n} (i : fin (n + 1)) : (∃ i' : fin n, i = add' i') ∨ i = ⟨n, lt_add_one n⟩ :=
+by { have : ↑i < n ∨ ↑i = n, exact nat.lt_succ_iff_lt_or_eq.mp i.property, cases this,
+     { left, refine ⟨⟨i, this⟩, fin.eq_of_veq _⟩, simp[add'] },
+     { right, apply fin.eq_of_veq, simp[this] } }
+
+end fin
+
+def finitary (α : Type*) (n : ℕ) := fin n → α
+
+namespace finitary
+variables {α : Type*}
+open vector
+
+def cons {n} (f : finitary α n) (a : α) : finitary α (n + 1) := λ i, if h : ↑i < n then f ⟨i, h⟩ else a
+
+infixr ` ::ᶠ `:60  := finitary.cons
+
+@[simp] lemma cons_app0 {n} (f : finitary α n) (a : α) : (f ::ᶠ a) ⟨n, lt_add_one n⟩ = a := by simp[finitary.cons]
+
+@[simp] lemma cons_app1 {n} (f : finitary α n) (a : α) (i : fin n) : (f ::ᶠ a) i.add' = f i :=
+by { simp[finitary.cons, fin.add'], intros h, exfalso, exact nat.lt_le_antisymm i.property h }
+
+def nil : finitary α 0 := λ i, by { exfalso, exact i.val.not_lt_zero i.property }
+notation `fin[` l:(foldl `, ` (h t, finitary.cons t h) nil `]`) := l
+
+def tail {n} (f : finitary α (n + 1)) : finitary α n := λ i, f ⟨i, nat.lt.step i.property⟩
+def head {n} (f : finitary α (n + 1)) : α := f ⟨n, lt_add_one n⟩
+
+lemma tail_cons_head {n} (f : finitary α (n + 1)) : f.tail ::ᶠ f.head = f :=
+funext (λ i, by { simp[cons, tail, head],
+  intros h,
+  congr, apply fin.eq_of_veq, simp,
+  have : ↑i ≤ n, from fin.is_le i,
+  exact le_antisymm h this })
+
+@[simp] lemma zero_eq (f : finitary α 0) : f = finitary.nil :=
+funext (λ i, by { have := i.property, exfalso, exact i.val.not_lt_zero this })
+
+@[simp] lemma fin1_eq (f : finitary α 1) : fin[f 0] = f :=
+funext (λ i, by { rcases i with ⟨i, i_p⟩, cases i; simp[cons], exfalso, simp[←nat.add_one] at*, exact i_p })
+
+@[simp] lemma fin2_eq (f : finitary α 2) : fin[f 0, f 1] = f :=
+funext (λ i, by { rcases i with ⟨i, i_p⟩, cases i; simp[cons], cases i, { simp },
+  exfalso, simp[←nat.add_one] at i_p, exact i_p })
+
+end finitary
+
+def list.of_list {α : Type*} : ∀ l : list α, (fin (l.length) → α)
+| []        := finitary.nil
+| (a :: as) := as.of_list ::ᶠ a
+
+
 
 section classical
 local attribute [instance, priority 0] classical.prop_decidable

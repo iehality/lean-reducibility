@@ -1,6 +1,6 @@
 import reducibility function
 
-open encodable denumerable roption t_reducible
+open encodable denumerable part t_reducible
 
 local attribute [simp] set.set_of_app_iff
 
@@ -156,18 +156,19 @@ lemma prod.pord.trans {α} (trans : transitive ((≺) : Λ → Λ → Prop)) :
 λ x y z, @trans x.1 y.1 z.1
 
 def kb_order (p q : ℕ → Λ) : Prop := ∃ u : ℕ, (∀ ⦃n⦄, n < u → p n = q n) ∧ p u ≺ q u
+-- Kleene–Brouwer order
 
-infix ` <KB `:80 := kb_order
+infix ` <ₖ `:80 := kb_order
 
 noncomputable def wf_truepath_step (p : ℕ → ℕ → Λ) : ℕ → ℕ :=
 λ n₀, classical.epsilon (λ s, ∀ n t, n ≤ n₀ → s ≤ t → p t n = p s n)
 
-/- wf_truepath p = lim_{n → ∞} p n -/
 noncomputable def wf_truepath (p : ℕ → ℕ → Λ) : ℕ → Λ :=
 λ n, p (wf_truepath_step p n) n
+-- wf_truepath p = lim_{n → ∞} p n
 
 theorem wf_truepath_step_spec (wf : well_founded ((≺) : Λ → Λ → Prop))
-  {p : ℕ → ℕ → Λ} (h : ∀ s, p (s + 1) <KB (p s)) :
+  {p : ℕ → ℕ → Λ} (h : ∀ s, p (s + 1) <ₖ (p s)) :
   ∀ n₀ n t, n ≤ n₀ → wf_truepath_step p n₀ ≤ t → p t n = p (wf_truepath_step p n₀) n :=
 begin
   suffices :
@@ -228,12 +229,12 @@ begin
 end
 
 theorem wf_truepath_spec (wf : well_founded ((≺) : Λ → Λ → Prop))
-  {p : ℕ → ℕ → Λ} (h : ∀ s, p (s + 1) <KB (p s)) {n t} :
+  {p : ℕ → ℕ → Λ} (h : ∀ s, p (s + 1) <ₖ (p s)) {n t} :
   wf_truepath_step p n ≤ t → p t n = wf_truepath p n :=
 λ eqn_t, wf_truepath_step_spec wf h n n t (by refl) eqn_t
 
 theorem wf_truepath_spec_neq (wf : well_founded ((≺) : Λ → Λ → Prop))
-  {p : ℕ → ℕ → Λ} (h : ∀ s, p (s + 1) <KB (p s))
+  {p : ℕ → ℕ → Λ} (h : ∀ s, p (s + 1) <ₖ (p s))
   {u : Λ} (hu : ∀ s n, p s n = u → p s (n + 1) = u) (n) : wf_truepath p n ≠ u := λ A,
 begin
   have hu' : ∀ s n m, n < m → p s n = u → p s m = u,
@@ -262,7 +263,7 @@ noncomputable def lim_truepath (p : ℕ → ℕ → Λ) : ℕ → Λ ⊕ unit :=
   ((∀ s, ∃ t, s < t ∧ p (t + 1) n ≺ p t n) ∧ (v = sum.inr ())))
 
 theorem lim_truepath_spec [inhabited Λ] {p : ℕ → ℕ → Λ}
-  (h : ∀ s, p (s + 1) <KB (p s)) (n) :
+  (h : ∀ s, p (s + 1) <ₖ (p s)) (n) :
   ((∃ s, ∀ t, s < t → p (t + 1) n = p t n) ∧ (∃ s, ∀ t, s < t → lim_truepath p n = sum.inl (p t n))) ∨
   ((∀ s, ∃ t, s < t ∧ p (t + 1) n ≺ p t n) ∧ (lim_truepath p n = sum.inr ())) :=
 begin
@@ -278,7 +279,7 @@ begin
 end
 
 theorem kb_order.trans (trans : transitive ((≺) : Λ → Λ → Prop)) {p₀ p₁ p₂ : ℕ → Λ} :
-  p₀ <KB p₁ → p₁ <KB p₂ → p₀ <KB p₂ :=
+  p₀ <ₖ p₁ → p₁ <ₖ p₂ → p₀ <ₖ p₂ :=
 begin
   rintros ⟨u₀, hyp_u₀, hyp_u₀1⟩,
   rintros ⟨u₁, hyp_u₁, hyp_u₁1⟩,
@@ -290,25 +291,25 @@ begin
   { simp [le_of_lt this, (hyp_u₀ this), hyp_u₁1] }
 end
 
-def list.kb (l₀ l₁ : list Λ) := l₀.rnth <KB l₁.rnth
+def list.kb (l₀ l₁ : list Λ) := l₀.rnth <ₖ l₁.rnth
 
-infix ` <KB* `:40 := list.kb
+infix ` <ₖ* `:40 := list.kb
 
-def list.kbeq (l₀ l₁ : list Λ) := l₀ <KB* l₁ ∨ l₀ = l₁ 
+def list.kbeq (l₀ l₁ : list Λ) := l₀ <ₖ* l₁ ∨ l₀ = l₁ 
 
 infix ` ≤KB* `:40 := list.kbeq
 
 @[refl, simp] theorem list.kbeq.refl (x : list Λ) : x ≤KB* x := by simp[list.kbeq]
 
 theorem list.kb.trans (trans : transitive ((≺) : Λ → Λ → Prop)) {l₀ l₁ l₂ : list Λ} :
-  l₀ <KB* l₁ → l₁ <KB* l₂ → l₀ <KB* l₂ := kb_order.trans (option.ord.trans trans)
+  l₀ <ₖ* l₁ → l₁ <ₖ* l₂ → l₀ <ₖ* l₂ := kb_order.trans (option.ord.trans trans)
 
-@[simp]theorem list.kb.cons (a : Λ) (u : list Λ) : (a :: u) <KB* u :=
+@[simp]theorem list.kb.cons (a : Λ) (u : list Λ) : (a :: u) <ₖ* u :=
 ⟨u.length, λ _ eqn, list.rnth_cons eqn, by simp⟩
 
 theorem list.kb.length_append {u₀ u₁ : list Λ}
-  (h : u₀ <KB* u₁) (eqn : u₀.length = u₁.length) (v₀ v₁ : list Λ) :
-  v₀ ++ u₀ <KB* v₁ ++ u₁ :=
+  (h : u₀ <ₖ* u₁) (eqn : u₀.length = u₁.length) (v₀ v₁ : list Λ) :
+  v₀ ++ u₀ <ₖ* v₁ ++ u₁ :=
 begin
   rcases h with ⟨m, hyp1, hyp2⟩,
   cases option.ord_cases hyp2 with C C,
@@ -329,16 +330,16 @@ begin
 end
 
 theorem list.kb.length_cons {u₀ u₁ : list Λ}
-  (h : u₀ <KB* u₁) (eqn : u₀.length = u₁.length) (a₀ a₁ : Λ) :
-  a₀ :: u₀ <KB* a₁ :: u₁ :=
+  (h : u₀ <ₖ* u₁) (eqn : u₀.length = u₁.length) (a₀ a₁ : Λ) :
+  a₀ :: u₀ <ₖ* a₁ :: u₁ :=
 list.kb.length_append h eqn [a₀] [a₁]
 
 theorem list.kb.length_cons_left {u₀ u₁ : list Λ}
-  (h : u₀ ≤KB* u₁) (eqn : u₀.length = u₁.length) (a : Λ) : a :: u₀ <KB* u₁ :=
+  (h : u₀ ≤KB* u₁) (eqn : u₀.length = u₁.length) (a : Λ) : a :: u₀ <ₖ* u₁ :=
 by { cases h, have := list.kb.length_append h eqn [a] [], simp at this, exact this,
      simp[h] }
 
-theorem list.kb.cons_cons {u : list Λ} {a b : Λ} (h : a ≺ b) : a :: u <KB* b :: u :=
+theorem list.kb.cons_cons {u : list Λ} {a b : Λ} (h : a ≺ b) : a :: u <ₖ* b :: u :=
 ⟨u.length, λ n eqn_n, by simp[list.rnth_cons eqn_n], by simp[h]⟩
 
 theorem list.kbeq.cons_cons {u : list Λ} {a b : Λ} (h : a ≼ b) : a :: u ≤KB* b :: u :=
@@ -354,7 +355,7 @@ noncomputable def wf_truepath_step (p : ℕ → list Λ) : ℕ → ℕ :=
 wf_truepath_step (λ s, (p s).rnth)
 
 private lemma wf_truepath_some
-  (wf : well_founded ((≺) : Λ → Λ → Prop)) (H : ∀ s, p (s + 1) <KB* p s) :
+  (wf : well_founded ((≺) : Λ → Λ → Prop)) (H : ∀ s, p (s + 1) <ₖ* p s) :
   ∀ n, (wf_truepath_aux p n).is_some := λ n,
 begin
   suffices : wf_truepath_aux p n ≠ none,
@@ -364,10 +365,10 @@ begin
   intros s n hyp, exact le_add_right hyp
 end
 
-noncomputable def wf_truepath (wf : well_founded ((≺) : Λ → Λ → Prop)) (H : ∀ s, p (s + 1) <KB* p s) : ℕ → Λ :=
+noncomputable def wf_truepath (wf : well_founded ((≺) : Λ → Λ → Prop)) (H : ∀ s, p (s + 1) <ₖ* p s) : ℕ → Λ :=
 λ n, option.get $ wf_truepath_some wf H n
 
-theorem wf_truepath_spec (wf : well_founded ((≺) : Λ → Λ → Prop)) (H : ∀ s, p (s + 1) <KB* p s) {n t} :
+theorem wf_truepath_spec (wf : well_founded ((≺) : Λ → Λ → Prop)) (H : ∀ s, p (s + 1) <ₖ* p s) {n t} :
   wf_truepath_step p n ≤ t → (p t).rnth n = some (wf_truepath wf H n) := λ eqn_t,
 begin
   have := @wf_truepath_spec _ _ (option.ord.wf wf) (λ s, (p s).rnth) H _ _ eqn_t,
@@ -377,43 +378,49 @@ end
 end wford
 
 structure prio (Λ : Type*) [cord Λ] (α : Type*) :=
-(head          : α)
-(outcome       : ℕ → α → list Λ → Λ)
-(action        : ℕ → α → list Λ → α)
-(action_proper : ∀ {s A u}, outcome (s+1) A u = outcome s A u → action (s+1) A u = action s A u)
+(head     : α)
+(outcome  : ℕ → α → list Λ → Λ)
+(result   : list Λ → α → α)
+(priority : ∀ {s A u}, outcome s (result (outcome s A u :: u) A) u = outcome s A u)
+(ordering : ∀ {s A u}, outcome (s+1) A u ≼ outcome s A u)
 
 namespace prio
 variables {α : Type u} (S : prio Λ α)
 
-mutual def result_itr, approxpath_itr (s) 
+mutual def result_itr, approxpath_itr (h : α) (s) 
 with result_itr : ℕ → α
-| 0     := S.head
+| 0     := h
 | (n+1) := S.action s (result_itr n) (approxpath_itr n)
 with approxpath_itr : ℕ → list Λ
 | 0     := []
-| (n+1) := (S.outcome s (result_itr n) (approxpath_itr n)) :: (approxpath_itr n)
+| (n+1) := S.outcome s (result_itr n) (approxpath_itr n) :: (approxpath_itr n)
 
-def result (s) : α := S.result_itr s s
+def result : ℕ → α
+| 0     := S.head
+| (s+1) := S.result_itr (result s) s s
 
-def approxpath (s) : list Λ := S.approxpath_itr s s
+def approxpath : ℕ → list Λ
+| 0     := []
+| (s+1) := S.approxpath_itr (S.result s) s s
 
-def procedure (s : ℕ) : ℕ → α × list Λ
-| 0     := (S.head, [])
+def procedure (h : α) (s : ℕ) : ℕ → α × list Λ
+| 0     := (h, [])
 | (n+1) := let A₀ := (procedure n).1,
                u₀ := (procedure n).2 in
   (S.action s A₀ u₀, S.outcome s A₀ u₀ :: u₀)
 
-lemma procedure_eq (s n) :
-  S.procedure s n = (S.result_itr s n, S.approxpath_itr s n) :=
+lemma procedure_eq (h s n) :
+  S.procedure h s n = (S.result_itr h s n, S.approxpath_itr h s n) :=
 by induction n with n IH;
    simp[prio.procedure, prio.result_itr, prio.approxpath_itr] at*;
    simp[IH]
 
-@[simp] lemma approxpath_length (s n) : (S.approxpath_itr s n).length = n :=
+@[simp] lemma approxpath_length (h s n) : (S.approxpath_itr h s n).length = n :=
 by induction n with n IH; simp[prio.approxpath_itr]; simp[IH]
 
-theorem result_proper {s n} :
-  S.approxpath_itr (s+1) n = S.approxpath_itr s n → S.result_itr (s+1) n = S.result_itr s n :=  
+theorem result_proper {h s n} :
+  S.approxpath_itr h (s+1) n = S.approxpath_itr h s n →
+  S.result_itr h (s+1) n = S.result_itr h s n :=  
 begin
   induction n with n IH; simp[prio.result_itr, prio.approxpath_itr],
   intros hyp1 hyp2, simp[hyp2, IH hyp2] at hyp1 ⊢, exact S.action_proper hyp1
@@ -435,8 +442,8 @@ structure fipm (Λ : Type*) [cord Λ] (α : Type*) extends prio Λ α :=
 namespace fipm
 variables {α : Type u} (S : fipm Λ α)
 
-@[simp] theorem approxpath_itr_kble (s n) :
-  S.to_prio.approxpath_itr (s+1) n ≤KB* S.to_prio.approxpath_itr s n :=
+@[simp] theorem approxpath_itr_kble (h s n) :
+  S.to_prio.approxpath_itr h (s+1) n ≤KB* S.to_prio.approxpath_itr h s n :=
 begin
   induction n with n IH; simp[prio.result_itr, prio.approxpath_itr] at*,
   cases IH,
@@ -446,9 +453,9 @@ begin
 end
 
 theorem approxpath_kblt (s) :
-  S.to_prio.approxpath (s+1) <KB* S.to_prio.approxpath s :=
-by simp[prio.approxpath, prio.approxpath_itr];
-   apply list.kb.length_cons_left; simp
+  S.to_prio.approxpath (s+1) <ₖ* S.to_prio.approxpath s :=
+by { simp[prio.approxpath, prio.approxpath_itr],
+     apply list.kb.length_cons_left; simp}
 
 noncomputable def wf_truepath : ℕ → Λ :=
 wford.wf_truepath S.wf S.approxpath_kblt

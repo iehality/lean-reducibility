@@ -1,5 +1,5 @@
 import reducibility Kleene_Post
-open encodable denumerable roption
+open encodable denumerable part
 
 local attribute [instance, priority 0] classical.prop_decidable
 
@@ -76,7 +76,7 @@ instance : inhabited 𝐃 := ⟨0⟩
 def djump : 𝐃 → 𝐃 :=
 λ d, turing_degree.lift_on d (λ d, deg d′)
 (λ A B ⟨ab, ba⟩, by { simp, exact 
- ⟨(le_le_jump ab).to_many_one.to_turing, (le_le_jump ba).to_many_one.to_turing⟩ })
+ ⟨(le_le_Jump ab).to_many_one.to_turing, (le_le_Jump ba).to_many_one.to_turing⟩ })
 
 notation d`⁺`:1200 := djump d
 

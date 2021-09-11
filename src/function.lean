@@ -1,6 +1,6 @@
 import rpartrec coding
 
-open encodable denumerable roption
+open encodable denumerable part
 
 def encode2 {α σ} [encodable α] [inhabited α] [encodable σ] (f : α →. σ) :=
 (λ n, (f $ (decode α n).get_or_else (default α)).map encode)
@@ -34,11 +34,11 @@ end
 def graph {α β} [decidable_eq β] (f : α → β) : α × β → bool :=
 λ x, to_bool (f x.1 = x.2)
 
-def epsilon_r {β} [primcodable β] [inhabited β] (p : β →. bool) : roption β := 
+def epsilon_r {β} [primcodable β] [inhabited β] (p : β →. bool) : part β := 
   ((nat.rfind $ λ x, p ((decode β x).get_or_else (default β))).map 
     (λ x, (decode β x).get_or_else (default β)))
 
-def epsilon {β} [primcodable β] [inhabited β] (p : β → bool) : roption β :=
+def epsilon {β} [primcodable β] [inhabited β] (p : β → bool) : part β :=
 epsilon_r (p : β →. bool)
 
 theorem epsilon_witness {β} [primcodable β] [inhabited β] {p : β → bool} {b : β} :
@@ -48,7 +48,7 @@ by { simp[epsilon,epsilon_r], intros x h hl he, rw he at h, simp[←h] }
 @[simp] theorem exists_epsilon_iff {β} [primcodable β] [inhabited β] {p : β → bool} :
   (epsilon p).dom ↔ (∃ b, p b = tt) := by { split,
 { intros w, use (epsilon p).get w, exact epsilon_witness ⟨w, rfl⟩ },
-{ rintros ⟨b, hb⟩, simp[epsilon,epsilon_r, roption.map, roption.some],
+{ rintros ⟨b, hb⟩, simp[epsilon,epsilon_r, part.map, part.some],
   use (encode b), simp[hb], use trivial} }
 
 @[simp] def initialpart {α σ} [denumerable α] (f : α → option σ) : ℕ → list (α × σ)
@@ -150,24 +150,24 @@ begin
   intros i, 
   induction i with i0 ih,
   { intros m n, simp [nat.rfind_fin0], intros c c0, exfalso, exact nat.lt_le_antisymm c0 c },
-  { intros m n i0e, simp[nat.rfind_fin0],
+  { intros m n i0e, simp[nat.rfind_fin0, -sub_le_iff_right],
     cases ep : p (m - i0.succ), simp,
     { rw ih m n (show i0 ≤ m, by omega), split, 
-      { rintros ⟨e0, e1, e2, h0⟩, 
-        have l0 : ∀ (l : ℕ), m - i0.succ ≤ l → l < n → p l = ff,
-        { intros l el0 el1, 
+      { rintros ⟨e0, e1, e2, h0⟩,
+        have l0 : ∀ (l : ℕ), m ≤ l + i0.succ → l < n → p l = ff,
+        { intros l el0 el1,
           have le : m - i0.succ = l ∨ m - i0 ≤ l, omega,
-          cases le, simp[←ep, le],  exact h0 _ le el1 },
-        exact ⟨show m - i0.succ ≤ n, by omega, e1, e2, l0⟩ },
+          cases le, simp[←ep, le], simp at*,  exact h0 _ le el1 },
+        exact ⟨show m ≤ n + i0.succ, by omega, e1, e2, l0⟩ },
       { rintros ⟨e0, e1, e2, h0⟩, split,
         { have l0 : m - i0.succ = n ∨ m - i0 ≤ n, omega, cases l0,
           { exfalso, simp[l0, e2] at ep, exact ep },
           { exact l0 } },
         { have l0 : ∀ (l : ℕ), m - i0 ≤ l → l < n → p l = ff := λ _ _ el1, h0 _ (by omega) el1,
           exact ⟨e1, e2, l0⟩ } } },
-    { simp, split,
-      { assume e, rw e at ep, simp[e],
-        exact ⟨by refl, by omega, ep, by { intros m l0 l1, exfalso, exact nat.lt_le_antisymm l1 l0 }⟩ },
+    { simp[-sub_le_iff_right], split,
+      { assume e, rw e at ep, simp[e, -sub_le_iff_right],
+        exact ⟨by omega, ep, by { intros m l0 l1, exfalso, exact nat.lt_le_antisymm l1 l0 }⟩ },
       { rintros ⟨e0, e1, e2, h0⟩,
         have l0 : m - i0.succ < n ∨ m - i0.succ = n, omega,
         cases l0,
@@ -408,7 +408,7 @@ primrec.evaln_fdecode.to_comp.comp (hs.pair $ hl.pair $ hc.pair hn)
 
 theorem eval_eq_rfind (f : ℕ → option ℕ) (c n) :
   code.eval f c n = nat.rfind_opt (λ s, code.evaln s f c n) :=
-roption.ext $ λ x, begin
+part.ext $ λ x, begin
   refine code.evaln_complete.trans (nat.rfind_opt_mono _).symm,
   intros a m n hl, apply code.evaln_mono hl,
 end
@@ -468,7 +468,7 @@ end
 theorem partrec.univ_fdecode (α σ) [primcodable α] [decidable_eq σ] [denumerable σ]
   {i : γ → ℕ} {l : γ → list (σ × τ)} {n : γ → α}
   (hi : computable i) (hl : computable l) (hn : computable n) :
-  partrec (λ x : γ, (⟦i x⟧*(l x).fdecode (n x) : roption σ)) :=
+  partrec (λ x : γ, (⟦i x⟧*(l x).fdecode (n x) : part σ)) :=
 begin
   simp [univ, list.fdecode_encode_of_nat],
   refine partrec.bind (partrec.eval_fdecode
@@ -579,7 +579,7 @@ begin
     { funext n, simp [g'], cases decode β n; simp [of_option] },
     simp[univ, rpartrec_tot, rpartrec, nat.rpartrec.reducible], unfold_coes, rw this,
     assume h, rcases code.exists_code_opt.mp h with ⟨c, eqn_c⟩,
-      refine ⟨encode c, funext $ λ a, _⟩, simp [eqn_c, roption.of_option] },
+      refine ⟨encode c, funext $ λ a, _⟩, simp [eqn_c, part.of_option] },
   { rintros ⟨e, rfl⟩, refine rpartrec.univ_tot _ _
       (primrec.const e).to_rcomp rcomputable.refl rcomputable.id }
 end
@@ -597,12 +597,12 @@ begin
   exact (this.of_eq $ λ a, by cases eqn : c a; simp[eqn, eqn_e, eqn_i])
 end
 
-theorem bool_to_roption (c : α → bool):
-  (λ a, cond (c a) (some 0) roption.none : α →. ℕ) partrec_in (c : α →. bool) :=
+theorem bool_to_part (c : α → bool):
+  (λ a, cond (c a) (some 0) part.none : α →. ℕ) partrec_in (c : α →. bool) :=
 rpartrec.cond rcomputable.refl (rcomputable.const 0) partrec.none.to_rpart
 
 theorem universal_index {f : β → τ} : ∃ u, ∀ (x : ℕ) (y : α),
-  (⟦u⟧^f (x, y) : roption σ) = ⟦x⟧^f y :=
+  (⟦u⟧^f (x, y) : part σ) = ⟦x⟧^f y :=
 by rcases exists_index.mp 
    (rpartrec.univ_tot α σ rcomputable.fst (rcomputable.refl_in f) rcomputable.snd) with ⟨u, hu⟩;
    exact ⟨u, by simp[hu]⟩
@@ -656,7 +656,7 @@ begin
   exact this
 end
 
-def use_pfun (σ) [primcodable σ] (p : β → option τ) (e : ℕ) (s : ℕ) (x : α) : roption ℕ :=
+def use_pfun (σ) [primcodable σ] (p : β → option τ) (e : ℕ) (s : ℕ) (x : α) : part ℕ :=
 cond ((⟦e⟧*p [s] x : option σ)).is_some
   ((nat.rfind $ λ u : ℕ, (⟦e⟧*p [u] x : option σ).is_some).map nat.succ)
   (some 0)
@@ -665,11 +665,8 @@ lemma use_pfun_defined {p : β → option τ} {e : ℕ} {s : ℕ} {x : α} :
   (use_pfun σ p e s x).dom :=
 begin
   simp [use_pfun],
-  cases C : (⟦e⟧*p [s] x).is_some; simp [C],
-  suffices : (nat.rfind (λ u, (⟦e⟧*p [u] x).is_some)).dom,
-  { rcases roption.dom_iff_mem.mp this with ⟨_, h⟩,
-    rw roption.eq_some_iff.mpr h, simp },
-  refine rfind_dom_total ⟨s, C⟩
+  cases C : (⟦e⟧*p [s] x).is_some; simp [C, part.dom],
+  refine ⟨s, _⟩, simp[C, part.some]
 end 
 
 def use (σ) [primcodable σ] (f : β → option τ) (e : ℕ) (s : ℕ) (x : α) : ℕ :=
@@ -715,7 +712,7 @@ end
 
 theorem use_eq_tt {p : β → option τ} {e : ℕ} {s : ℕ} {x : α}
   (h : (⟦e⟧*p [s] x : option σ).is_some = tt) :
-  use σ p e s x = ((nat.rfind (λ u, (⟦e⟧*p [u] x).is_some)).get (rfind_dom_total ⟨_, h⟩)) + 1 :=
+  use σ p e s x = ((nat.rfind (λ u, (⟦e⟧*p [u] x).is_some)).get (rfind_dom_total ⟨s, h⟩)) + 1 :=
 by simp [use, use_pfun, h, map]
 
 theorem use_eq_ff {p : β → option τ} {e : ℕ} {s : ℕ} {x : α}
@@ -734,7 +731,8 @@ end
 
 theorem use_consumption_step {p : ℕ → option τ} {e : ℕ} {s : ℕ} {x : α} {y : σ}
   {u} (hu : u + 1 = use σ p e s x) :
-  ⟦e⟧*p [s] x = some y → ∀ {q : ℕ → option τ}, (∀ n, n < u → q n = p n) → ⟦e⟧*q [u] x = some y := λ h q hq,
+  ⟦e⟧*p [s] x = some y → ∀ {q : ℕ → option τ}, (∀ n, n < u → q n = p n) →
+  ⟦e⟧*q [u] x = some y := λ h q hq,
 begin
   have h' := option.is_some_iff_exists.mpr ⟨_, h⟩,
   suffices :
@@ -742,7 +740,7 @@ begin
   { simp [this], have := use_step_tt hu h',
     rcases option.is_some_iff_exists.mp this with ⟨z, hz⟩,
     simp [rpartrec.univn_mono_eq h hz, hz] },
-  apply rpartrec.univn_use, exact hq,
+  apply rpartrec.univn_use, exact hq
 end
 
 theorem use_le {α σ} [primcodable α] [primcodable σ] {p : β → option τ} {e : ℕ} {s : ℕ} {x : α} :

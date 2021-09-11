@@ -6,7 +6,7 @@ import data.pfun
 import tactic
 import lib
 
-open encodable denumerable roption
+open encodable denumerable part
 
 namespace nat
 
@@ -61,7 +61,7 @@ begin
   case rfind : f pf hf { exact nat.partrec.rfind hf },
 end
 
-protected theorem some {f} : roption.some partrec_in f := of_primrec f primrec.id
+protected theorem some {f} : part.some partrec_in f := of_primrec f primrec.id
 
 theorem none {f} : (λ n, none) partrec_in f := of_partrec f partrec.none
 
@@ -94,8 +94,8 @@ variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ :
 variables [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ] [primcodable μ]
 
 def rpartrec (f : α →. σ) (g : β →. τ) := nat.rpartrec.reducible
-(λ n, roption.bind (decode α n) (λ a, (f a).map encode))
-(λ n, roption.bind (decode β n) (λ a, (g a).map encode))
+(λ n, part.bind (decode α n) (λ a, (f a).map encode))
+(λ n, part.bind (decode β n) (λ a, (g a).map encode))
 
 infix ` partrec_in `:80 := rpartrec
 
@@ -164,7 +164,7 @@ by simp[rpartrec, nat.rpartrec.reducible, encodable.encode, map]
 theorem le_part_part {f : α →. σ} {g : β →. τ} : g partrec_in f → partrec f → partrec g :=
 nat.rpartrec.le_part_part
 
-theorem none {f : β →. τ} : (λ x, roption.none : α →. σ) partrec_in f := partrec.none.to_rpart
+theorem none {f : β →. τ} : (λ x, part.none : α →. σ) partrec_in f := partrec.none.to_rpart
 
 theorem bind {f : α →. β} {g : α × β →. σ} {h : γ →. τ}
   (hf : f partrec_in h) (hg : g partrec_in h) : (λ a, (f a).bind (λ x, g (a, x))) partrec_in h :=
@@ -181,13 +181,13 @@ theorem bind' {f : α →. β} {g : α → β →. σ} {h : γ →. τ}
 theorem map {f : α →. β} {g : α × β → σ} {h : γ →. τ}
   (hf : f partrec_in h) (hg : (g : α × β →. σ) partrec_in h) : (λ a, (f a).map (λ x, g (a, x))) partrec_in h :=
 by simpa [bind_some_eq_map] 
-  using @rpartrec.bind _ _ _ _ _ _ _ _ _ _ _ (λ x, roption.some (g x)) _ hf hg
+  using @rpartrec.bind _ _ _ _ _ _ _ _ _ _ _ (λ x, part.some (g x)) _ hf hg
 
 theorem map' {f : α →. β} {g : α → β → σ} {h : γ →. τ}
   (hf : f partrec_in h) (hg : prod.unpaired g computable_in h) :
   (λ a, (f a).map (g a)) partrec_in h :=
 by simpa [bind_some_eq_map] 
-  using @rpartrec.bind' _ _ _ _ _ _ _ _ _ _ _ (λ x y, roption.some (g x y)) _ hf hg
+  using @rpartrec.bind' _ _ _ _ _ _ _ _ _ _ _ (λ x y, part.some (g x y)) _ hf hg
 
 theorem rfind {p : α × ℕ →. bool} : (λ a, nat.rfind (λ x, p (a, x))) partrec_in p :=
   have c₀ : (λ x, (p x).map (λ b, cond b 0 1) : α × ℕ →. ℕ) partrec_in p :=
@@ -197,7 +197,7 @@ theorem rfind {p : α × ℕ →. bool} : (λ a, nat.rfind (λ x, p (a, x))) par
 { cases e : decode α n with a;
   simp [e, nat.rfind_zero_none, map_id'],
   congr, funext n,
-  simp [roption.map_map, (∘)],
+  simp [part.map_map, (∘)],
   apply map_id' (λ b, _),
   cases b; refl })
 
@@ -210,7 +210,7 @@ theorem rfind' {p : α → ℕ →. bool} {f : β →. σ} (hp : prod.unpaired p
 { cases e : decode α n with a;
   simp [e, nat.rfind_zero_none, map_id'],
   congr, funext n,
-  simp [roption.map_map, (∘)],
+  simp [part.map_map, (∘)],
   apply map_id' (λ b, _),
   cases b; refl })
 
@@ -222,7 +222,7 @@ theorem rfind'_refl {p : α → ℕ →. bool} : (λ a, nat.rfind (p a)) partrec
 { cases e : decode α n with a;
   simp [e, nat.rfind_zero_none, map_id'],
   congr, funext n,
-  simp [roption.map_map, (∘)],
+  simp [part.map_map, (∘)],
   apply map_id' (λ b, _),
   cases b; refl })
 
@@ -338,7 +338,7 @@ theorem nat_cases_right
   simp, cases f a; simp,
   refine ext (λ b, ⟨λ H, _, λ H, _⟩),
   { rcases mem_bind_iff.1 H with ⟨c, h₁, h₂⟩, exact h₂ },
-  { have : ∀ m, (nat.elim (roption.some (g a))
+  { have : ∀ m, (nat.elim (part.some (g a))
       (λ y IH, IH.bind (λ _, h (a, n))) m).dom,
     { intro, induction m; simp [*, H.fst] },
     exact ⟨⟨this n, H.fst⟩, H.snd⟩ }
@@ -370,7 +370,7 @@ theorem bind_decode_iff {f : α × β → option σ} {h : γ →. τ} :
     cases decode β n.unpair.2; simp,
 λ hf, begin
   have : (λ a : α × ℕ, (encode (decode β a.2)).cases
-    (some option.none) (λ n, roption.map (λ x, f (a.1, x)) (decode β n))) partrec_in h :=
+    (some option.none) (λ n, part.map (λ x, f (a.1, x)) (decode β n))) partrec_in h :=
   nat_cases_right (primrec.encdec.to_comp.comp computable.snd).to_rpart
     (const option.none) ((computable.of_option (computable.decode.comp computable.snd)).to_rpart.map
       (hf.comp ((fst.comp $ fst.comp fst).pair snd))),
@@ -438,7 +438,7 @@ begin
     rcases ih q0 with ⟨m, qm, hm⟩, simp[q] at qm, simp[q] at hm,
     cases ep : p 0 with p0 p0,
     { use m.succ, split, exact qm,
-      intros l el, simp [roption.some] },
+      intros l el, simp [part.some] },
     { use 0, exact ⟨eq.symm ep, by simp⟩ } }
 end
 

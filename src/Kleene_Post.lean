@@ -1,6 +1,6 @@
 import reducibility function fis
 
-open encodable denumerable roption
+open encodable denumerable part
 
 local attribute [instance, priority 0] classical.prop_decidable
 local attribute [simp] set.set_of_app_iff
@@ -12,7 +12,7 @@ open primrec
 theorem extendable_suffix {l₀ : list bool} {n e} {A : ℕ → bool} (hl₀ : l₀.rnth ⊆* ↑ₒA) :
   (∀ l, ¬(⟦e⟧ᵪ*(l ++ l₀).rnth n).dom) → ¬(⟦e⟧ᵪ^A n).dom := λ h C,
 begin
-  rcases roption.dom_iff_mem.mp C with ⟨b, hb⟩,
+  rcases part.dom_iff_mem.mp C with ⟨b, hb⟩,
   rcases rpartrec.eval_inclusion hb with ⟨s, hs⟩,
   have := initial_subseq hl₀ s, rcases this with ⟨l, hl⟩,
   suffices : b ∈ (⟦e⟧ᵪ*(l ++ l₀).rnth n),
@@ -147,20 +147,20 @@ lemma I_defined : ∀ s, (L s).dom
         by_cases C : (s.div2, ((L s).get IH).snd, ((L s).get IH).fst.length) ∈ O₀;
         simp [C], simp [O₀, set.set_of_app_iff] at C, refine ⟨C, _⟩,
         have : ∃ l, l ∈ epsilon (chr $ λ l, (⟦s.div2⟧ᵪ*(l ++ ((L s).get IH).2).rnth ((L s).get IH).1.length).dom),
-        { simp[←roption.dom_iff_mem], exact C },
+        { simp[←part.dom_iff_mem], exact C },
         rcases this with ⟨l, hl⟩,
-        have hb := epsilon_witness hl, simp only [chr_iff, roption.dom_iff_mem] at hb,
+        have hb := epsilon_witness hl, simp only [chr_iff, part.dom_iff_mem] at hb,
         rcases hb with ⟨b, hb⟩,
-        simp[roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb, roption.some] },    
+        simp[part.eq_some_iff.mpr hl, part.eq_some_iff.mpr hb, part.some] },    
       { refine ⟨IH, _⟩,
         by_cases C : (s.div2, ((L s).get IH).1, ((L s).get IH).2.length) ∈ O₀;
         simp [C], simp [O₀, set.set_of_app_iff] at C, refine ⟨C, _⟩,
         have : ∃ l, l ∈ epsilon (chr $ λ l, (⟦s.div2⟧ᵪ*(l ++ ((L s).get IH).1).rnth ((L s).get IH).2.length).dom),
-        { simp[←roption.dom_iff_mem], exact C },
+        { simp[←part.dom_iff_mem], exact C },
         rcases this with ⟨l, hl⟩,
-        have hb := epsilon_witness hl, simp only [chr_iff, roption.dom_iff_mem] at hb,
+        have hb := epsilon_witness hl, simp only [chr_iff, part.dom_iff_mem] at hb,
         rcases hb with ⟨b, hb⟩,
-        simp[roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb, roption.some] }
+        simp[part.eq_some_iff.mpr hl, part.eq_some_iff.mpr hb, part.some] }
     end
 
 noncomputable def L₀ (s) := ((L s).get (I_defined s)).1
@@ -183,11 +183,11 @@ begin
   simp[fis, L₀, L], simp [L, show ∀ s, L s = some (L₀ s, L₁ s), by simp[L₀, L₁]],
   { by_cases C : (e, L₁ (bit0 e), (L₀ (bit0 e)).length) ∈ O₀; simp [C],
     have : ∃ l, l ∈ epsilon (chr $ λ l, (⟦e⟧ᵪ*(l ++ L₁ (bit0 e)).rnth (L₀ (bit0 e)).length).dom),
-    { simp[←roption.dom_iff_mem], exact C },
+    { simp[←part.dom_iff_mem], exact C },
     rcases this with ⟨l, hl⟩,
-    have hb := epsilon_witness hl, simp only [chr_iff, roption.dom_iff_mem] at hb,
+    have hb := epsilon_witness hl, simp only [chr_iff, part.dom_iff_mem] at hb,
     rcases hb with ⟨b, hb⟩,
-    simp [roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb ] }
+    simp [part.eq_some_iff.mpr hl, part.eq_some_iff.mpr hb ] }
 end
 
 lemma L₁_length (e) :
@@ -196,11 +196,11 @@ begin
   simp[fis, L₁, L], simp [L, show ∀ s, L s = some (L₀ s, L₁ s), by simp[L₀, L₁]],
   { by_cases C : (e, L₀ (bit1 e), (L₁ (bit1 e)).length) ∈ O₀; simp [C],
     have : ∃ l, l ∈ epsilon (chr $ λ l, (⟦e⟧ᵪ*(l ++ L₀ (bit1 e)).rnth (L₁ (bit1 e)).length).dom),
-    { simp[←roption.dom_iff_mem], exact C },
+    { simp[←part.dom_iff_mem], exact C },
     rcases this with ⟨l, hl⟩,
-    have hb := epsilon_witness hl, simp only [chr_iff, roption.dom_iff_mem] at hb,
+    have hb := epsilon_witness hl, simp only [chr_iff, part.dom_iff_mem] at hb,
     rcases hb with ⟨b, hb⟩,
-    simp [roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb ] }
+    simp [part.eq_some_iff.mpr hl, part.eq_some_iff.mpr hb ] }
 end
 
 lemma L₀_fiss : fiss L₀ := λ s,
@@ -210,18 +210,18 @@ begin
   simp[fis, L₀, L], cases M : s.bodd; simp [M, L, show L s = some (L₀ s, L₁ s), by simp[L₀, L₁]],
   { by_cases C : (s.div2, L₁ s, (L₀ s).length) ∈ O₀; simp [C],
     have : ∃ l, l ∈ epsilon (chr $ λ l, (⟦s.div2⟧ᵪ*(l ++ L₁ s).rnth (L₀ s).length).dom),
-    { simp[←roption.dom_iff_mem], exact C },
+    { simp[←part.dom_iff_mem], exact C },
     rcases this with ⟨l, hl⟩,
-    have hb := epsilon_witness hl, simp only [chr_iff, roption.dom_iff_mem] at hb,
+    have hb := epsilon_witness hl, simp only [chr_iff, part.dom_iff_mem] at hb,
     rcases hb with ⟨b, hb⟩,
-    simp [roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb] },  
+    simp [part.eq_some_iff.mpr hl, part.eq_some_iff.mpr hb] },  
   { by_cases C : (s.div2, L₀ s, (L₁ s).length) ∈ O₀; simp [C],
     have : ∃ l, l ∈ epsilon (chr $ λ l, (⟦s.div2⟧ᵪ*(l ++ L₀ s).rnth (L₁ s).length).dom),
-    { simp[←roption.dom_iff_mem], exact C },
+    { simp[←part.dom_iff_mem], exact C },
     rcases this with ⟨l, hl⟩,
-    have hb := epsilon_witness hl, simp only [chr_iff, roption.dom_iff_mem] at hb,
+    have hb := epsilon_witness hl, simp only [chr_iff, part.dom_iff_mem] at hb,
     rcases hb with ⟨b, hb⟩,
-    simp [roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb] }
+    simp [part.eq_some_iff.mpr hl, part.eq_some_iff.mpr hb] }
 end
 
 lemma L₁_fiss : fiss L₁ := λ s,
@@ -231,18 +231,18 @@ begin
   simp[fis, L₁, L], cases M : s.bodd; simp [M, L, show L s = some (L₀ s, L₁ s), by simp[L₀, L₁]],
   { by_cases C : (s.div2, L₁ s, (L₀ s).length) ∈ O₀; simp [C],
     have : ∃ l, l ∈ epsilon (chr $ λ l, (⟦s.div2⟧ᵪ*(l ++ L₁ s).rnth (L₀ s).length).dom),
-    { simp[←roption.dom_iff_mem], exact C },
+    { simp[←part.dom_iff_mem], exact C },
     rcases this with ⟨l, hl⟩,
-    have hb := epsilon_witness hl, simp only [chr_iff, roption.dom_iff_mem] at hb,
+    have hb := epsilon_witness hl, simp only [chr_iff, part.dom_iff_mem] at hb,
     rcases hb with ⟨b, hb⟩,
-    simp [roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb] },  
+    simp [part.eq_some_iff.mpr hl, part.eq_some_iff.mpr hb] },  
   { by_cases C : (s.div2, L₀ s, (L₁ s).length) ∈ O₀; simp [C],
     have : ∃ l, l ∈ epsilon (chr $ λ l, (⟦s.div2⟧ᵪ*(l ++ L₀ s).rnth (L₁ s).length).dom),
-    { simp[←roption.dom_iff_mem], exact C },
+    { simp[←part.dom_iff_mem], exact C },
     rcases this with ⟨l, hl⟩,
-    have hb := epsilon_witness hl, simp only [chr_iff, roption.dom_iff_mem] at hb,
+    have hb := epsilon_witness hl, simp only [chr_iff, part.dom_iff_mem] at hb,
     rcases hb with ⟨b, hb⟩,
-    simp [roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb] }
+    simp [part.eq_some_iff.mpr hl, part.eq_some_iff.mpr hb] }
 end
 
 lemma L₀_full : full L₀ := λ n, ⟨bit0 n + 1, 
@@ -287,14 +287,14 @@ begin
   { left,
     show !chr I₀ w ∈ ⟦e⟧ᵪ^(chr I₁) w,
     have : ∃ l, l ∈ epsilon (chr (λ l, (⟦e⟧ᵪ*((l ++ L₁ i).rnth) w).dom)),
-    { simp[←roption.dom_iff_mem] at C ⊢, exact C },
+    { simp[←part.dom_iff_mem] at C ⊢, exact C },
     rcases this with ⟨l, hl⟩,
-    have hb := epsilon_witness hl, simp only [chr_iff, roption.dom_iff_mem] at hb,
+    have hb := epsilon_witness hl, simp only [chr_iff, part.dom_iff_mem] at hb,
     rcases hb with ⟨b, hb⟩,
     have : L₀ (i + 1) = !b :: L₀ i ∧ L₁ (i + 1) = l ++ L₁ i,
     { simp [L₀, L₁, L, show i.div2 = e, by simp[nat.div2_val]], 
       simp [L, show L i = some (L₀ i, L₁ i), by simp[L₀, L₁], C,
-        roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb] },
+        part.eq_some_iff.mpr hl, part.eq_some_iff.mpr hb] },
     rcases this with ⟨nL₀, nL₁⟩,
     have lmm : chr I₀ w = !b,
     { have := L₀_fiss.fiss_subseq_limit (i + 1) (w) (!b),
@@ -320,14 +320,14 @@ begin
   by_cases C : (e, L₀ i, w) ∈ O₀,
   { left, show !chr I₁ w ∈ ⟦e⟧ᵪ^(chr I₀) w,
     have : ∃ l, l ∈ epsilon (chr $ λ l, (⟦e⟧ᵪ*(l ++ L₀ i).rnth w).dom),
-    { simp[←roption.dom_iff_mem] at C ⊢, exact C },
+    { simp[←part.dom_iff_mem] at C ⊢, exact C },
     rcases this with ⟨l, hl⟩,
-    have hb := epsilon_witness hl, simp only [chr_iff, roption.dom_iff_mem] at hb,
+    have hb := epsilon_witness hl, simp only [chr_iff, part.dom_iff_mem] at hb,
     rcases hb with ⟨b, hb⟩,
     have : L₀ (i + 1) = l ++ L₀ i ∧ L₁ (i + 1) = !b :: L₁ i,
     { simp [L₀, L₁, L, show i.div2 = e, by simp[i]], 
       simp [L, show L i = some (L₀ i, L₁ i), by simp[L₀, L₁], C,
-        roption.eq_some_iff.mpr hl, roption.eq_some_iff.mpr hb] },
+        part.eq_some_iff.mpr hl, part.eq_some_iff.mpr hb] },
     rcases this with ⟨nL₀, nL₁⟩,
     have lmm : chr I₁ w = !b,
     { have := L₁_fiss.fiss_subseq_limit (i + 1) (w) (!b),
@@ -352,7 +352,7 @@ begin
   rcases this with ⟨e, lmm_e⟩,
   have lmm : ∀ n, (chr I₀ n) ∈ (⟦e⟧ᵪ^(chr I₁) n), simp[lmm_e],
   rcases requirement₀ e with ⟨w, lmm_w⟩, cases lmm_w,
-  { have : chr I₀ w = !chr I₀ w := roption.mem_unique (lmm w) lmm_w,
+  { have : chr I₀ w = !chr I₀ w := part.mem_unique (lmm w) lmm_w,
     show false, from bnot_ne _ this },
   { have : (⟦e⟧ᵪ^(chr I₁) w).dom, { rcases lmm w with ⟨h, _⟩, exact h },
     contradiction }
@@ -366,7 +366,7 @@ begin
   rcases this with ⟨e, lmm_e⟩,
   have lmm : ∀ n, (chr I₁ n) ∈ (⟦e⟧ᵪ^(chr I₀) n), simp[lmm_e],
   rcases requirement₁ e with ⟨w, lmm_w⟩, cases lmm_w,
-  { have : chr I₁ w = !chr I₁ w := roption.mem_unique (lmm w) lmm_w,
+  { have : chr I₁ w = !chr I₁ w := part.mem_unique (lmm w) lmm_w,
     show false, from bnot_ne _ this },
   { have : (⟦e⟧ᵪ^(chr I₀) w).dom, { rcases lmm w with ⟨h, _⟩, exact h },
     contradiction }

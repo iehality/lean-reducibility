@@ -1,6 +1,6 @@
 import reducibility function
 
-open encodable denumerable roption t_reducible
+open encodable denumerable part t_reducible
 
 local attribute [simp] set.set_of_app_iff
 
@@ -100,7 +100,7 @@ begin
   have eqn : {n | ∃ s, (L s).rnth n = ↑tt} = {n | ∃ s, (f (n, s)).dom},
   { have : ∀ n s, (L s).rnth n = ↑tt ↔ (f (n, s)).dom,
     { simp[f], intros a b, unfold_coes,
-      cases (L b).rnth a with v; simp [roption.none],
+      cases (L b).rnth a with v; simp [part.none],
       cases v; simp },
     apply set.ext, simp [this] },
   simp [limit], rw eqn,
@@ -162,7 +162,7 @@ theorem limit_fullfiss_computable {L} (F : fiss L) (U : full L) :
 begin
   let f : ℕ →. bool := (λ n, nat.rfind_opt (λ s, (L s).rnth n)),
   have eqn0 : f = pfun.lift (chr $ limit L),
-  { funext n, simp [f, roption.eq_some_iff],
+  { funext n, simp [f, part.eq_some_iff],
     rcases U n with ⟨s, hs⟩, have hs' : n < (L s).reverse.length, simp [hs],
     have eqnn : (L s).rnth n = some ((L s).reverse.nth_le n hs'), from list.nth_le_nth hs',
     have eqn0 : chr (limit L) n = (L s).reverse.nth_le n hs',

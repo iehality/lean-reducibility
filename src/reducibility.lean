@@ -1,6 +1,6 @@
 import coding function
 import computability.reduce
-open encodable denumerable roption
+open encodable denumerable part
 
 local attribute [simp] set.set_of_app_iff
 
@@ -65,7 +65,7 @@ by funext a; cases C : f a; simp; exact C
 
 def rre_pred {α β σ} [primcodable α] [primcodable β] [primcodable σ]
   (p : set α) (f : β →. σ) : Prop :=
-(λ a, roption.assert (p a) (λ _, roption.some ())) partrec_in f
+(λ a, part.assert (p a) (λ _, part.some ())) partrec_in f
 
 infix ` re_in `:80 := rre_pred
 prefix `r.e. `:80 := re_pred
@@ -204,7 +204,7 @@ theorem lt_Jump (A : set ℕ) : A <ₜ A′ :=
     show chr A computable_in! chr A′,
     have : ∃ e, ∀ x, (⟦e⟧ₙ^(chr A) x).dom ↔ A x,
     { have : ∃ e, ⟦e⟧ₙ^(chr A) = λ a, cond (chr A a) (some 0) none :=
-        exists_index.mp (bool_to_roption (chr A)),
+        exists_index.mp (bool_to_part (chr A)),
       rcases this with ⟨e, he⟩,
       refine ⟨e, λ x, _⟩,
       show (⟦e⟧ₙ^(chr A) x).dom ↔ A x,
@@ -270,17 +270,17 @@ lemma rre_pred_iff {p : set α} {f : β →. σ}:
 begin
   split; assume h,
   { let q : ℕ →. ℕ := 
-      λ n, roption.bind (decode α n) (λ a, roption.assert (p a) (λ (_ : p a), some 0)),
+      λ n, part.bind (decode α n) (λ a, part.assert (p a) (λ (_ : p a), some 0)),
     have c : q partrec_in f :=
     (computable.decode.of_option.to_rpart).bind (h.comp rcomputable.snd),
     refine ⟨q, c, λ x, _⟩, 
-    simp [q, roption.some, roption.assert, encodek] },
+    simp [q, part.some, part.assert, encodek] },
   { rcases h with ⟨q, pq, hq⟩,
     let g : α →. unit := (λ x, (q (encode x)).map (λ x, ())),
     have : g partrec_in f :=
       (pq.comp computable.encode.to_rpart).map (rcomputable.const ()),
     exact (this.of_eq $ λ x, by {
-      simp[g], apply roption.ext, intros u, simp[hq, dom_iff_mem] }) }
+      simp[g], apply part.ext, intros u, simp[hq, dom_iff_mem] }) }
 end
 
 lemma rre_pred.rre {f : α →. σ} {g : β →. τ} {A : set γ} :
@@ -293,7 +293,7 @@ begin
   have : (λ a, cond (chr A a) (some ()) none) partrec_in! chr B,
   { refine rpartrec.cond (classical_iff.mp h) (rcomputable.const _) rpartrec.none },
   exact (this.of_eq $ λ a,
-    by { apply roption.ext, simp, intros u, cases C : chr A a; simp at C ⊢; exact C })
+    by { apply part.ext, simp, intros u, cases C : chr A a; simp at C ⊢; exact C })
 end
 
 theorem t_reducible.compl_rre {A : set α} {B : set β} :
@@ -302,7 +302,7 @@ begin
   have : (λ a, cond (chr A a) none (some ())) partrec_in! chr B,
   { refine rpartrec.cond (classical_iff.mp h) rpartrec.none (rcomputable.const _) },
   exact (this.of_eq $ λ a, by {
-    apply roption.ext, simp, intros u, cases C : chr A a; simp at C ⊢, exact C,
+    apply part.ext, simp, intros u, cases C : chr A a; simp at C ⊢, exact C,
     exact not_not.mpr C })
 end
 
@@ -359,7 +359,7 @@ begin
   let g := (λ a, (f a).map (λ x, ())),
   have := rpartrec.refl.map ((computable.const ()).comp computable.snd).to_rcomp,
   exact (this.of_eq $ λ x, by { rw set.set_of_app_iff, simp, 
-    apply roption.ext, intros a, simp [dom_iff_mem] })
+    apply part.ext, intros a, simp [dom_iff_mem] })
 end
 
 theorem exists_rre [inhabited β] {p : α → β → Prop} {g : γ → τ} :
@@ -367,15 +367,15 @@ theorem exists_rre [inhabited β] {p : α → β → Prop} {g : γ → τ} :
 begin
   have := rpartrec.exists_index.mp h,
   rcases this with ⟨e, eqn_e⟩,
-  have eqn_e1 : ∀ x y, p x y ↔ (⟦e⟧^g (x, y) : roption unit).dom,
-  { simp [eqn_e, roption.assert, roption.some] },
+  have eqn_e1 : ∀ x y, p x y ↔ (⟦e⟧^g (x, y) : part unit).dom,
+  { simp [eqn_e, part.assert, part.some] },
   let p' := (λ x : α, nat.rfind (λ u, (⟦e⟧^g [u.unpair.2]
     (x, (decode β u.unpair.1).get_or_else (default β)) : option unit).is_some)),
   have lmm : ∀ x, (∃ y, p x y) ↔ (p' x).dom,
   { intros x, simp only [p'], split,
     { rintros ⟨y, hb⟩, rw eqn_e1 at hb,
       apply rfind_dom_total,
-      simp [roption.dom_iff_mem, roption.some] at hb ⊢, rcases hb with ⟨z, hz⟩,
+      simp [part.dom_iff_mem, part.some] at hb ⊢, rcases hb with ⟨z, hz⟩,
       rcases univn_complete.mp hz with ⟨s, hs⟩,
       use (encode y).mkpair s,
       simp [hs] },
@@ -521,15 +521,15 @@ begin
     have lmm2 : ∀ x, x ∈ A ↔ ∃ n, e n = x,
     { simp [e], intros a, split,
       { intros hyp_a,
-        have : ∃ y : ℕ, y ∈ (⟦i⟧^f a : roption ℕ),
-        { simp [←roption.dom_iff_mem, eqn_i, q', ←hyp_q1], exact hyp_a },
+        have : ∃ y : ℕ, y ∈ (⟦i⟧^f a : part ℕ),
+        { simp [←part.dom_iff_mem, eqn_i, q', ←hyp_q1], exact hyp_a },
         rcases this with ⟨y, lmm_y⟩,
         have := univn_complete.mp lmm_y, rcases this with ⟨s, lmm_s⟩,
         refine ⟨s.mkpair (encode a), _⟩, simp, simp[lmm_s] },
       { rintros ⟨n, hyp_n⟩,
         cases C : (⟦i⟧^f [n.unpair.fst] ((decode α n.unpair.snd).get_or_else a₀) : option ℕ) with v;
         simp[C] at hyp_n, simp[←hyp_n], exact hyp_a₀,
-        suffices : (⟦i⟧^f a : roption ℕ).dom,
+        suffices : (⟦i⟧^f a : part ℕ).dom,
         { simp[eqn_i, q', ←hyp_q1] at this, exact this },
         have := univn_sound C,
         simp[←hyp_n, this] } },
