@@ -48,6 +48,14 @@ def irnth [inhabited α] (l : list α) (n) : α := (l.rnth n).iget
 theorem rnth_ext {l₁ l₂ : list α} (h : ∀ n, l₁.rnth n = l₂.rnth n) : l₁ = l₂ :=
 list.reverse_inj.mp (list.ext h)
 
+theorem rnth_ext' {l₁ l₂ : list α} (h : ∀ n a, l₁.rnth n = some a ↔ l₂.rnth n = some a) : l₁ = l₂ :=
+rnth_ext (λ n, by
+  { cases C₁ : l₁.rnth n; cases C₂ : l₂.rnth n,
+    { refl },
+    { exfalso, simp[(h n _).mpr C₂] at*, exact C₁ },
+    { exfalso, simp[(h n _).mp C₁] at*, exact C₂ },
+    { simp[(h n _).mp C₁] at*, exact C₂ } })
+
 @[simp]
 lemma rnth_nil (n) : (nil : list α).rnth n = none := rfl
 
@@ -88,7 +96,7 @@ begin
   simp at h1, exact h1
 end
 
-@[simp] lemma rnth_none {l : list α} {n} : l.rnth n = none ↔ l.length ≤ n :=
+lemma rnth_none {l : list α} {n} : l.rnth n = none ↔ l.length ≤ n :=
 by simp[list.rnth]
 
 theorem rnth_map {α β} (f : α → β) : ∀ (l : list α) n, (l.map f).rnth n = (l.rnth n).map f :=
@@ -116,6 +124,8 @@ infix `↾*`:70 := list.initial
 lemma initial_elim {α} {l : list α} {n} (h : l.length ≤ n) : l↾*n = l :=
 by { have : l.length - n = 0, omega, simp[list.initial, this] }
 
+@[simp] lemma initial_0 {α} {l : list α} : l↾*0 = [] := by simp[list.initial]
+
 lemma initial_length {α} {l : list α} {n : ℕ} (h : n < l.length) : (l↾*n).length = n :=
 by simp [list.initial, h]; omega
 
@@ -142,7 +152,30 @@ begin
     exact this _ }
 end
 
-lemma initial_rnth  {α} {l : list α} {n m : ℕ} {a} :
+lemma initial_rnth_some_iff  {α} {l : list α} {n m : ℕ} {a} :
+  (l↾*m).rnth n = some a ↔ l.rnth n = some a ∧ n < m :=
+begin
+  have eqn : l.length ≤ m ∨ m < l.length, from le_or_lt _ _,
+  cases eqn,
+  { simp[list.initial_elim eqn], intros h, exact gt_of_ge_of_gt eqn (rnth_some_lt h) },
+  split,
+  { revert eqn a m n,
+    simp [list.initial],
+    induction l with d l IH; simp,
+    intros n m a eqn_m eqn_a,
+     simp[show l.length + 1 - m = l.length - m + 1, by omega] at eqn_a,
+    have C := eq_or_lt_of_le (nat.lt_succ_iff.mp eqn_m),
+    cases C,
+    { simp[←C] at eqn_a, simp[list.rnth_cons (list.rnth_some_lt eqn_a)],
+      exact ⟨eqn_a, by simp[C]; exact rnth_some_lt eqn_a⟩ },
+    { have : n < l.length, { have := list.rnth_some_lt eqn_a, simp at this, omega},
+      simp[list.rnth_cons this], apply IH C eqn_a } },
+  { rintros ⟨h, eq⟩,
+    have :=list.reverse_take m (le_of_lt eqn),
+    simp [list.initial, list.rnth, ←this] at*, simp[list.nth_take eq, h] }
+end
+
+lemma initial_rnth_some  {α} {l : list α} {n m : ℕ} {a} :
   (l↾*m).rnth n = some a → l.rnth n = some a :=
 begin
   have eqn : l.length ≤ m ∨ m < l.length, from le_or_lt _ _,
@@ -243,6 +276,10 @@ end
 @[simp] theorem fdecode_cons {α σ} [decidable_eq α] (x y) (c : list (α × σ)) :
   ((x, y) :: c).fdecode x = some y :=
 by simp; refine ⟨0, rfl, λ m z, by simp⟩
+
+@[simp] def of_fn' (f : ℕ → α) : ℕ → list α
+| 0     := []
+| (n+1) := f n :: of_fn' n
 
 end list
 

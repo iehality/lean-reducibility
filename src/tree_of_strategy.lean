@@ -32,7 +32,6 @@ structure Tree_path (n : ℕ) :=
 | [] := by simp
 | (a₁ :: l) := by { simp, intros h, simp[h], exact list.cons_neq l }
 
-
 @[simp] lemma list.suffix_cons_append_left {α : Type*} (a : α) : ∀ (l₁ l₂ : list α), ¬ l₁ ++ a :: l₂ <:+ l₂ :=
 begin
   intros l₁ l₂, induction l₂ with hd tl IH generalizing l₁ a,
@@ -74,8 +73,9 @@ structure strategy (R : Type*) :=
 namespace strategy
 variables {R : Type*} (S : strategy R)
 
-@[reducible] def out {n} (μ η: Tree n) (ν : infinity ⊕ Tree' n) : Prop := ν :: μ <:+ η
-notation `out[` η `] ` μ ` ↝ ` ν := out μ η ν
+@[reducible] def out {n} : Π {η : Tree n}, subTree η → infinity ⊕ Tree' n
+| []       ⟨μ, μ_p⟩ := by exfalso; simp* at*
+| (ν :: η) ⟨μ, μ_p⟩ := by {  }
 
 namespace approx
 
@@ -126,7 +126,10 @@ def lambda' {η : Tree 0} (υ : subTree η → option (Tree 1)) : ℕ → Tree 1
       if h : (is_exists_inv_infinity (lambda' n) υ).is_some then
         sum.inr (option.get h) :: lambda' n
       else ∞ :: lambda' n
-    else lambda' n 
+    else lambda' n
+
+lemma lambda'_suffix {η : Tree 0} (υ : subTree η → option (Tree 1)) (μ : Tree 1) :
+  ∀ n, μ <:+ lambda' υ n → 
 
 def lambda {η : Tree 0} (υ : subTree η → option (Tree 1)) : Tree 1 := lambda' υ η.length
 
@@ -176,8 +179,9 @@ def assignment (η : Tree 0) : option (Tree 1 × ℕ) := approx.assignment S (up
 lemma is_exists_inv_infinity_infinity (η : Tree 1) (μ : Tree 0) (μ₀ : Tree 0)
   (h1 : out[μ] μ₀ ↝ ∞) (h2 : S.up μ₀ = η) : out[S.lambda μ] η ↝ sum.inr μ₀ :=
 begin
-  induction μ with ν μ IH μ IH generalizing μ₀,
-  simp,
+  induction μ with ν μ IH μ IH generalizing μ₀; simp[out] at*,
+  { exact h1 },
+  simp[lambda, approx.lambda],
 end
 
 
