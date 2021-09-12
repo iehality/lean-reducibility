@@ -85,14 +85,14 @@ def weight (μ : Tree 1) : Π {η : Tree 0} (υ : branch η → option (Tree 1))
 def is_exists_inv_infinity (μ : Tree 1) :
   Π {η : Tree 0} (υ : branch η → option (Tree 1)), option (Tree 0)
 | []               _ := none
-| (sum.inl _ :: η)        υ :=
+| (sum.inl _ :: η) υ :=
     if (@is_exists_inv_infinity η (λ ν, υ ν.cons')).is_some then
       @is_exists_inv_infinity η (λ ν, υ ν.cons') else
     if υ ⟨η, by simp⟩ = ↑μ then some η else none
 | (sum.inr _ :: η) υ := @is_exists_inv_infinity η (λ ν, υ ν.cons')
 
 lemma is_exists_inv_infinity_infinity
-  (η : Tree 1) (μ : Tree 0) (υ : branch μ → option (Tree 1)) (μ₀ : branch μ)
+  (η : Tree 1) {μ : Tree 0} (υ : branch μ → option (Tree 1)) (μ₀ : branch μ)
   (h1 : out μ₀ = ∞) (h2 : υ μ₀ = η) : (is_exists_inv_infinity η υ).is_some :=
 begin
   induction μ with ν μ IH μ IH generalizing μ₀,
@@ -108,6 +108,23 @@ begin
         (by {rw ←out_cons'_eq ν ⟨μ₀.val, C₁⟩, simp[branch.cons', h1] })
         (by simp[branch.cons', h2]),
     cases ν; simp[is_exists_inv_infinity] at*; simp[IH] }
+end
+
+lemma is_exists_inv_infinity_infinity'
+  (η : Tree 1) {μ : Tree 0} (υ : branch μ → option (Tree 1)) (μ₀ : branch μ)
+  (h : is_exists_inv_infinity η υ = some μ₀.val) : out μ₀ = ∞ ∧ υ μ₀ = η :=
+begin
+  induction μ with ν μ IH μ IH generalizing μ₀,
+  { exfalso, have := μ₀.property, simp* at* },
+  have C₁ : μ₀.val = μ ∨ μ₀.val ⊂ᵢ μ, from list.is_initial_cons_iff.mp μ₀.property, cases C₁,
+  { have : μ₀ = ⟨μ, by simp⟩, { apply subtype.ext, exact C₁ },
+    rcases this with rfl, 
+    cases ν; simp[is_exists_inv_infinity] at*,
+    { cases ν,
+      cases C₂ : (@is_exists_inv_infinity η μ (λ ν, υ ν.cons')).is_some; simp[C₂] at h,
+      { simp[out_eq_iff], exact classical.by_contradiction h },
+      { exfalso,   } } }
+
 end
 
 def lambda' {η : Tree 0} (υ : branch η → option (Tree 1)) : ℕ → Tree 1
