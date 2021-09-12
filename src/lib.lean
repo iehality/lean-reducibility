@@ -281,6 +281,58 @@ by simp; refine ⟨0, rfl, λ m z, by simp⟩
 | 0     := []
 | (n+1) := f n :: of_fn' n
 
+@[simp] lemma append_cons_neq {α : Type*} (a : α) (l₁ l₂ : list α) : l₁ ++ a :: l₂ ≠ l₂ := λ h,
+begin
+  have : (l₁ ++ a :: l₂).length = l₂.length, simp[h],
+  simp[nat.add_left_comm l₁.length] at this, exact this
+end
+
+lemma suffix_append_iff_suffix {α : Type*} (l l₁ l₂ : list α) : l₁ ++ l <:+ l₂ ++ l ↔ l₁ <:+ l₂ :=
+exists_congr $ λ r, by rw [←append_assoc, append_left_inj]
+
+@[simp] lemma suffix_cons_iff_eq {α : Type*} (a₁ a₂ : α) (l : list α) : a₁ :: l <:+ a₂ :: l ↔ a₁ = a₂ :=
+by { have : a₁ :: l <:+ a₂ :: l ↔ [a₁] <:+ [a₂], from suffix_append_iff_suffix l [a₁] [a₂], rw this,
+     split,
+     { rintros ⟨⟨hd, tl⟩, h⟩, { simp* at* }, { exfalso, simp at*, exact h } },
+     { rintros rfl, refine ⟨[], by simp⟩ } }
+
+def is_initial (l₁ l₂ : list α) : Prop := ∃ l₃ a, l₃ ++ a :: l₁ = l₂
+
+infix ` ⊂ᵢ `:50 := is_initial
+
+@[simp] lemma is_initial_antirefl (l : list α) : ¬ l ⊂ᵢ l := λ h,
+by simp[is_initial, *] at*
+
+@[simp] lemma not_is_initial_nil (l : list α) : ¬ l ⊂ᵢ [] := λ h,
+by simp[is_initial, *] at*
+
+lemma is_initial.trans {l₁ l₂ l₃ : list α} (h₁ : l₁ ⊂ᵢ l₂) (h₂ : l₂ ⊂ᵢ l₃) : l₁ ⊂ᵢ l₃ :=
+by { rcases h₁ with ⟨l12, a12, h₁⟩, rcases h₂ with ⟨l23, a23, h₂⟩,
+     refine ⟨l23 ++ [a23] ++ l12, a12, by simp[h₁, h₂]⟩ }
+
+@[simp] lemma is_initial_cons (a : α) (l : list α) : l ⊂ᵢ a :: l := ⟨[], a, rfl⟩
+
+lemma is_initial_cons_iff {x : α} {l₁ l₂ : list α} :
+  l₁ ⊂ᵢ x :: l₂ ↔ l₁ = l₂ ∨ l₁ ⊂ᵢ l₂ :=
+begin
+  split,
+  { rintro ⟨⟨hd, tl⟩, y, eqn⟩,
+    { simp at eqn, refine or.inl eqn.2 },
+    { simp at eqn, refine or.inr ⟨_, _, eqn.2⟩ } },
+  { rintro (rfl | hl₁),
+    { simp },
+    { exact hl₁.trans (l₂.is_initial_cons _) } }
+end
+
+instance is_initial_decidable [decidable_eq α] : ∀ (l₁ l₂ : list α), decidable (l₁ ⊂ᵢ l₂)
+| l₁ []        := is_false (not_is_initial_nil l₁)
+| l₁ (a :: l₂) := 
+  have IH : decidable (l₁ ⊂ᵢ l₂) := is_initial_decidable l₁ l₂,
+  @dite (decidable (l₁ ⊂ᵢ (a :: l₂))) (l₁ ⊂ᵢ l₂) IH
+    (λ h, is_true (h.trans (l₂.is_initial_cons _)))
+    (λ h, if eqn : l₁ = l₂ then is_true (by simp[eqn])
+      else is_false (by { simp[is_initial_cons_iff], exact not_or eqn h }))
+
 end list
 
 section rel

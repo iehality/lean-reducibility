@@ -22,7 +22,9 @@ instance : ∀ n, decidable_eq (Tree' n)
 
 def Tree (n : ℕ) := Tree' (n + 1)
 
-def subTree {n} (η : Tree n) := { μ : Tree n // μ <:+ η ∧ μ ≠ η }
+instance {n} : has_subset (Tree n) := ⟨(⊂ᵢ)⟩
+
+def branch {n} (η : Tree n) := { μ : Tree n // μ ⊂ᵢ η }
 
 structure Tree_path (n : ℕ) :=
 (path : ℕ → Tree n)
@@ -32,28 +34,8 @@ structure Tree_path (n : ℕ) :=
 | [] := by simp
 | (a₁ :: l) := by { simp, intros h, simp[h], exact list.cons_neq l }
 
-@[simp] lemma list.suffix_cons_append_left {α : Type*} (a : α) : ∀ (l₁ l₂ : list α), ¬ l₁ ++ a :: l₂ <:+ l₂ :=
-begin
-  intros l₁ l₂, induction l₂ with hd tl IH generalizing l₁ a,
-  { simp },
-  intros h, have := list.suffix_cons_iff.mp h, cases this,
-  { have lmm := (@list.append_left_inj _ (l₁ ++ [a]) [] (hd :: tl)), simp at lmm, exact lmm this },
-  { have IH := IH (l₁ ++ [a]) hd, simp at IH, exact IH this }
-end
-
-@[simp] lemma list.suffix_cons_left {α : Type*} (a : α) : ∀ (l : list α), ¬ a :: l <:+ l :=
-begin
-  suffices : ∀ (l₁ l₂ : list α), ¬a :: l₂ ++ l₁ <:+ l₁, { intros l, refine this l [] },
-  intros l₁, induction l₁ with hd tl IH,
-  { simp },
-  intros l₂ h, have := list.suffix_cons_iff.mp h, simp at*, cases this,
-  { have lmm := (@list.append_left_inj _ (l₂ ++ [hd]) [] tl), simp at lmm, exact lmm this.2 },
-  { have e : a :: (l₂ ++ hd :: tl) = ([a] ++ l₂ ++ [hd]) ++ tl, { simp }, rw e at this,
-    refine IH _ this }
-end
-
-def subTree.cons' {n} {η : Tree n} {a} (μ : subTree η) : subTree (a :: η) :=
-⟨μ.val, ⟨list.suffix_cons_iff.mpr (or.inr μ.property.1), λ h, by { have := μ.property.1, simp[h] at*, exact this }⟩⟩
+def branch.cons' {n} {η : Tree n} {a} (μ : branch η) : branch (a :: η) :=
+⟨μ.val, μ.property.trans (η.is_initial_cons _)⟩
 
 instance : has_zero (zero ⊕ infinity) := ⟨sum.inl zero.zero⟩
 
@@ -73,53 +55,62 @@ structure strategy (R : Type*) :=
 namespace strategy
 variables {R : Type*} (S : strategy R)
 
-@[reducible] def out {n} : Π {η : Tree n}, subTree η → infinity ⊕ Tree' n
+def out {n} : Π {η : Tree n}, branch η → infinity ⊕ Tree' n
 | []       ⟨μ, μ_p⟩ := by exfalso; simp* at*
-| (ν :: η) ⟨μ, μ_p⟩ := by {  }
+| (ν :: η) ⟨μ, μ_p⟩ := if h : μ ⊂ᵢ η then out ⟨μ, h⟩ else ν
+
+lemma out_eq_iff {n} : ∀ {η : Tree n} {μ : branch η} {ν}, out μ = ν ↔ ν :: μ.val <:+ η
+| []       ⟨μ, μ_p⟩ _ := by exfalso; simp* at*
+| (ν :: η) ⟨μ, μ_p⟩ ν' :=
+    by { simp, have : μ = η ∨ μ ⊂ᵢ η, from list.is_initial_cons_iff.mp μ_p, cases this,
+         { rcases this with rfl, simp[out], exact eq_comm },
+         { simp[out, this],
+           have IH : out ⟨μ, this⟩ = ν' ↔ ν' :: μ <:+ η, from @out_eq_iff η ⟨μ, this⟩ ν', rw IH,
+           split,
+           { intros h, refine list.suffix_cons_iff.mpr (or.inr h) },
+           { intros h, have C := list.suffix_cons_iff.mp h, cases C,
+             { exfalso, simp at C, rcases C with ⟨_, rfl⟩, simp at this, exact this },
+             { exact C } } } }
+
+lemma out_cons'_eq {n} {η : Tree n} (ν) (μ : branch η)  :
+  @out n (ν :: η) μ.cons' = out μ :=
+by { simp[out, branch.cons'], intros h, exfalso, have := h μ.property, exact this }
 
 namespace approx
 
-def weight (μ : Tree 1) : Π {η : Tree 0} (υ : subTree η → option (Tree 1)), ℕ
+def weight (μ : Tree 1) : Π {η : Tree 0} (υ : branch η → option (Tree 1)), ℕ
 | []       _ := 0
 | (_ :: η) υ := @weight η (λ ν, υ ν.cons') + (if υ ⟨η, by simp⟩ = ↑μ then 1 else 0)
 
 def is_exists_inv_infinity (μ : Tree 1) :
-  Π {η : Tree 0} (υ : subTree η → option (Tree 1)), option (Tree 0)
+  Π {η : Tree 0} (υ : branch η → option (Tree 1)), option (Tree 0)
 | []               _ := none
-| (∞ :: η)        υ :=
+| (sum.inl _ :: η)        υ :=
     if (@is_exists_inv_infinity η (λ ν, υ ν.cons')).is_some then
       @is_exists_inv_infinity η (λ ν, υ ν.cons') else
     if υ ⟨η, by simp⟩ = ↑μ then some η else none
 | (sum.inr _ :: η) υ := @is_exists_inv_infinity η (λ ν, υ ν.cons')
 
-lemma out_subtree {n} {η μ : Tree n} {x} (h : out[η] μ ↝ x) : μ <:+ η ∧ μ ≠ η :=
-by { simp[out, list.is_suffix] at*, split,
-     { rcases h with ⟨ν, ν_p⟩, refine ⟨ν ++ [x], _⟩, simp* at* },
-     { intros e, rcases e with rfl, rcases h with ⟨ν, h⟩,
-       have := @list.append_left_inj _ (ν ++ [x]) [] μ, simp at this, exact this h } }
-
-lemma is_exists_inv_infinity_infinity (η : Tree 1) (μ : Tree 0) (υ : subTree μ → option (Tree 1)) (μ₀ : subTree μ)
-  (h1 : out[μ] μ₀.val ↝ ∞) (h2 : υ μ₀ = η) : (@is_exists_inv_infinity η μ υ).is_some :=
+lemma is_exists_inv_infinity_infinity
+  (η : Tree 1) (μ : Tree 0) (υ : branch μ → option (Tree 1)) (μ₀ : branch μ)
+  (h1 : out μ₀ = ∞) (h2 : υ μ₀ = η) : (is_exists_inv_infinity η υ).is_some :=
 begin
   induction μ with ν μ IH μ IH generalizing μ₀,
-  { exfalso, simp[out] at*, exact h1 },
-  cases ν,
-  { cases ν, simp[is_exists_inv_infinity] at*,
-    cases C : (@is_exists_inv_infinity η μ (λ ν, υ ν.cons')).is_some; simp[C],
-    { have : ∞ :: μ₀.val = ∞ :: μ ∨ out[μ] μ₀.val ↝ ∞, from list.suffix_cons_iff.mp h1,
-      cases this,
-      { simp at this, simp[←this, h2] },
-      { exfalso, have := IH (λ ν, υ ν.cons') ⟨μ₀.val, out_subtree this⟩ this (by simp[subTree.cons']; exact h2),
-        exact bool_iff_false.mpr C this } } },
-  { simp[is_exists_inv_infinity],
-    have : ∞ :: μ₀.val = sum.inr ν :: μ ∨ out[μ] μ₀.val ↝ ∞, from list.suffix_cons_iff.mp h1,
-    cases this,
-    { simp at*, exfalso, exact this },
-    { simp at*, have := IH (λ ν, υ ν.cons') ⟨μ₀.val, out_subtree this⟩ this (by simp[subTree.cons']; exact h2),
-      exact this } }
+  { exfalso, have := μ₀.property, simp* at* },
+  have C₁ : μ₀.val = μ ∨ μ₀.val ⊂ᵢ μ, from list.is_initial_cons_iff.mp μ₀.property, cases C₁,
+  { cases ν; simp[is_exists_inv_infinity] at*,
+    { cases ν,
+      cases C₂ : (@is_exists_inv_infinity η μ (λ ν, υ ν.cons')).is_some; simp[C₂],
+      { simp[←C₁, h2] } },
+    { exfalso, have := out_eq_iff.mp h1, simp[←C₁] at this, exact this } },
+  { have IH : (is_exists_inv_infinity η (λ ν, υ ν.cons')).is_some,
+      from IH (λ ν, υ ν.cons') ⟨μ₀.val, C₁⟩
+        (by {rw ←out_cons'_eq ν ⟨μ₀.val, C₁⟩, simp[branch.cons', h1] })
+        (by simp[branch.cons', h2]),
+    cases ν; simp[is_exists_inv_infinity] at*; simp[IH] }
 end
 
-def lambda' {η : Tree 0} (υ : subTree η → option (Tree 1)) : ℕ → Tree 1
+def lambda' {η : Tree 0} (υ : branch η → option (Tree 1)) : ℕ → Tree 1
 | 0       := []
 | (n + 1) :=
     if 0 < weight (lambda' n) υ then
@@ -128,12 +119,9 @@ def lambda' {η : Tree 0} (υ : subTree η → option (Tree 1)) : ℕ → Tree 1
       else ∞ :: lambda' n
     else lambda' n
 
-lemma lambda'_suffix {η : Tree 0} (υ : subTree η → option (Tree 1)) (μ : Tree 1) :
-  ∀ n, μ <:+ lambda' υ n → 
+def lambda {η : Tree 0} (υ : branch η → option (Tree 1)) : Tree 1 := lambda' υ η.length
 
-def lambda {η : Tree 0} (υ : subTree η → option (Tree 1)) : Tree 1 := lambda' υ η.length
-
-def assign {η : Tree 0} (υ : subTree η → option (Tree 1)) : Tree 1 → option (Tree 1 × ℕ)
+def assign {η : Tree 0} (υ : branch η → option (Tree 1)) : Tree 1 → option (Tree 1 × ℕ)
 | []               := none
 | (∞ :: μ)        :=
   if h : (assign μ).is_some then S.inf (option.get h) (μ, weight μ υ) else
@@ -141,32 +129,30 @@ def assign {η : Tree 0} (υ : subTree η → option (Tree 1)) : Tree 1 → opti
 | (sum.inr _ :: μ) := assign μ
 
 
-def assign_eq {η : Tree 0} (υ : subTree η → option (Tree 1)) : Tree 1 → option (Tree 1 × ℕ) := λ μ, assign S υ (∞ :: μ)
+def assign_eq {η : Tree 0} (υ : branch η → option (Tree 1)) : Tree 1 → option (Tree 1 × ℕ) := λ μ, assign S υ (∞ :: μ)
 
-def assignment {η : Tree 0} (υ : subTree η → option (Tree 1)) : option (Tree 1 × ℕ) := assign_eq S υ (lambda υ)
+def assignment {η : Tree 0} (υ : branch η → option (Tree 1)) : option (Tree 1 × ℕ) := assign_eq S υ (lambda υ)
 
-def up {η : Tree 0} (υ : subTree η → option (Tree 1)) : option (Tree 1) := (assignment S υ).map prod.fst
+def up {η : Tree 0} (υ : branch η → option (Tree 1)) : option (Tree 1) := (assignment S υ).map prod.fst
 
-def requirement {η : Tree 0} (υ : subTree η → option (Tree 1)) : option R := (assignment S υ).map S.requirement
+def requirement {η : Tree 0} (υ : branch η → option (Tree 1)) : option R := (assignment S υ).map S.requirement
 
 end approx
 
-def up' (S : strategy R) : ∀ (η : Tree 0) (μ : subTree η), option (Tree 1)
+def up' (S : strategy R) : Π (η : Tree 0) (μ : branch η), option (Tree 1)
 | []       ⟨μ, μ_p⟩ := by exfalso; simp* at*
-| (_ :: η) ⟨μ, μ_p₁, μ_p₂⟩ :=
-    have lmm : μ <:+ η,
-    { have := list.suffix_cons_iff.mp μ_p₁, cases this,
-      { exfalso, exact μ_p₂ this }, { exact this } },
-    if h : μ = η then approx.up S (up' η) else up' η ⟨μ, lmm, h⟩
+| (_ :: η) ⟨μ, _⟩   := if h : μ ⊂ᵢ η then up' η ⟨μ, h⟩ else approx.up S (up' η)
 
 def up (η : Tree 0) : option (Tree 1) := approx.up S (up' S η)
 
-lemma up'_up_consistent {η : Tree 0} : ∀ (μ : subTree η), S.up' η μ = S.up μ.val :=
+lemma up'_up_consistent {η : Tree 0} : ∀ (μ : branch η), S.up' η μ = S.up μ.val :=
 begin
   induction η with ν η IH,
   { intros μ, have := μ.property, simp* at* },
-  { intros μ, cases μ with μ μ_p, rcases μ_p with ⟨μ_p₁, μ_p₂⟩, simp[up', up],
-    by_cases C : μ = η; simp[C], { rw [C] }, { simp[IH], refl } }
+  { intros μ, cases μ with μ μ_p, 
+    have : μ = η ∨ μ ⊂ᵢ η, from list.is_initial_cons_iff.mp μ_p,
+    cases this; simp[this, up'],
+    { refl }, { exact IH _ } }
 end
 
 def lambda (η : Tree 0) : Tree 1 := approx.lambda (up' S η)
@@ -176,11 +162,11 @@ def assignment (η : Tree 0) : option (Tree 1 × ℕ) := approx.assignment S (up
 
 @[simp] lemma lambda_nil : S.lambda [] = [] := rfl
 
-lemma is_exists_inv_infinity_infinity (η : Tree 1) (μ : Tree 0) (μ₀ : Tree 0)
-  (h1 : out[μ] μ₀ ↝ ∞) (h2 : S.up μ₀ = η) : out[S.lambda μ] η ↝ sum.inr μ₀ :=
+lemma is_exists_inv_infinity_infinity (μ : Tree 0) (μ₀ : branch μ) (η : branch (S.lambda μ)) 
+  (h1 : out μ₀ = ∞) (h2 : S.up μ₀.val = η.val) : out η = sum.inr μ₀.val :=
 begin
   induction μ with ν μ IH μ IH generalizing μ₀; simp[out] at*,
-  { exact h1 },
+  { exfalso, have := μ₀.property, simp* at* },
   simp[lambda, approx.lambda],
 end
 
