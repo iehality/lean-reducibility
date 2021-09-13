@@ -287,6 +287,9 @@ begin
   simp[nat.add_left_comm l₁.length] at this, exact this
 end
 
+@[simp] lemma not_suffix_cons (l : list α) (a : α) : ¬ a :: l <:+ l :=
+by simp[list.is_suffix, append_cons_neq]
+
 lemma suffix_append_iff_suffix {α : Type*} (l l₁ l₂ : list α) : l₁ ++ l <:+ l₂ ++ l ↔ l₁ <:+ l₂ :=
 exists_congr $ λ r, by rw [←append_assoc, append_left_inj]
 
@@ -332,6 +335,9 @@ instance is_initial_decidable [decidable_eq α] : ∀ (l₁ l₂ : list α), dec
     (λ h, is_true (h.trans (l₂.is_initial_cons _)))
     (λ h, if eqn : l₁ = l₂ then is_true (by simp[eqn])
       else is_false (by { simp[is_initial_cons_iff], exact not_or eqn h }))
+
+lemma suffix_of_is_initial {l₁ l₂ : list α} (h : l₁ ⊂ᵢ l₂) : l₁ <:+ l₂ :=
+by { rcases h with ⟨l₃, a, h⟩, refine ⟨l₃ ++ [a], by simp[h]⟩ }
 
 end list
 
