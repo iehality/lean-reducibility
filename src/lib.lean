@@ -281,7 +281,7 @@ by simp; refine ⟨0, rfl, λ m z, by simp⟩
 | 0     := []
 | (n+1) := f n :: of_fn' n
 
-@[simp] lemma append_cons_neq {α : Type*} (a : α) (l₁ l₂ : list α) : l₁ ++ a :: l₂ ≠ l₂ := λ h,
+@[simp] lemma append_cons_neq (a : α) (l₁ l₂ : list α) : l₁ ++ a :: l₂ ≠ l₂ := λ h,
 begin
   have : (l₁ ++ a :: l₂).length = l₂.length, simp[h],
   simp[nat.add_left_comm l₁.length] at this, exact this
@@ -290,14 +290,22 @@ end
 @[simp] lemma not_suffix_cons (l : list α) (a : α) : ¬ a :: l <:+ l :=
 by simp[list.is_suffix, append_cons_neq]
 
-lemma suffix_append_iff_suffix {α : Type*} (l l₁ l₂ : list α) : l₁ ++ l <:+ l₂ ++ l ↔ l₁ <:+ l₂ :=
+lemma suffix_append_iff_suffix (l l₁ l₂ : list α) : l₁ ++ l <:+ l₂ ++ l ↔ l₁ <:+ l₂ :=
 exists_congr $ λ r, by rw [←append_assoc, append_left_inj]
 
-@[simp] lemma suffix_cons_iff_eq {α : Type*} (a₁ a₂ : α) (l : list α) : a₁ :: l <:+ a₂ :: l ↔ a₁ = a₂ :=
+@[simp] lemma suffix_cons_iff_eq (a₁ a₂ : α) (l : list α) : a₁ :: l <:+ a₂ :: l ↔ a₁ = a₂ :=
 by { have : a₁ :: l <:+ a₂ :: l ↔ [a₁] <:+ [a₂], from suffix_append_iff_suffix l [a₁] [a₂], rw this,
      split,
      { rintros ⟨⟨hd, tl⟩, h⟩, { simp* at* }, { exfalso, simp at*, exact h } },
      { rintros rfl, refine ⟨[], by simp⟩ } }
+
+lemma suffix_antisymm {l₁ l₂ : list α} (h₁ : l₁ <:+ l₂) (h₂ : l₂ <:+ l₁) : l₁ = l₂ :=
+by { rcases h₁ with ⟨l12, h₁⟩, rcases h₂ with ⟨l21, h₂⟩,
+     have : (l21 ++ l12) ++ l₁ = [] ++ l₁,
+     { rw [←h₁, ←append_assoc] at h₂, simp[h₂] },
+     have : l21 ++ l12 = [] := list.append_right_cancel this,
+     simp at this,
+     simp[this] at h₁, refine h₁ }
 
 def is_initial (l₁ l₂ : list α) : Prop := ∃ l₃ a, l₃ ++ a :: l₁ = l₂
 
@@ -312,6 +320,20 @@ by simp[is_initial, *] at*
 lemma is_initial.trans {l₁ l₂ l₃ : list α} (h₁ : l₁ ⊂ᵢ l₂) (h₂ : l₂ ⊂ᵢ l₃) : l₁ ⊂ᵢ l₃ :=
 by { rcases h₁ with ⟨l12, a12, h₁⟩, rcases h₂ with ⟨l23, a23, h₂⟩,
      refine ⟨l23 ++ [a23] ++ l12, a12, by simp[h₁, h₂]⟩ }
+
+lemma is_initial_of_suffix_is_initial {l₁ l₂ l₃ : list α} (h₁ : l₁ <:+ l₂) (h₂ : l₂ ⊂ᵢ l₃) : l₁ ⊂ᵢ l₃ :=
+by { rcases h₁ with ⟨l12, h₁⟩,
+     cases C : l12.reverse with a' l',
+     { simp at C, rcases C with rfl,
+       simp at h₁, rcases h₁ with rfl, exact h₂ },
+     { have := congr_arg list.reverse C, simp at this, rcases this with rfl,
+       rcases h₂ with ⟨l23, a23, h₂⟩, simp at h₁,
+       refine ⟨l23 ++ [a23] ++ l'.reverse, a', by simp[h₁, h₂]⟩ } }
+
+lemma suffix_of_is_initial_is_initial {l₁ l₂ l₃ : list α} (h₁ : l₁ ⊂ᵢ l₂) (h₂ : l₂ <:+ l₃) : l₁ ⊂ᵢ l₃ :=
+by { rcases h₁ with ⟨l12, a12, h₁⟩, rcases h₂ with ⟨l23, h₂⟩,
+     refine ⟨l23 ++ l12, a12, by simp[h₁, h₂]⟩ }
+
 
 @[simp] lemma is_initial_cons (a : α) (l : list α) : l ⊂ᵢ a :: l := ⟨[], a, rfl⟩
 
@@ -336,8 +358,62 @@ instance is_initial_decidable [decidable_eq α] : ∀ (l₁ l₂ : list α), dec
     (λ h, if eqn : l₁ = l₂ then is_true (by simp[eqn])
       else is_false (by { simp[is_initial_cons_iff], exact not_or eqn h }))
 
+lemma is_initial_of_lt_length {l : list α} {n : ℕ} (h : n < l.length) : l↾*n ⊂ᵢ l :=
+begin
+  simp[initial],
+  
+  cases C : (take (l.length - n) l).reverse with a l',
+  { exfalso,
+    have : l.length - n = 0,
+    { have := congr_arg list.length C, simp at this, exact this },
+    have : l.length ≤ n, exact sub_eq_zero_iff_le.mp this, 
+    exact nat.lt_le_antisymm h this },
+  { have : take (l.length - n) l = l'.reverse ++ [a],
+    { have := congr_arg list.reverse C, simp at this, exact this },
+    refine ⟨l'.reverse, a, _⟩,
+    have lmm := list.take_append_drop (l.length - n) l, simp [this] at lmm,
+    exact lmm }
+end
+
+
 lemma suffix_of_is_initial {l₁ l₂ : list α} (h : l₁ ⊂ᵢ l₂) : l₁ <:+ l₂ :=
 by { rcases h with ⟨l₃, a, h⟩, refine ⟨l₃ ++ [a], by simp[h]⟩ }
+
+lemma suffix_iff_is_initial {l₁ l₂ : list α} : l₁ <:+ l₂ ↔ l₁ ⊂ᵢ l₂ ∨ l₁ = l₂ :=
+⟨begin
+    revert l₁ l₂,
+    suffices :
+      ∀ {l l₁ l₂ : list α}, l.reverse ++ l₁ = l₂ → l₁ ⊂ᵢ l₂ ∨ l₁ = l₂,
+    { intros l₁ l₂ h, rcases h with ⟨l, h⟩, exact @this l.reverse l₁ l₂ (by simp[h]) },
+    intros l l₁ l₂ h, induction l with a l IH generalizing l₁ l₂,
+    { right, simp* at* },
+    { left, simp at h, refine ⟨l.reverse, a, h⟩ } 
+  end, λ h, by { cases h, { exact suffix_of_is_initial h }, { simp[h] } } ⟩
+
+lemma is_initial_iff_suffix {l₁ l₂ : list α} : l₁ ⊂ᵢ l₂ ↔ l₁ <:+ l₂ ∧ l₁ ≠ l₂ :=
+by { simp[suffix_iff_is_initial, or_and_distrib_right], intros h₁ h₂, simp[h₂] at*, exact h₁ }
+
+lemma rnth_eq_iff_suffix_cons_initial {l : list α} {n : ℕ} {a : α} :
+  l.rnth n = a ↔ a :: l↾*n <:+ l :=
+begin
+  induction l with a' l IH,
+  { simp, exact option.not_mem_none a },
+  { have C : n < l.length ∨ n = l.length ∨ l.length < n, exact trichotomous _ _,
+    cases C,
+    { simp[rnth_cons C, initial_cons C, IH], split,
+      { intros h, exact h.trans (list.suffix_cons a' l) },
+      { intros h, have := list.suffix_cons_iff.mp h,
+        cases this,
+        { exfalso,
+          have : l↾*n = l, { simp* at * },
+          have := congr_arg list.length this, simp[initial_length C] at this,
+          simp[this] at C, exact C  },
+        { exact this } } },
+    cases C,
+    { rcases C with rfl, simp, unfold_coes, simp[option.some_inj, @eq_comm _ a a'] },
+    { have : (a' :: l).length ≤ n, { simp, exact nat.succ_le_iff.mpr C },
+      simp[rnth_none.mpr this, initial_elim this], exact option.not_mem_none a } }
+end
 
 end list
 
@@ -399,7 +475,6 @@ end finitary
 def list.of_list {α : Type*} : ∀ l : list α, (fin (l.length) → α)
 | []        := finitary.nil
 | (a :: as) := as.of_list ::ᶠ a
-
 
 
 section classical
