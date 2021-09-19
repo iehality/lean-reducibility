@@ -287,6 +287,9 @@ begin
   simp[nat.add_left_comm l₁.length] at this, exact this
 end
 
+@[simp] lemma cons_neq (a : α) (l : list α) : a :: l ≠ l := append_cons_neq a [] l
+@[simp] lemma cons_neq' (a : α) (l : list α) : l ≠ a :: l := ne.symm (cons_neq a l)
+
 @[simp] lemma not_suffix_cons (l : list α) (a : α) : ¬ a :: l <:+ l :=
 by simp[list.is_suffix, append_cons_neq]
 
@@ -361,7 +364,6 @@ instance is_initial_decidable [decidable_eq α] : ∀ (l₁ l₂ : list α), dec
 lemma is_initial_of_lt_length {l : list α} {n : ℕ} (h : n < l.length) : l↾*n ⊂ᵢ l :=
 begin
   simp[initial],
-  
   cases C : (take (l.length - n) l).reverse with a l',
   { exfalso,
     have : l.length - n = 0,
@@ -374,7 +376,6 @@ begin
     have lmm := list.take_append_drop (l.length - n) l, simp [this] at lmm,
     exact lmm }
 end
-
 
 lemma suffix_of_is_initial {l₁ l₂ : list α} (h : l₁ ⊂ᵢ l₂) : l₁ <:+ l₂ :=
 by { rcases h with ⟨l₃, a, h⟩, refine ⟨l₃ ++ [a], by simp[h]⟩ }
@@ -414,6 +415,20 @@ begin
     { have : (a' :: l).length ≤ n, { simp, exact nat.succ_le_iff.mpr C },
       simp[rnth_none.mpr this, initial_elim this], exact option.not_mem_none a } }
 end
+
+lemma is_initial_length {l₁ l₂ : list α} (h : l₁ ⊂ᵢ l₂) : l₁.length < l₂.length :=
+by { rcases h with ⟨l, a, h⟩, simp[←h],
+     exact (length l₁).lt_add_left (length l₁ + 1) (length l) (lt_add_one (length l₁)) }
+
+lemma eq_initial_of_is_initial {l₁ l₂ : list α} (h : l₁ ⊂ᵢ l₂) : l₂↾*l₁.length = l₁ :=
+begin
+  simp[initial],
+  rcases h with ⟨l, a, h⟩, simp[←h, add_assoc],
+  have : l.length + (l₁.length + 1) - l₁.length = l.length + 1,
+  { simp[←add_assoc], omega },
+  simp[this, list.drop_append]
+end
+
 
 end list
 

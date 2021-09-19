@@ -22,17 +22,50 @@ instance : ∀ n, decidable_eq (Tree' n)
 
 def Tree (n : ℕ) := Tree' (n + 1)
 
-
-
 def branch {n} (η : Tree n) := { μ : Tree n // μ ⊂ᵢ η }
 
 instance {n} {η : Tree n} : has_lt (branch η) := ⟨λ x y, x.val ⊂ᵢ y.val⟩
 instance {n} {η : Tree n} : has_le (branch η) := ⟨λ x y, x.val <:+ y.val⟩
 
+instance {n} : has_ssubset (Tree n) := ⟨λ x y, x ⊂ᵢ y⟩
+instance {n} : has_subset (Tree n) := ⟨λ x y, x <:+ y⟩
+
+namespace branch
+
+def branch_range {n} (η : Tree n) : list (branch η) :=
+(list.range η.length).pmap (λ m (h :m < η.length), ⟨η↾*m, list.is_initial_of_lt_length h⟩) (λ _, by simp)
+
+lemma nodup_branch_range {n} (η : Tree n) : (branch_range η).nodup :=
+list.nodup_pmap
+  (λ m₁ eqn₁ m₂ eqn₂ eqn, by { simp at eqn, have : (η↾*m₁).length = m₁, from list.initial_length eqn₁,
+       simp [eqn, list.initial_length eqn₂] at this, simp[this] })
+  (list.nodup_range _)
+
+def branch_univ {n} (η : Tree n) : finset (branch η) :=
+⟨branch_range η, nodup_branch_range η⟩
+
+@[simp] lemma mem_fin_range {n} {η : Tree n} (η₀ : branch η) : η₀ ∈ branch_univ η :=
+list.mem_pmap.2 ⟨η₀.val.length, by { simp[branch_univ],
+refine ⟨list.is_initial_length η₀.property, _⟩, apply subtype.ext, simp,
+exact list.eq_initial_of_is_initial η₀.property }⟩
+
+instance {n} (η : Tree n) : fintype (branch η) :=
+⟨branch_univ η, mem_fin_range⟩
+
+def branch_univ' {n} (η : Tree n) : finset (Tree n) := (branch_univ η).image subtype.val  
+
+@[simp] lemma branch_univ_card {n} (η : Tree n) : (branch_univ η).card = η.length :=
+by simp[branch_univ, branch_range]
+
+@[simp] lemma branch_univ'_card {n} (η : Tree n) : (branch_univ' η).card = η.length :=
+by { have : (branch_univ' η).card = (branch_univ η).card,
+     { apply finset.card_image_of_injective, intros x y, exact subtype.eq },
+     simp[this] }
+
 instance {n} {η : Tree n} : has_coe (branch η) (Tree n) :=
 ⟨subtype.val⟩
 
-lemma branch_linear {n} {η : Tree n} {μ₁ μ₂ : branch η} :
+lemma linear {n} {η : Tree n} {μ₁ μ₂ : branch η} :
   μ₂ ≤ μ₁ ↔ ¬μ₁ < μ₂ :=
 begin
   split,
@@ -47,13 +80,17 @@ begin
     { simp[h this] }, { exact this } }
 end
 
+lemma le_lt {n} {η : Tree n} {μ₁ μ₂ : branch η} :
+  μ₁ ≤ μ₂ ↔ μ₁ < μ₂ ∨ μ₁ = μ₂ :=
+by { simp[has_lt.lt, has_le.le],
+     have := @list.suffix_iff_is_initial _ (↑μ₁) (↑μ₂), rw [←subtype.ext_iff] at this,
+     exact this }
+
+end branch
+
 structure Tree_path (n : ℕ) :=
 (path : ℕ → Tree n)
 (ordered : ∀ m, path m <:+ path (m + 1))
-
-@[simp] lemma list.cons_neq {α : Type*} (a : α) : ∀ (l : list α), l ≠ a :: l
-| [] := by simp
-| (a₁ :: l) := by { simp, intros h, simp[h], exact list.cons_neq l }
 
 def branch.cons' {n} {η : Tree n} {a} (μ : branch η) : branch (a :: η) :=
 ⟨μ.val, μ.property.trans (η.is_initial_cons _)⟩
@@ -61,10 +98,6 @@ def branch.cons' {n} {η : Tree n} {a} (μ : branch η) : branch (a :: η) :=
 instance : has_zero (zero ⊕ infinity) := ⟨sum.inl zero.zero⟩
 
 notation `∞` := sum.inl infinity.infinity
-
-@[simp] def list.foldl' {α : Type*} (f : α → α → α) : list α → option α
-| []        := none
-| (a :: as) := if h : (list.foldl' as).is_some then f (option.get h) a else a
 
 structure strategy (R : Type*) :=
 (par₀ : Tree 0 → ℕ)
@@ -122,35 +155,51 @@ begin
     simp[eqn₁, eqn₂] }
 end
 
-lemma rnth_eq_iff_out {n} {η : Tree n} {μ : branch η} {ν} {m : ℕ} :
+lemma rnth_eq_iff_out {n} {η : Tree n} {ν} {m : ℕ} :
   η.rnth m = some ν ↔ ν :: η↾*m <:+ η :=
 list.rnth_eq_iff_suffix_cons_initial
 
+lemma rnth_eq_some_out {n} {η : Tree n} {μ : branch η} {m : ℕ} (h : m < η.length) :
+  η.rnth m = some (out (⟨η↾*m, list.is_initial_of_lt_length h⟩ : branch η)) :=
+rnth_eq_iff_out.mpr (suffix_out_cons ⟨η↾*m, list.is_initial_of_lt_length h⟩)
+
 namespace approx
 
-def weight (μ : Tree 1) : Π {η : Tree 0} (υ : branch η → option (Tree 1)), ℕ
-| []       _ := 0
-| (_ :: η) υ := @weight η (λ ν, υ ν.cons') + (if υ ⟨η, by simp⟩ = ↑μ then 1 else 0)
+def up_inv (η : Tree 1) : Π {μ : Tree 0} (υ : branch μ → option (Tree 1)), list (Tree 0)
+| []       _ := []
+| (_ :: μ) υ := if υ ⟨μ, by simp⟩ = ↑η then μ :: @up_inv μ (λ ν, υ ν.cons') else @up_inv μ (λ ν, υ ν.cons')
 
-lemma of_weight_pos {μ : Tree 1} : ∀ {η : Tree 0}
-  (υ : branch η → option (Tree 1)) (pos : 0 < weight μ υ), ∃ η₀ : branch η, υ η₀ = μ
-| []       υ pos := by { exfalso, simp[weight] at pos, exact pos }
-| (ν :: η) υ pos := by { 
-    by_cases C : υ ⟨η, by simp⟩ = ↑μ; simp[C, weight] at pos,
-    { refine ⟨⟨η, by simp⟩, C⟩ },
-    { rcases @of_weight_pos η (λ ν, υ ν.cons') pos with ⟨η₀, η₀_h⟩,
-      refine ⟨η₀.cons', η₀_h⟩ } }
+lemma up_inv_mem_iff {η : Tree 1} : ∀ {μ : Tree 0} {υ : branch μ → option (Tree 1)} {μ₀ : Tree 0},
+  μ₀ ∈ up_inv η υ ↔ ∃ h : μ₀ ⊂ᵢ μ, υ ⟨μ₀, h⟩ = η
+| []       μ υ  := by simp[up_inv]
+| (x :: μ) υ μ₀ := by {
+    have IH := @up_inv_mem_iff μ (λ ν, υ ν.cons') μ₀, 
+    simp[up_inv],
+    by_cases C : υ ⟨μ, by simp⟩ = ↑η; simp[C],
+    { simp[IH],
+      split,
+      { rintros (rfl | ⟨_, h⟩), { exact ⟨_, C⟩ }, { refine ⟨_, h⟩ } },
+      { rintros ⟨i, h⟩, simp[branch.cons'],
+        have : μ₀ = μ ∨ μ₀ ⊂ᵢ μ, from list.is_initial_cons_iff.mp i,
+        cases this, { exact or.inl this }, { exact or.inr ⟨this, h⟩ } } },
+    { simp[IH], split,
+      { rintros ⟨i, h⟩, exact ⟨_, h⟩ },
+      { rintros ⟨i, h⟩, simp[branch.cons'],
+        have : μ₀ = μ ∨ μ₀ ⊂ᵢ μ, from list.is_initial_cons_iff.mp i,
+        cases this, { exfalso, rcases this with rfl, exact C h },
+        { exact ⟨this, h⟩ } } } }
 
-lemma weight_pos_of {μ : Tree 1} : ∀ {η : Tree 0}
-  (υ : branch η → option (Tree 1)) (h : ∃ η₀ : branch η, υ η₀ = μ), 0 < weight μ υ
-| [] _ h := by { exfalso, rcases h with ⟨⟨_, h⟩, _⟩, simp at h, exact h }
-| (ν :: η) υ h := by
-    { rcases h with ⟨η₀, h⟩,
-      have : η₀.val = η ∨ η₀.val ⊂ᵢ η, from list.is_initial_cons_iff.mp η₀.property,
-      cases this,
-      { simp[weight, ←this, h] },
-      { simp[weight], have := @weight_pos_of η (λ ν, υ ν.cons') ⟨⟨η₀.val, this⟩, by simp[branch.cons', h]⟩,
-        exact nat.add_pos_left this _ } }
+def weight (η : Tree 1) {μ : Tree 0} (υ : branch μ → option (Tree 1)) : ℕ := (up_inv η υ).length
+
+lemma of_weight_pos {η : Tree 1} {μ : Tree 0}
+  (υ : branch μ → option (Tree 1)) (pos : 0 < weight η υ) : ∃ μ₀ : branch μ, υ μ₀ = η :=
+by { have := up_inv_mem_iff.mp (list.nth_le_mem _ _ pos), rcases this with ⟨_, h⟩,
+     refine ⟨_, h⟩ }
+
+lemma weight_pos_of {η : Tree 1} {μ : Tree 0} (υ : branch μ → option (Tree 1))
+  (h : ∃ μ₀ : branch μ, υ μ₀ = η) : 0 < weight η υ :=
+by { rcases h with ⟨μ₀, h⟩, have := (@up_inv_mem_iff η μ υ μ₀).mpr ⟨μ₀.property, by simp[h]⟩,
+     simp[weight], exact list.length_pos_of_mem this }
 
 def get_inv_up (μ : Tree 1) :
   Π {η : Tree 0} (υ : branch η → option (Tree 1)), option (branch η)
@@ -238,17 +287,17 @@ end
 
 lemma get_inv_up_iff
   {η : Tree 1} {μ : Tree 0} (υ : branch μ → option (Tree 1)) {μ₀ : branch μ} :
-  (out μ₀ = ∞) ∧ (υ μ₀ = η) ∧ (∀ μ₁, out μ₁ = ∞ → υ μ₁ = η → μ₀ ≤ μ₁) ↔ get_inv_up η υ = ↑μ₀ :=
+  (out μ₀ = ∞) ∧ (υ μ₀ = η) ∧ (∀ μ₁, μ₁ < μ₀ → υ μ₁ = η → out μ₁ ≠ ∞) ↔ get_inv_up η υ = ↑μ₀ :=
 ⟨λ ⟨h₁, h₂, h₃⟩,
   begin
     have : ∃ (μ₁ : branch μ), get_inv_up η υ = some μ₁,
       from option.is_some_iff_exists.mp (is_some_of_out_infinity υ μ₀ h₁ h₂),
     rcases this with ⟨μ₁, h_μ₁⟩,
-    have : out μ₁ = ∞ ∧ υ μ₁ = ↑η, from out_infinity_of_eq_some υ h_μ₁,
-    have lmm : μ₀.val <:+ μ₁.val := h₃ μ₁ this.1 this.2,
-    suffices : ¬ μ₀.val ⊂ᵢ μ₁.val,
-    { have : μ₀ = μ₁, from subtype.eq (list.suffix_antisymm lmm (branch_linear.mpr this)),
-      rw [this], exact h_μ₁ },
+    have lmm : out μ₁ = ∞ ∧ υ μ₁ = ↑η, from out_infinity_of_eq_some υ h_μ₁,
+    suffices : ¬ μ₀ < μ₁,
+    { have eqn : μ₁ < μ₀ ∨ μ₁ = μ₀, from branch.le_lt.mp (branch.linear.mpr this),
+      cases eqn, { exfalso, exact h₃ _ eqn lmm.2 lmm.1 },
+      rw [←eqn], exact h_μ₁ },
     intros A,
     have eqn : @get_inv_up η μ₁.val (λ x, υ ⟨x.val, x.property.trans μ₁.property⟩) = none,
       from get_inv_up_eq_none_of_eq_some υ h_μ₁,
@@ -261,16 +310,14 @@ lemma get_inv_up_iff
   end, λ h,
   begin
     have := out_infinity_of_eq_some υ h,
-    refine ⟨this.1, this.2, λ μ₁ h₁ h₂, _⟩,
-    suffices : ¬ μ₁.val ⊂ᵢ μ₀.val,
-    { exact branch_linear.mpr this }, intros A,    
+    refine ⟨this.1, this.2, λ μ₁ h₁ h₂ h₃, _⟩, 
     have eqn : @get_inv_up η μ₀.val (λ x, υ ⟨x.val, x.property.trans μ₀.property⟩) = none,
       from get_inv_up_eq_none_of_eq_some υ h,
     have : (@get_inv_up η μ₀.val (λ x, υ ⟨x.val, x.property.trans μ₀.property⟩)).is_some,
-    { have : out μ₁ = out ⟨μ₁.val, A⟩,
-        from @suffix_out_eq _ _ _ μ₁ ⟨μ₁.val, A⟩ rfl (list.suffix_of_is_initial μ₀.property),
+    { have : out μ₁ = out ⟨μ₁.val, h₁⟩,
+        from @suffix_out_eq _ _ _ μ₁ ⟨μ₁.val, h₁⟩ rfl (list.suffix_of_is_initial μ₀.property),
       refine is_some_of_out_infinity (λ x, υ ⟨x.val, x.property.trans μ₀.property⟩)
-      ⟨μ₁.val, A⟩ (by rw[←this, h₁]) (by simp; exact h₂) },
+      ⟨μ₁.val, h₁⟩ (by rw[←this, h₃]) (by simp; exact h₂) },
     rw eqn at this, exact option.not_is_some_iff_eq_none.mpr rfl this
   end⟩
 
@@ -309,57 +356,136 @@ def lambda' {μ : Tree 0} (υ : branch μ → option (Tree 1)) : ℕ → Tree 1
       else ∞ :: lambda' n
     else lambda' n
 
+def lambda {μ : Tree 0} (υ : branch μ → option (Tree 1)) : Tree 1 := lambda' υ μ.length
+
+lemma lambda'_length {μ : Tree 0} (υ : branch μ → option (Tree 1)) :
+  ∀ n, (lambda' υ n).length ≤ n
+| 0       := by simp[lambda']
+| (n + 1) :=
+    begin
+      by_cases C₁ : 0 < weight (lambda' υ n) υ; simp[lambda', C₁],
+      { cases C₂ : get_inv_up (lambda' υ n) υ; simp[C₂]; refine lambda'_length n },
+      exact le_add_right (lambda'_length n)
+    end    
+  
+lemma lambda'_mono {μ : Tree 0} (υ : branch μ → option (Tree 1)) : ∀ {n m : ℕ} (le : n ≤ m),
+  lambda' υ n <:+ lambda' υ m :=
+begin
+  suffices : ∀ n m, lambda' υ n <:+ lambda' υ (n + m),
+  { intros n m eqn, have := this n (m - n),
+    simp[nat.add_sub_of_le eqn] at this, exact this },
+  intros n m, induction m with m IH,
+  { refl },
+  { simp[←nat.add_one, ←add_assoc, lambda'],
+    by_cases C₁ : 0 < weight (lambda' υ (n + m)) υ; simp[C₁],
+    { cases C₂ : get_inv_up (lambda' υ (n + m)) υ; simp;
+      exact IH.trans (list.suffix_cons _ (lambda' υ (n + m))) },
+    exact IH }
+end
+
+lemma lambda'_length_mono {μ : Tree 0} (υ : branch μ → option (Tree 1)) {n m : ℕ} (le : n ≤ m) :
+  (lambda' υ n).length ≤ (lambda' υ m).length :=
+list.length_le_of_infix (list.infix_of_suffix (lambda'_mono υ le))
+
+lemma weight0_of_lambda'_length_lt {μ : Tree 0} {υ : branch μ → option (Tree 1)} : ∀ {n : ℕ}
+ (h : (lambda' υ n).length < n), weight (lambda' υ n) υ = 0
+| 0       h := by simp at h; contradiction
+| (n + 1) h := by { simp[lambda'] at h ⊢,
+    by_cases C : 0 < weight (lambda' υ n) υ; simp[C] at h ⊢,
+    { exfalso, cases get_inv_up (lambda' υ n) υ; simp at h ⊢;
+      { simp[weight0_of_lambda'_length_lt h] at C, contradiction } },
+    { simp at C, exact C } }
+
+lemma constant_of_lambda'_length_lt {μ : Tree 0} {υ : branch μ → option (Tree 1)} : ∀ {n m : ℕ} (le : n ≤ m)
+  (h : (lambda' υ n).length < n), lambda' υ m = lambda' υ n := 
+begin
+  suffices : ∀ (n m : ℕ) (h : (lambda' υ n).length < n),
+    (lambda' υ (n + m)).length < n + m ∧ lambda' υ (n + m) = lambda' υ n,
+  { intros n m eqn h,have := this n (m - n) h,
+    simp[nat.add_sub_of_le eqn] at this, exact this.2 },
+  intros n m h, induction m with m IH,
+  { simp[h] },
+  { have : weight (lambda' υ (n + m)) υ = 0, from weight0_of_lambda'_length_lt IH.1,
+    simp[←nat.add_one, ←add_assoc, lambda', this],
+    refine ⟨nat.lt.step IH.1, IH.2⟩ }
+end
+
+lemma length_eq_of_pos_weight {μ : Tree 0} {υ : branch μ → option (Tree 1)} {n}
+  (h : 0 < weight (lambda' υ n) υ) : (lambda' υ n).length = n :=
+begin
+  have C : (lambda' υ n).length < n ∨ (lambda' υ n).length = n, from lt_or_eq_of_le (lambda'_length υ n),
+  cases C,
+  { exfalso,
+    have : lambda' υ (n + 1) = lambda' υ n, from constant_of_lambda'_length_lt (by simp) C,
+    simp[lambda', h] at this,
+    cases C₁ : get_inv_up (lambda' υ n) υ; simp[C₁] at this; contradiction },
+    exact C
+end
+
 lemma lambda'_suffix_eq {μ : Tree 0} (υ : branch μ → option (Tree 1)) : ∀ {n : ℕ}
   {x} {η : Tree 1} (hη : x :: η <:+ lambda' υ n),
-  ∃ m, m < n ∧ lambda' υ m = η ∧ lambda' υ (m + 1) = x :: η
+  lambda' υ η.length = η ∧ lambda' υ (η.length + 1) = x :: η
 | 0       x η h := by { exfalso, simp[lambda', *] at * }
 | (n + 1) x η h :=
     begin
       simp[lambda'] at h,
       by_cases C₁ : 0 < weight (lambda' υ n) υ; simp[C₁] at h,
-      { cases C₂ : (get_inv_up (lambda' υ n) υ).is_some; simp[C₂] at h,
+      { have len : (lambda' υ n).length = n, from length_eq_of_pos_weight C₁,
+        cases C₂ : get_inv_up (lambda' υ n) υ with ν; simp[C₂] at h,
         { have C₃ : x :: η = ∞ :: lambda' υ n ∨ x :: η <:+ lambda' υ n, from list.suffix_cons_iff.mp h,
           cases C₃,
-          { simp at C₃, refine ⟨n, lt_add_one n, by simp[C₃], by simp[lambda', C₁, C₂, C₃]⟩ },
-          { rcases @lambda'_suffix_eq n x η C₃ with ⟨m, IH₁, IH₂⟩,
-            refine ⟨m, nat.lt.step IH₁, IH₂⟩ } },
-        { have C₃ : x :: η = sum.inr (option.get C₂).val :: lambda' υ n ∨ x :: η <:+ lambda' υ n,
+          { simp at C₃, have : η.length = n, { simp[C₃, len] },
+            simp[this, lambda', C₁, C₂], simp[C₃] },
+          { exact @lambda'_suffix_eq n x η C₃ } },
+        { have C₃ : x :: η = sum.inr ν.val :: lambda' υ n ∨ x :: η <:+ lambda' υ n,
             from list.suffix_cons_iff.mp h,
           cases C₃,
-          { simp at C₃, refine ⟨n, lt_add_one n, by simp[C₃], by simp[lambda', C₁, C₂, C₃]⟩ },
-          { rcases @lambda'_suffix_eq n x η C₃ with ⟨m, IH₁, IH₂⟩,
-            refine ⟨m, nat.lt.step IH₁, IH₂⟩ } } },
-      rcases @lambda'_suffix_eq n x η h with ⟨m, IH₁, IH₂⟩,
-      refine ⟨m, nat.lt.step IH₁, IH₂⟩
+          { simp at C₃, have : η.length = n, { simp[C₃, len] },
+            simp[this, lambda', C₁, C₂], simp[C₃] },
+          { exact @lambda'_suffix_eq n x η C₃ } } },
+      exact @lambda'_suffix_eq n x η h
     end
+
+lemma lambda'_up_inv {μ : Tree 0} {υ : branch μ → option (Tree 1)} {n : ℕ}
+  (η₀ : branch (lambda' υ n)) : ∃ μ₀ : branch μ, υ μ₀ = η₀ :=
+begin
+  have : lambda' υ (list.length ↑η₀) = η₀ ∧ lambda' υ (list.length ↑η₀ + 1) = out η₀ :: η₀.val,
+    from lambda'_suffix_eq υ (suffix_out_cons η₀),
+  rcases this with ⟨lmm₁, lmm₂⟩,
+  simp[lambda', lmm₁] at lmm₂,
+  by_cases C : 0 < weight ↑η₀ υ; simp[C] at lmm₂,
+  { simp[weight] at C,
+    have := up_inv_mem_iff.mp (list.nth_le_mem _ _ C), rcases this with ⟨_, h⟩,
+    refine ⟨_, h⟩ },
+  { contradiction }
+end
 
 lemma out_infinity_of_out_inr {μ : Tree 0} (υ : branch μ → option (Tree 1)) {n : ℕ}
   {η : branch (lambda' υ n)} {μ₀ : Tree 0} (h : out η = sum.inr μ₀) :
   ∃ h : μ₀ ⊂ᵢ μ, out ⟨μ₀, h⟩ = ∞ ∧ υ ⟨μ₀, h⟩ = η :=
 begin
-  have : ∃ m, m < n ∧ lambda' υ m = η.val ∧ lambda' υ (m + 1) = sum.inr μ₀ :: η.val,
+  have : lambda' υ (list.length ↑η) = η.val ∧ lambda' υ (list.length ↑η + 1) = sum.inr μ₀ :: η.val,
   { simp[out_eq_iff] at h, refine lambda'_suffix_eq υ h },
-  rcases this with ⟨m, eqn_m, eqn_η, eqn_η'⟩,
-  by_cases C₁ : 0 < weight (lambda' υ m) υ; simp[lambda', C₁] at eqn_η',
-  { cases C₂ : get_inv_up (lambda' υ m) υ with ν; simp[C₂] at eqn_η',
+  rcases this with ⟨eqn_η, eqn_η'⟩, simp[lambda', eqn_η] at eqn_η',
+  by_cases C₁ : 0 < weight ↑η υ; simp[C₁] at eqn_η',
+  { cases C₂ : get_inv_up ↑η υ with ν; simp[C₂] at eqn_η',
     { exfalso, have := list.head_eq_of_cons_eq eqn_η', simp* at * },
     { have : ν.val = μ₀,
         from sum.inr.inj (list.head_eq_of_cons_eq eqn_η'),
       rcases this with rfl,
       refine ⟨ν.property, _⟩, simp,
-      have : out ν = ∞ ∧ υ ν = ↑(lambda' υ m), from out_infinity_of_eq_some υ C₂,
-      simp[eqn_η, this] at* } },
-  exfalso, simp[eqn_η] at eqn_η', exact eqn_η'
+      exact out_infinity_of_eq_some υ C₂ } },
+  contradiction
 end
 
 lemma lambda'_out_iff
   {μ : Tree 0} (υ : branch μ → option (Tree 1)) {n : ℕ} {η : branch (lambda' υ n)} {μ₀ : branch μ} :
-  (out μ₀ = ∞) ∧ (υ μ₀ = η) ∧ (∀ μ₁, out μ₁ = ∞ → υ μ₁ = η → μ₀ ≤ μ₁) ↔ out η = sum.inr μ₀.val :=
+  (out μ₀ = ∞) ∧ (υ μ₀ = η) ∧ (∀ μ₁, μ₁ < μ₀ → υ μ₁ = η → out μ₁ ≠ ∞) ↔ out η = sum.inr μ₀.val :=
 begin
-  have : ∃ m, m < n ∧ lambda' υ m = η ∧ lambda' υ (m + 1) = out η :: η.val,
-  from lambda'_suffix_eq υ (suffix_out_cons η),
-  rcases this with ⟨m, eqn_m, eqn_η, eqn_η'⟩,
-  by_cases C₁ : 0 < weight (lambda' υ m) υ; simp[lambda', C₁] at eqn_η'; simp[eqn_η] at*,
+  have : lambda' υ (list.length ↑η) = η ∧ lambda' υ (list.length ↑η + 1) = out η :: η.val,
+    from lambda'_suffix_eq υ (suffix_out_cons η),
+  rcases this with ⟨eqn_η, eqn_η'⟩, simp[lambda', eqn_η] at eqn_η',
+  by_cases C₁ : 0 < weight ↑η υ; simp[C₁] at eqn_η'; simp[eqn_η] at*,
   { cases C₂ : get_inv_up η υ with μ₁; simp[C₂] at eqn_η',
     { have eqn₁ : ∞ = out η, from list.head_eq_of_cons_eq eqn_η', simp[←eqn₁], 
       intros h₁ h₂, exfalso,
@@ -368,33 +494,115 @@ begin
     { have eqn₁ : sum.inr μ₁.val = out η, from list.head_eq_of_cons_eq eqn_η',
       have := @get_inv_up_iff η μ υ μ₀,
       simp[this, C₂, ←eqn₁, ←subtype.ext_iff], unfold_coes, simp, } },
-  { exfalso, exact eqn_η' }
+  { contradiction }
 end
 
 lemma lambda'_out_iff_infinity
   {μ : Tree 0} (υ : branch μ → option (Tree 1)) {n : ℕ} {η : branch (lambda' υ n)} :
   (∃ μ₀, υ μ₀ = η) ∧ (∀ μ₀, υ μ₀ = η → out μ₀ ≠ ∞) ↔ out η = ∞ :=
 ⟨λ ⟨h₁, h₂⟩, begin
-    have : ∃ m, m < n ∧ lambda' υ m = η.val ∧ lambda' υ (m + 1) = out η :: η.val,
+    have : lambda' υ (list.length ↑η) = η ∧ lambda' υ (list.length ↑η + 1) = out η :: η.val,
       from lambda'_suffix_eq υ (suffix_out_cons η),
-    rcases this with ⟨m, eqn_m, eqn_η, eqn_η'⟩,
+    rcases this with ⟨eqn_η, eqn_η'⟩, simp[lambda', eqn_η] at eqn_η',
     have lmm₁ : 0 < weight η.val υ, from weight_pos_of υ h₁,
     have lmm₂ : get_inv_up η.val υ = none, from eq_none_of_out_neq_infinity υ h₂, simp at*,
     simp[lambda', eqn_η, lmm₁, lmm₂] at eqn_η',
     exact eq.symm (list.head_eq_of_cons_eq eqn_η')
   end, λ h,
   begin
-    have : ∃ m, m < n ∧ lambda' υ m = η ∧ lambda' υ (m + 1) = ∞ :: η.val,
-    { simp[out_eq_iff] at h, exact lambda'_suffix_eq υ h },
-    rcases this with ⟨m, eqn_m, eqn_η, eqn_η'⟩,
-    by_cases C₁ : 0 < weight (lambda' υ m) υ; simp[lambda', C₁] at eqn_η',
-    { cases C₂ : get_inv_up (lambda' υ m) υ with ν; simp[C₂] at eqn_η',
-      { simp[←eqn_η], refine ⟨of_weight_pos υ C₁, out_neq_infinity_of_eq_none υ C₂⟩ },
+    have : lambda' υ (list.length ↑η) = η ∧ lambda' υ (list.length ↑η + 1) = out η :: η.val,
+      from lambda'_suffix_eq υ (suffix_out_cons η),
+    rcases this with ⟨eqn_η, eqn_η'⟩, simp[lambda', eqn_η] at eqn_η',
+    by_cases C₁ : 0 < weight ↑η υ; simp[lambda', C₁] at eqn_η',
+    { cases C₂ : get_inv_up ↑η υ with ν; simp[C₂] at eqn_η',
+      { exact ⟨of_weight_pos υ C₁, out_neq_infinity_of_eq_none υ C₂⟩ },
       { exfalso, have := list.head_eq_of_cons_eq eqn_η', simp* at* } },
-    { exfalso, simp[eqn_η] at eqn_η', exact eqn_η' }
+    { contradiction }
   end⟩
 
-def lambda {μ : Tree 0} (υ : branch μ → option (Tree 1)) : Tree 1 := lambda' υ μ.length
+private lemma length_le_of_surj {n m : ℕ} {μ : Tree m} (f : branch μ → option (Tree n)) {η : Tree n}
+  (h : ∀ η₀ : branch η, ∃ μ₀ : branch μ, f μ₀ = η₀) : η.length ≤ μ.length :=
+begin
+  have eqn₁ : ((branch.branch_univ μ).image f).card ≤ μ.length,
+  { have := @finset.card_image_le _ _ _ f (branch.branch_univ μ), simp at this, exact this },
+  have eqn₂ : η.length ≤ ((branch.branch_univ μ).image f).card,
+  { have : (branch.branch_univ' η).image option.some ⊆ (branch.branch_univ μ).image f,
+    { intros η₀, simp[branch.branch_univ'], rintros η₀ rfl, exact h η₀ },
+    have eqn₁ : ((branch.branch_univ' η).image some).card ≤ ((branch.branch_univ μ).image f).card,
+      from finset.card_le_of_subset this,
+    have eqn₂ : ((branch.branch_univ' η).image some).card = (branch.branch_univ' η).card,
+      from finset.card_image_of_injective (branch.branch_univ' η) (option.some_injective (Tree n)),
+    simp at eqn₂, simp [eqn₂] at eqn₁, exact eqn₁ },
+  exact le_trans eqn₂ eqn₁
+end
+
+lemma lambda_eq_of_le {μ : Tree 0} (υ : branch μ → option (Tree 1)) : ∀ {n : ℕ} (h : μ.length ≤ n),
+  lambda' υ n = lambda υ :=
+begin
+  suffices :
+    ∀ n, lambda' υ (μ.length + n) = lambda υ,
+  { intros n eqn, have := this (n - μ.length),
+    have eqn : μ.length + (n - μ.length) = n, from nat.add_sub_of_le eqn,
+    simp[eqn] at this,
+    exact this },
+  suffices :
+    ¬0 < weight (lambda υ) υ,
+  { intros n, induction n with n IH,
+    { simp[lambda] }, { simp[←nat.add_one, ←add_assoc, lambda', IH, this] } },
+  by_cases C : (lambda υ).length < μ.length,
+  { have := weight0_of_lambda'_length_lt C, simp, exact this },
+  simp at C,
+  intros A,
+  have : ∃ (μ₀ : branch μ), υ μ₀ = ↑(lambda υ), from of_weight_pos υ A,
+  rcases this with ⟨μ₀, eqn⟩,
+  have : ∀ (η₀ : branch (∞ :: (lambda υ))), ∃ (μ₀ : branch μ), υ μ₀ = ↑η₀,
+  { intros η₀,
+    have : ∀ (η₀ : branch (lambda υ)), ∃ (μ₀ : branch μ), υ μ₀ = ↑η₀, from @lambda'_up_inv μ υ μ.length,
+    have C₁ : η₀.val = lambda υ ∨ η₀.val ⊂ᵢ lambda υ, from list.is_initial_cons_iff.mp η₀.property,
+    cases C₁,
+    { exact ⟨μ₀, by simp[eqn, ←C₁]⟩ },
+    { exact this ⟨η₀, C₁⟩ } },
+  have : (lambda υ).length + 1 ≤ μ.length,
+  { have := length_le_of_surj υ this, simp at this, exact this },
+  exact ((lambda υ).length).not_succ_le_self (le_trans this C)
+end
+
+lemma lambda'_eq_lambda'_length {μ : Tree 0} (υ : branch μ → option (Tree 1)) (n : ℕ) :
+  lambda' υ n = lambda' υ (lambda' υ n).length :=
+begin
+  have le : (lambda' υ n).length ≤ n, from lambda'_length υ n,
+  have : (lambda' υ (lambda' υ n).length).length ≤ (lambda' υ n).length,
+    from lambda'_length υ (lambda' υ n).length,
+  have C := lt_or_eq_of_le this,
+  cases C,
+  { exact constant_of_lambda'_length_lt le C },
+  { exact eq.symm (list.eq_of_suffix_of_length_eq (lambda'_mono υ le) C) }
+end 
+
+lemma lambda_eq_of_le' {μ : Tree 0} {υ : branch μ → option (Tree 1)} {n : ℕ} (h : (lambda υ).length ≤ n) :
+  lambda' υ n = lambda υ :=
+begin
+  have C : μ.length ≤ n ∨ n ≤ μ.length, from le_total _ _,
+  cases C,
+  { exact lambda_eq_of_le υ C },
+  { have lmm₁ : lambda υ <:+ lambda' υ n,
+    { simp[lambda], rw lambda'_eq_lambda'_length υ μ.length, exact lambda'_mono υ h },
+    have lmm₂ : lambda' υ n <:+ lambda υ, from lambda'_mono υ C,
+    exact list.suffix_antisymm lmm₂ lmm₁ }
+end
+
+lemma lambda_initial_eq {μ : Tree 0} (υ : branch μ → option (Tree 1)) {n : ℕ} :
+  (lambda υ)↾*n = lambda' υ n :=
+begin
+  have C : (lambda υ).length ≤ n ∨ n < (lambda υ).length, from le_or_lt _ _,
+  cases C,
+  { simp[list.initial_elim C, lambda_eq_of_le' C] },
+  { have : (lambda υ).rnth_le n C :: lambda υ↾*n <:+ lambda υ,
+      from list.rnth_eq_iff_suffix_cons_initial.mp (list.rnth_le_rnth C),
+    have := lambda'_suffix_eq υ this,
+    simp[list.initial_length C] at this, 
+    simp[this.1] }
+end
 
 def assign {μ : Tree 0} (υ : branch μ → option (Tree 1)) : Π η : Tree 1, option (Tree 1 × ℕ)
 | []               := none
@@ -430,26 +638,67 @@ begin
     { refl }, { exact IH _ } }
 end
 
-def lambda (η : Tree 0) : Tree 1 := approx.lambda (up' S η)
+def lambda' (η : Tree 0) : ℕ → Tree 1 := approx.lambda' (S.up' η)
+def lambda (η : Tree 0) : Tree 1 := approx.lambda (S.up' η)
+
+lemma lambda'_out_iff
+  {μ : Tree 0} {n : ℕ} {η : branch (S.lambda' μ n)} {μ₀ : branch μ} :
+  (out μ₀ = ∞) ∧ (S.up μ₀ = η) ∧ (∀ μ₁, μ₁ < μ₀ → S.up μ₁ = η → out μ₁ ≠ ∞) ↔ out η = sum.inr μ₀.val :=
+by { have := @approx.lambda'_out_iff μ (S.up' μ) n η μ₀, simp[up'_up_consistent] at this, 
+     exact this }
+
+lemma lambda'_out_iff_infinity
+  {μ : Tree 0} {n : ℕ} {η : branch (S.lambda' μ n)} :
+  (∃ μ₀ : branch μ, S.up μ₀ = η) ∧ (∀ μ₀ : branch μ, S.up μ₀ = η → out μ₀ ≠ ∞) ↔ out η = ∞ :=
+by { have := @approx.lambda'_out_iff_infinity μ (S.up' μ) n η, simp[up'_up_consistent] at this, 
+     exact this }
 
 def assignment (η : Tree 0) : option (Tree 1 × ℕ) := approx.assignment S (up' S η)
 #check up
 
 @[simp] lemma lambda_nil : S.lambda [] = [] := rfl
 
-lemma out_neq_infinity_of_out_infinity {η : Tree 0} {μ : branch (S.lambda η)}
-  (h : out μ = ∞) {η₀ : branch η} (up : S.up η₀.val = μ.val) : out η₀ ≠ ∞ :=
-(approx.out_neq_infinity_of_out_infinity (up' S η) h).2 η₀
-(by { simp[up'_up_consistent], exact up })
-
-lemma out_neq_infinity_of_out_infinity {η : Tree 0} {μ : branch (S.lambda η)} {η₀ : Tree 0}
-  (h : out μ = sum.inr η₀) : ∃ h : η₀ ⊂ᵢ η, out ⟨η₀, h⟩ = ∞ ∧ S.up η₀ = μ.val :=
-(approx.out_neq_infinity_of_out_infinity (up' S η) h).2 η₀
-(by { simp[up'_up_consistent], exact up })
-
 variables (Λ : Tree_path 0)
 
+lemma lambda_initial_eq {μ : Tree 0} {n : ℕ} :
+  (S.lambda μ)↾*n = S.lambda' μ n :=
+
+lemma lambda_defined {μ₁ μ₂ : Tree 0} {n : ℕ} {x}
+  (ss : μ₁ ⊆ μ₂) (h : (S.lambda μ₁)↾*n = (S.lambda μ₂)↾*n) (d : (S.lambda μ₁).rnth n = some x) :
+  ((S.lambda μ₂).rnth n).is_some :=
+begin
+  have := list.rnth_some_lt d,
+  have := list.initial_length (list.rnth_some_lt d),
+end
+
 theorem finite_injury :
+  ∀ (n : ℕ), ∃ (s₀ : ℕ), ∀ (s : ℕ), s₀ ≤ s →
+    S.lambda (Λ.path s)↾*n = S.lambda (Λ.path s₀)↾*n := λ n,
+begin
+  induction n with n IH,
+  { simp },
+  { rcases IH with ⟨s₀, IH⟩,
+    suffices :
+      ∃ s₁, s₀ ≤ s₁ ∧ ∀ s, s₁ ≤ s → (S.lambda (Λ.path s)).rnth n = (S.lambda (Λ.path s₁)).rnth n,
+    { rcases this with ⟨s₁, eqn, hyp_s₁⟩, refine ⟨s₁, λ s eqn_s, _⟩,
+      apply list.rnth_ext', { intros m a, simp[list.initial_rnth_some_iff], sorry } },
+    by_cases C₁ : ∀ s, s₀ ≤ s → (S.lambda (Λ.path s)).rnth n = none,
+    { refine ⟨s₀, by refl, λ s eqn_s, _⟩, simp[C₁ s eqn_s, C₁ s₀ (by refl)] },
+    have C₁ : ∃ s₁, s₀ ≤ s₁ ∧ ∃ x, (S.lambda (Λ.path s₁)).rnth n = some x,
+    { simp at C₁, rcases C₁ with ⟨s₁, eqn, C₁⟩, exact ⟨s₁, eqn, option.ne_none_iff_exists'.mp C₁⟩ },
+    rcases C₁ with ⟨s₁, eqn_s₁, ν, C₁⟩,
+    by_cases C₂ : ∀ s, s₁ ≤ s → (S.lambda (Λ.path s)).rnth n = some ∞,
+    { refine ⟨s₁, eqn_s₁, λ s eqn_s, _⟩, simp[C₂, C₂ s eqn_s] },
+    have C₂ : ∃ s₂, s₁ ≤ s₂ ∧ ∃ (ν : Tree 0), (S.lambda (Λ.path s₂)).rnth n = some (sum.inr ν),
+    { simp at C₂, rcases C₂ with ⟨s₂, eqn_s₂, C₂⟩,
+      refine ⟨s₂, eqn_s₂, _⟩,
+      cases C : (S.lambda (Λ.path s₂)).rnth n,
+      {  }  }  }
+
+end 
+
+
+theorem finite_injury' :
   ∀ (n : ℕ), ∃ (s₀ : ℕ), ∀ (s : ℕ), s₀ ≤ s →
     S.lambda (Λ.path s)↾*n = S.lambda (Λ.path s₀)↾*n := λ n,
 begin
