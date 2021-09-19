@@ -175,6 +175,16 @@ begin
     simp [list.initial, list.rnth, ←this] at*, simp[list.nth_take eq, h] }
 end
 
+lemma initial_rnth_of_lt  {α} {l : list α} {n m : ℕ} (h : n < m) :
+  (l↾*m).rnth n = l.rnth n :=
+begin
+  cases C₂ : l.rnth n,
+  { have : ∀ a, ¬((l↾*m).rnth n = some a),
+    { intros a, simp[initial_rnth_some_iff], simp[C₂] },
+    cases (l↾*m).rnth n with x, { refl }, { exfalso, exact this x rfl } },
+  { exact initial_rnth_some_iff.mpr ⟨C₂, h⟩ }
+end
+
 lemma initial_rnth_some  {α} {l : list α} {n m : ℕ} {a} :
   (l↾*m).rnth n = some a → l.rnth n = some a :=
 begin
@@ -337,7 +347,6 @@ lemma suffix_of_is_initial_is_initial {l₁ l₂ l₃ : list α} (h₁ : l₁ �
 by { rcases h₁ with ⟨l12, a12, h₁⟩, rcases h₂ with ⟨l23, h₂⟩,
      refine ⟨l23 ++ l12, a12, by simp[h₁, h₂]⟩ }
 
-
 @[simp] lemma is_initial_cons (a : α) (l : list α) : l ⊂ᵢ a :: l := ⟨[], a, rfl⟩
 
 lemma is_initial_cons_iff {x : α} {l₁ l₂ : list α} :
@@ -429,6 +438,8 @@ begin
   simp[this, list.drop_append]
 end
 
+lemma suffix_initial (l : list α) (n : ℕ) : l↾*n <:+ l :=
+by { simp[initial], exact drop_suffix (length l - n) l }
 
 end list
 
