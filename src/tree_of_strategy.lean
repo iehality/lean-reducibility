@@ -93,6 +93,7 @@ structure Path (n : ℕ) :=
 (mono : ∀ m, path m <:+ path (m + 1))
 
 namespace Path
+
 variables {i : ℕ} (Λ : Path i)
 
 lemma mono' : ∀ {n m : ℕ} (le : n ≤ m), Λ.path n <:+ Λ.path m :=
@@ -849,6 +850,36 @@ begin
     { have := IH s₂ (eqn_s₁.trans eqn_s₂), simp[this],
       have := IH s ((eqn_s₁.trans eqn_s₂).trans eqn_s), simp[this] } } 
 end 
+
+theorem finite_injury' :
+  ∃ Λ' : Path 1, ∀ n, ∃ s₀, ∀ s, s₀ ≤ s → S.lambda (Λ.path s)↾*n = Λ'.path n :=
+begin
+  let P : ℕ → ℕ → Prop := λ n s₀, (∀ s, s₀ ≤ s → S.lambda (Λ.path s)↾*n = S.lambda (Λ.path s₀)↾*n),
+  have : ∀ n, ∃ s₀, P n s₀, from λ n, S.finite_injury Λ n,
+  have : ∀ n, ∃ s₀, (∀ s, s < s₀ → ¬P n s) ∧ P n s₀,
+  { intros n, exact nat.least_number (this n) },
+  have : ∃ (f : ℕ → ℕ), ∀ x, (∀ s, s < f x → ¬P x s) ∧ P x (f x),
+    from classical.skolem.mp this,
+  rcases this with ⟨f, h_f⟩,
+  let path : ℕ → Tree 1 := λ n, S.lambda (Λ.path (f n))↾*n,
+  have mono : ∀ n, path n <:+ path (n + 1),
+  { intros n, simp[path],
+    have mono : f n ≤ f (n + 1),
+    { suffices : ¬f (n + 1) < f n, { simp* at* },
+      intros A,
+      have min : ∃ x, f (n + 1) ≤ x ∧ ¬S.lambda (Λ.path x)↾*n = S.lambda (Λ.path (f (n + 1)))↾*n,
+      { have := (h_f n).1 _ A, simp[P] at this, exact this },
+      rcases min with ⟨m, le_m, neq⟩,
+      have : S.lambda (Λ.path m)↾*(n + 1) = S.lambda (Λ.path (f (n + 1)))↾*(n + 1),
+      { have := (h_f (n + 1)).2 _ le_m, exact this },
+      have := (congr_arg (λ l : list _, l↾*n) this), simp at this, exact neq this },
+    have : S.lambda (Λ.path (f (n + 1)))↾*n = S.lambda (Λ.path (f n))↾*n, from (h_f n).2 _ mono, 
+    simp[←this],
+    rw (show S.lambda (Λ.path (f (n + 1)))↾*n = S.lambda (Λ.path (f (n + 1)))↾*(n + 1)↾*n, by simp),
+    exact list.suffix_initial _ _ },
+  refine ⟨⟨path, mono⟩, λ n, ⟨f n, λ s eqn_s, _⟩⟩,
+  exact (h_f n).2 _ eqn_s
+end
 
 end strategy
 

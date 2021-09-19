@@ -502,6 +502,15 @@ def list.of_list {α : Type*} : ∀ l : list α, (fin (l.length) → α)
 | []        := finitary.nil
 | (a :: as) := as.of_list ::ᶠ a
 
+namespace nat
+
+lemma least_number {p : ℕ → Prop} (ex : ∃ n, p n) : ∃ n, (∀ m, m < n → ¬ p m) ∧ p n :=
+by { revert ex, contrapose, simp, intros h, exact nat.strong_rec' h }
+
+lemma least_number' {p : ℕ → Prop} {n} (ex : p n) : ∃ n, (∀ m, m < n → ¬ p m) ∧ p n :=
+nat.least_number ⟨n, ex⟩
+
+end nat
 
 section classical
 local attribute [instance, priority 0] classical.prop_decidable
