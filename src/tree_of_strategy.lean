@@ -22,6 +22,10 @@ instance : ∀ n, decidable_eq (Tree' n)
 
 def Tree (n : ℕ) := Tree' (n + 1)
 
+instance : has_zero (zero ⊕ infinity) := ⟨sum.inl zero.zero⟩
+
+notation `∞` := sum.inl infinity.infinity
+
 def branch {n} (η : Tree n) := { μ : Tree n // μ ⊂ᵢ η }
 
 instance {n} {η : Tree n} : has_lt (branch η) := ⟨λ x y, x.val ⊂ᵢ y.val⟩
@@ -94,6 +98,12 @@ structure Path (n : ℕ) :=
 
 namespace Path
 
+def trivialPath_aux {i : ℕ} : ℕ → Tree i
+| 0       := []
+| (n + 1) := ∞ :: trivialPath_aux n
+
+instance (i) : nonempty (Path i) := ⟨⟨trivialPath_aux, by simp[trivialPath_aux]⟩⟩
+
 variables {i : ℕ} (Λ : Path i)
 
 lemma mono' : ∀ {n m : ℕ} (le : n ≤ m), Λ.path n <:+ Λ.path m :=
@@ -111,9 +121,7 @@ end Path
 def branch.cons' {n} {η : Tree n} {a} (μ : branch η) : branch (a :: η) :=
 ⟨μ.val, μ.property.trans (η.is_initial_cons _)⟩
 
-instance : has_zero (zero ⊕ infinity) := ⟨sum.inl zero.zero⟩
 
-notation `∞` := sum.inl infinity.infinity
 
 structure strategy (R : Type*) :=
 (par₀ : Tree 0 → ℕ)
@@ -130,7 +138,7 @@ def out {n} : Π {η : Tree n}, branch η → infinity ⊕ Tree' n
 | (ν :: η) ⟨μ, μ_p⟩ := if h : μ ⊂ᵢ η then out ⟨μ, h⟩ else ν
 
 lemma out_eq_iff {n} : ∀ {η : Tree n} {μ : branch η} {ν}, out μ = ν ↔ ν :: μ.val <:+ η
-| []       ⟨μ, μ_p⟩ _ := by exfalso; simp* at*
+| []       ⟨μ, μ_p⟩ _  := by exfalso; simp* at*
 | (ν :: η) ⟨μ, μ_p⟩ ν' :=
     by { simp, have : μ = η ∨ μ ⊂ᵢ η, from list.is_initial_cons_iff.mp μ_p, cases this,
          { rcases this with rfl, simp[out], exact eq_comm },
@@ -880,6 +888,12 @@ begin
   refine ⟨⟨path, mono⟩, λ n, ⟨f n, λ s eqn_s, _⟩⟩,
   exact (h_f n).2 _ eqn_s
 end
+
+noncomputable def Lambda (Λ : Path 0) : Path 1 := classical.epsilon
+(λ Λ',  ∀ n, ∃ s₀, ∀ s, s₀ ≤ s → S.lambda (Λ.path s)↾*n = Λ'.path n)
+
+theorem Lambda_spec : ∀ n, ∃ s₀, ∀ s, s₀ ≤ s → S.lambda (Λ.path s)↾*n = (S.Lambda Λ).path n :=
+classical.epsilon_spec (S.finite_injury' Λ)
 
 end strategy
 

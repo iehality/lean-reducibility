@@ -210,7 +210,7 @@ by { simp[list.initial, show l.length + 1 - n = l.length - n + 1, by omega] }
 @[simp] lemma initial_cons_self {l : list α} {d} : (d :: l)↾*l.length = l :=
 by simp[list.initial]
 
-def get_elem  {α} (p : α → Prop) [decidable_pred p] (l : list α) : option α :=
+def get_elem {α} (p : α → Prop) [decidable_pred p] (l : list α) : option α :=
 l.nth (l.find_index p)
 
 @[simp] theorem get_elem_iff {α} {p : α → Prop} [decidable_pred p] {l : list α} : ∀ x,
@@ -253,12 +253,24 @@ begin
     { intros hyp n x eqn_x, exact hyp (n+1) x eqn_x } }
 end
 
+def get_elem_r {α} (p : α → Prop) [decidable_pred p] (l : list α) : option α :=
+l.reverse.get_elem p
+
+@[simp] theorem get_elem_r_iff {α} {p : α → Prop} [decidable_pred p] {l : list α} : ∀ x,
+  l.get_elem_r p = some x ↔
+  ∃ n, l.rnth n = some x ∧ p x ∧ ∀ m z, m < n → l.rnth m = some z → ¬p z :=
+get_elem_iff
+
+@[simp] theorem get_elem_r_iff_none {α} {p : α → Prop} [decidable_pred p] {l : list α} :
+  l.get_elem_r p = none ↔ ∀ n x, l.rnth n = some x → ¬p x :=
+get_elem_iff_none
+
 def fdecode {α σ} [decidable_eq α] (c : list (α × σ)) (a : α) : option σ :=
 (c.get_elem (λ x : α × σ, x.fst = a)).map prod.snd
 -- fdecode c a = ε b. ⟨a, b⟩ ∈ c
 
 def sdecode {α} [decidable_eq α] (a : α) (c : list (α × bool)) : Prop := c.fdecode a = some tt
--- sdecode c a = ⟨a, tt⟩ ∈ c
+-- sdecode c a ↔ ⟨a, tt⟩ ∈ c
 
 @[simp] theorem fdecode_iff {α σ} [decidable_eq α] (c : list (α × σ)) {x y} :
   c.fdecode x = some y ↔
