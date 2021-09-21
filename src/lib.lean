@@ -2,6 +2,8 @@ import tactic data.pfun computability.primrec data.list.basic
 
 open encodable part
 
+universes u v
+
 section
 
 @[simp, reducible] def prod.unpaired {α β γ} (f : α → β → γ) : α × β → γ := λ p, f p.1 p.2
@@ -77,9 +79,13 @@ lemma rnth_cons {l : list α} {n : ℕ} {a} (hn : n < l.length) :
   (a :: l).rnth n = l.rnth n :=
 by { simp[list.rnth], exact list.nth_append (by simp; exact hn) }
 
+
+
 lemma rnth_le_rnth {l : list α} {n} (h : n < l.length) :
   l.rnth n = some (l.rnth_le n h) :=
 by simp[list.rnth, list.rnth_le]; exact nth_le_nth _
+
+
 
 lemma irnth_rnth [inhabited α] {l : list α} :
   ∀ {n}, n < l.length → l.rnth n = some (l.irnth n) :=
@@ -96,11 +102,41 @@ begin
   simp at h1, exact h1
 end
 
+lemma mem_iff_rnth {a : α} {l : list α} :
+a ∈ l ↔ ∃ (n : ℕ), l.rnth n = some a :=
+by { have := @mem_iff_nth _ a l.reverse, simp at this, exact this }
+
 lemma rnth_none {l : list α} {n} : l.rnth n = none ↔ l.length ≤ n :=
 by simp[list.rnth]
 
+lemma rnth_cons_none {l : list α} {a} {n} : (a :: l).rnth n = none ↔ l.length < n :=
+by {simp[list.rnth], exact nat.succ_le_iff }
+
+lemma rnth_cons_some_iff {l : list α} {n : ℕ} {a a' : α} :
+  (a :: l).rnth n = a' ↔ (l.rnth n = a' ∧ n < l.length) ∨ (a = a' ∧ n = l.length) :=
+begin
+  have C : n < l.length ∨ n = l.length ∨ l.length < n, exact trichotomous n (length l),
+  cases C,
+  { have : ¬n = l.length, { intros h, simp[h] at C, contradiction },
+    simp[C, rnth_cons, this] },cases C,
+  { rcases C with rfl, unfold_coes, simp },
+  { unfold_coes, simp[C, rnth_cons_none.mpr],
+    have eqn₁ : ¬ n < l.length, { intros h, exact nat.lt_asymm C h },
+    have eqn₂ : ¬ n = l.length, { intros h, simp[h] at C, contradiction },
+    simp[eqn₁, eqn₂] }
+end
+
 theorem rnth_map {α β} (f : α → β) : ∀ (l : list α) n, (l.map f).rnth n = (l.rnth n).map f :=
 by simp [list.rnth, ←list.map_reverse]
+
+lemma rnth_eq_nth_of_lt {l : list α} {n : ℕ} (hn : n < l.length) : l.rnth n = l.nth (l.length - 1 - n) :=
+by { simp[list.rnth, rnth_le_rnth hn],
+     have eqn :l.length - 1 - n < l.length, { omega },
+     have : l.rnth_le n hn = l.nth_le (l.length - 1 - n) eqn,
+       from list.nth_le_reverse' l n (by simp[hn]) eqn, simp[this, nth_le_nth eqn] }
+
+lemma rnth_of_rnth_cons {l : list α} {a a' : α} {n} (h : l.rnth n = a') : (a :: l).rnth n = a' :=
+by simp[rnth_cons_some_iff]; exact or.inl ⟨h, rnth_some_lt h⟩
 
 theorem nth_find_index {α} {p : α → Prop} [decidable_pred p] {l : list α} :
   ∀ {a}, l.nth (l.find_index p) = some a → p a :=
@@ -116,6 +152,30 @@ begin
   have : n < list.find_index p l, from nat.succ_lt_succ_iff.mp e,
   exact IH this
 end
+
+@[simp] def range_r : ℕ → list ℕ
+| 0       := []
+| (n + 1) := n :: range_r n
+
+lemma range_r_eq_reverse_range (n) : range_r n = (range n).reverse :=
+by { induction n with n IH, { simp }, { simp[IH, list.range_succ] } }
+
+@[simp] lemma mem_range_r_iff_mem_reverse_range (n m) : m ∈ range_r n ↔ m ∈ range n :=
+by simp[range_r_eq_reverse_range]
+
+theorem nodup_range_r (n : ℕ) : nodup (range_r n) :=
+by simp[range_r_eq_reverse_range]; exact nodup_range n
+
+@[simp] lemma length_range_r (n : ℕ) : (list.range_r n).length = n :=
+by simp[range_r_eq_reverse_range]
+
+@[simp] lemma range_r_rnth : ∀ {n i} (h : i < n), (range_r n).rnth i = some i
+| (n + 1) i h := by { simp, 
+    have C : i < n ∨ i = n, from lt_or_eq_of_le (nat.lt_succ_iff.mp h),
+    cases C,
+    { have : (n :: range_r n).rnth i = (range_r n).rnth i, from rnth_cons (by simp[C]),
+      simp[this, range_r_rnth C] },
+    { simp[C], have := rnth_concat_length n (range_r n), simp at this, exact this } }
 
 def initial {α} (l : list α) (n : ℕ) : list α := l.drop (l.length - n)
 
@@ -213,13 +273,12 @@ by simp[list.initial]
 def get_elem {α} (p : α → Prop) [decidable_pred p] (l : list α) : option α :=
 l.nth (l.find_index p)
 
-@[simp] theorem get_elem_iff {α} {p : α → Prop} [decidable_pred p] {l : list α} : ∀ x,
-  l.get_elem p = some x ↔
-  ∃ n, l.nth n = some x ∧ p x ∧ ∀ m z, m < n → l.nth m = some z → ¬p z :=
+theorem get_elem_eq_some_iff {α} {p : α → Prop} [decidable_pred p] {l : list α} {x} :
+  l.get_elem p = some x ↔ ∃ n, l.nth n = some x ∧ p x ∧ ∀ m z, m < n → l.nth m = some z → ¬p z :=
 begin
   simp [list.get_elem],
-  induction l with a l IH; simp [list.find_index],
-  intros x, by_cases C : p a; simp [C],
+  induction l with a l IH generalizing x; simp [list.find_index],
+  by_cases C : p a; simp [C],
   { split, 
     { intros eqn, use 0, simp[←eqn, C] },
     { rintros ⟨n, hyp, px, hyp1⟩,
@@ -241,7 +300,7 @@ begin
       exact hyp_n (m+1) z this (by simp; exact eqn_z) } }
 end
 
-@[simp] theorem get_elem_iff_none {α} {p : α → Prop} [decidable_pred p] {l : list α} :
+theorem get_elem_iff_none {α} {p : α → Prop} [decidable_pred p] {l : list α} :
   l.get_elem p = none ↔ ∀ n x, l.nth n = some x → ¬p x :=
 begin
   simp [list.get_elem, list.find_index],
@@ -256,14 +315,17 @@ end
 def get_elem_r {α} (p : α → Prop) [decidable_pred p] (l : list α) : option α :=
 l.reverse.get_elem p
 
-@[simp] theorem get_elem_r_iff {α} {p : α → Prop} [decidable_pred p] {l : list α} : ∀ x,
-  l.get_elem_r p = some x ↔
-  ∃ n, l.rnth n = some x ∧ p x ∧ ∀ m z, m < n → l.rnth m = some z → ¬p z :=
-get_elem_iff
+theorem get_elem_r_eq_some_iff {α} {p : α → Prop} [decidable_pred p] {l : list α} {x} :
+  l.get_elem_r p = ↑x ↔ ∃ n, l.rnth n = ↑x ∧ p x ∧ ∀ m z, m < n → l.rnth m = ↑z → ¬p z :=
+@get_elem_eq_some_iff _ _ _ _ x
 
-@[simp] theorem get_elem_r_iff_none {α} {p : α → Prop} [decidable_pred p] {l : list α} :
+theorem get_elem_r_eq_none_iff_rnth {α} {p : α → Prop} [decidable_pred p] {l : list α} :
   l.get_elem_r p = none ↔ ∀ n x, l.rnth n = some x → ¬p x :=
 get_elem_iff_none
+
+theorem get_elem_r_eq_none_iff_mem {α} {p : α → Prop} [decidable_pred p] {l : list α} :
+  l.get_elem_r p = none ↔ ∀ x, x ∈ l → ¬p x :=
+by {  simp[list.mem_iff_rnth, get_elem_r_eq_none_iff_rnth], exact forall_swap }
 
 def fdecode {α σ} [decidable_eq α] (c : list (α × σ)) (a : α) : option σ :=
 (c.get_elem (λ x : α × σ, x.fst = a)).map prod.snd
@@ -276,7 +338,7 @@ def sdecode {α} [decidable_eq α] (a : α) (c : list (α × bool)) : Prop := c.
   c.fdecode x = some y ↔
   ∃ n, c.nth n = some (x, y) ∧ ∀ m z, m < n → c.nth m ≠ some (x, z) :=
 begin
-  simp [list.fdecode, list.get_elem_iff], split,
+  simp [list.fdecode, list.get_elem_eq_some_iff], split,
   { rintros ⟨a, n, eqn_n, eqn_a, hyp⟩,
     refine ⟨n, (by simp [←eqn_a]; exact eqn_n), λ m z eqn_m eqn_m1, _⟩,
     have := hyp m (x, z) eqn_m eqn_m1, simp at this, contradiction },
@@ -453,9 +515,124 @@ end
 lemma suffix_initial (l : list α) (n : ℕ) : l↾*n <:+ l :=
 by { simp[initial], exact drop_suffix (length l - n) l }
 
+lemma map_suffix {α β} {l l' : list α} (f : α → β) (h : l <:+ l') :
+  l.map f <:+ l'.map f :=
+begin
+  rcases h with ⟨l'', h⟩,
+  refine ⟨map f l'', _⟩, simp[←h]
+end
+
+@[simp] def ordered (r : α → α → Prop) : list α → Prop
+| []       := true
+| (a :: l) := ordered l ∧ (∀ a', a' ∈ l → r a' a)
+
+lemma ordered_mono {r : α → α → Prop} {l : list α} (o : l.ordered r) :
+  ∀ {n m : ℕ} (lt : n < m) {a₁ a₂ : α} (h₁ : l.rnth n = a₁) (h₂ : l.rnth m = a₂), r a₁ a₂ :=
+begin
+  suffices :
+    ∀ n m {a₁ a₂ : α} (h₁ : l.rnth n = a₁) (h₂ : l.rnth (n + 1 + m) = a₂), r a₁ a₂,
+    { intros n m lt, have := @this n (m - (n + 1)),
+      have le : n + 1 ≤ m, from nat.succ_le_iff.mpr lt,
+      simp[nat.add_sub_of_le le] at this, exact @this },
+  intros n m a₁ a₂ eqn₁ eqn₂, induction l with a l IH generalizing n m a₁ a₂,
+  { simp at eqn₂, exfalso, exact option.not_mem_none a₂ eqn₂ },
+  { simp at o,
+    have lt : n < l.length, { have := rnth_some_lt eqn₂, simp at this,
+      simp[nat.succ_add n m, ←nat.add_one] at this, exact buffer.lt_aux_1 this },
+    have eqn₁ : l.rnth n = ↑a₁, { simp[lt, rnth_cons] at eqn₁, exact eqn₁ },
+    simp[rnth_cons, lt, rnth_cons_some_iff] at eqn₂, cases eqn₂,
+    { exact IH o.1 _ _ eqn₁ eqn₂.1 },
+    { rcases eqn₂ with ⟨rfl, eqn₂⟩, refine o.2 _ (mem_iff_rnth.mpr ⟨n, eqn₁⟩) } }
+end
+
+
+lemma ordered_isomorphism {r : α → α → Prop} [is_irrefl α r] [is_asymm α r] {l : list α} (o : l.ordered r)
+  {n m : ℕ} {a₁ a₂ : α} (h₁ : l.rnth n = a₁) (h₂ : l.rnth m = a₂) : n < m ↔ r a₁ a₂ :=
+begin
+  have C : n < m ∨ n = m ∨ m < n, from trichotomous n m,
+  cases C,
+  { simp[C], exact ordered_mono o C h₁ h₂ }, cases C,
+  { rcases C with rfl, 
+    have : a₁ = a₂, { simp[h₁] at h₂, exact option.some_inj.mp h₂ },
+    simp[this], exact irrefl a₂ },
+  { have : ¬n < m, { intros h, exact nat.lt_asymm C h },
+    simp[this],
+    intros A,
+    have : r a₂ a₁, from ordered_mono o C h₂ h₁, exact asymm A this }
+end
+
+lemma ordered_filter {r : α → α → Prop} (p : α → Prop) [decidable_pred p] : ∀ {l : list α}
+  (h : l.ordered r), (l.filter p).ordered r 
+| []       h := by simp
+| (a :: l) h := by { simp[filter] at h ⊢,
+    by_cases C : p a; simp[C],
+    { exact ⟨ordered_filter h.1, λ a' mem pa', h.2 _ mem⟩ },
+    { exact ordered_filter h.1 } }
+
+lemma ordered_map {α β} {r : α → α → Prop} {r' : β → β → Prop} (f : α → β)
+  (isom : ∀ x y, r x y → r' (f x) (f y)) : ∀ {l : list α} (o : l.ordered r), (l.map f).ordered r'
+| []       o := by simp
+| (a :: l) o := by { simp at o ⊢, refine ⟨ordered_map o.1, λ a' mem, isom _ _ (o.2 _ mem)⟩ }
+
 end list
 
+namespace option
+variables {α : Type u}
+
+@[simp] lemma some_ne_none' (x : α) : ¬ (↑x : option α) = none := option.some_ne_none x
+@[simp] lemma some_ne_none'' (x : α) : ¬ none = (↑x : option α) := ne.symm (option.some_ne_none x)
+
+@[simp] theorem some_inj' {a b : α} : (↑a : option α) = ↑b ↔ a = b := by unfold_coes; simp
+@[simp] theorem some_inj'' {a b : α} : ↑a = some b ↔ a = b := by unfold_coes; simp
+@[simp] theorem some_inj''' {a b : α} : some a = ↑b ↔ a = b := by unfold_coes; simp
+
+ end option
+
+namespace equiv
+variables {α : Type u} (f : α ≃ ℕ)
+
+def prec (a b : α) : Prop := f a < f b
+
+instance prec_decidable : ∀ a b : α, decidable (f.prec a b) :=
+by { intros a b, simp[equiv.prec], exact nat.decidable_lt _ _ }
+
+def min (a b : α) : α := if f.prec a b then a else b
+
+end equiv
+
 section rel
+variables {α : Type u} [linear_order α]
+
+def Min : list α → option α
+| []       := none
+| (a :: l) := if h : (Min l).is_some then some (min a (option.get h)) else a
+
+lemma mem_of_Min : ∀ {l : list α} {a : α} (h : a ∈ Min l), a ∈ l
+| []       a := by simp[Min]
+| (x :: l) a := by { simp[Min, min], unfold_coes, cases C₁ : Min l with a'; simp,
+    { intros eqn, simp[eqn] },
+    { have := mem_of_Min C₁, by_cases C₂ : x ≤ a'; simp[C₂],
+      { intros eqn, simp[eqn] },
+      { intros eqn, simp[←eqn, this] } } }
+
+@[simp] lemma min_none_iff : ∀ l : list α, Min l = none ↔ l = []
+| [] := by simp[Min]
+| (x :: l) := by { simp[Min], cases C : Min l; simp[C], }
+
+lemma mem_of_Min_iff_le : ∀ {l : list α} {m : α}, Min l = m ↔ m ∈ l ∧ ∀ a ∈ l, m ≤ a
+| []       _  := by simp[Min]
+| (x :: l) m := by { simp[Min], cases C : Min l with m'; simp[C],
+    { simp at C, simp[C], refine ⟨λ eqn, by simp[eqn], λ eqn, by simp[eqn]⟩ },
+    { have : m' ∈ l ∧ ∀ (a : α), a ∈ l → m' ≤ a, from mem_of_Min_iff_le.mp C, rcases this with ⟨IH₁, IH₂⟩,
+      by_cases C₁ : x ≤ m'; simp[min, C₁],
+      { split, { rintros rfl, simp, intros a mem, exact le_trans C₁ (IH₂ a mem) },
+        { rintros ⟨(h₁ | h₁), h₂, h₃⟩, { simp[h₁] },
+          { have : m = m', { exact le_antisymm (h₃ m' IH₁) (IH₂ m h₁) }, rcases this with rfl,
+            exact le_antisymm C₁ h₂ } } },
+      { split,
+        { rintros rfl, exact ⟨or.inr IH₁, le_of_not_ge C₁, IH₂⟩ },
+        { rintros ⟨(h₁ | h₁), h₂, h₃⟩, {exfalso, rcases h₁ with rfl, exact C₁ (h₃ m' IH₁) },
+          { exact le_antisymm (IH₂ m h₁) (h₃ m' IH₁) } } } } }
 
 end rel
 
