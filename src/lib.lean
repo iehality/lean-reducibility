@@ -545,7 +545,6 @@ begin
     { rcases eqn₂ with ⟨rfl, eqn₂⟩, refine o.2 _ (mem_iff_rnth.mpr ⟨n, eqn₁⟩) } }
 end
 
-
 lemma ordered_isomorphism {r : α → α → Prop} [is_irrefl α r] [is_asymm α r] {l : list α} (o : l.ordered r)
   {n m : ℕ} {a₁ a₂ : α} (h₁ : l.rnth n = a₁) (h₂ : l.rnth m = a₂) : n < m ↔ r a₁ a₂ :=
 begin
@@ -586,46 +585,44 @@ variables {α : Type u}
 @[simp] theorem some_inj'' {a b : α} : ↑a = some b ↔ a = b := by unfold_coes; simp
 @[simp] theorem some_inj''' {a b : α} : some a = ↑b ↔ a = b := by unfold_coes; simp
 
- end option
+end option
 
-namespace equiv
-variables {α : Type u} (f : α ≃ ℕ)
+class omega_ordering (α : Type u) :=
+(ordering : α → ℕ)
+(inj : function.injective ordering)
 
-def prec (a b : α) : Prop := f a < f b
+namespace omega_ordering
 
-instance prec_decidable : ∀ a b : α, decidable (f.prec a b) :=
-by { intros a b, simp[equiv.prec], exact nat.decidable_lt _ _ }
+instance {α : Type u} [omega_ordering α] : linear_order α :=
+{ le := λ x y, (omega_ordering.ordering x) ≤ (omega_ordering.ordering y),
+  lt := λ x y, (omega_ordering.ordering x) < (omega_ordering.ordering y),
+  le_refl := λ x, le_refl (omega_ordering.ordering x),
+  le_trans := λ x y z, by { simp, exact le_trans },
+  lt_iff_le_not_le := λ x y, by { simp, exact le_of_lt },
+  le_antisymm := λ x y h₁ h₂,
+    by { have := @le_antisymm ℕ _ _ _ h₁ h₂, exact omega_ordering.inj this },
+  le_total := λ x y, @le_total ℕ _ _ _,
+  decidable_le := λ x y,
+    @has_le.le.decidable ℕ _ (omega_ordering.ordering x) (omega_ordering.ordering y), }
 
-def min (a b : α) : α := if f.prec a b then a else b
-
-end equiv
-
-section rel
-variables {α : Type u} [linear_order α]
-
-def Min : list α → option α
+def Min {α : Type u} (o : omega_ordering α) : list α → option α
 | []       := none
 | (a :: l) := if h : (Min l).is_some then some (min a (option.get h)) else a
 
-lemma mem_of_Min : ∀ {l : list α} {a : α} (h : a ∈ Min l), a ∈ l
-| []       a := by simp[Min]
-| (x :: l) a := by { simp[Min, min], unfold_coes, cases C₁ : Min l with a'; simp,
-    { intros eqn, simp[eqn] },
-    { have := mem_of_Min C₁, by_cases C₂ : x ≤ a'; simp[C₂],
-      { intros eqn, simp[eqn] },
-      { intros eqn, simp[←eqn, this] } } }
+variables {α : Type u} {o : omega_ordering α}
 
-@[simp] lemma min_none_iff : ∀ l : list α, Min l = none ↔ l = []
-| [] := by simp[Min]
-| (x :: l) := by { simp[Min], cases C : Min l; simp[C], }
+@[simp] lemma min_none_iff : ∀ l : list α, o.Min l = none ↔ l = []
+| []       := by simp[Min]
+| (x :: l) := by { simp[Min], cases C : o.Min l; simp[C], }
 
-lemma mem_of_Min_iff_le : ∀ {l : list α} {m : α}, Min l = m ↔ m ∈ l ∧ ∀ a ∈ l, m ≤ a
-| []       _  := by simp[Min]
-| (x :: l) m := by { simp[Min], cases C : Min l with m'; simp[C],
+@[simp] lemma mem_of_Min_iff_le : ∀ {l : list α} {m : α}, o.Min l = some m ↔ m ∈ l ∧ ∀ a ∈ l, m ≤ a
+| []       _ := by simp[Min]
+| (x :: l) m := by { simp[Min], cases C : o.Min l with m'; simp[C],
     { simp at C, simp[C], refine ⟨λ eqn, by simp[eqn], λ eqn, by simp[eqn]⟩ },
     { have : m' ∈ l ∧ ∀ (a : α), a ∈ l → m' ≤ a, from mem_of_Min_iff_le.mp C, rcases this with ⟨IH₁, IH₂⟩,
       by_cases C₁ : x ≤ m'; simp[min, C₁],
-      { split, { rintros rfl, simp, intros a mem, exact le_trans C₁ (IH₂ a mem) },
+      { split,
+        { rintros rfl, simp, intros a mem, exact le_trans C₁ (IH₂ a mem) },
         { rintros ⟨(h₁ | h₁), h₂, h₃⟩, { simp[h₁] },
           { have : m = m', { exact le_antisymm (h₃ m' IH₁) (IH₂ m h₁) }, rcases this with rfl,
             exact le_antisymm C₁ h₂ } } },
@@ -634,8 +631,7 @@ lemma mem_of_Min_iff_le : ∀ {l : list α} {m : α}, Min l = m ↔ m ∈ l ∧ 
         { rintros ⟨(h₁ | h₁), h₂, h₃⟩, {exfalso, rcases h₁ with rfl, exact C₁ (h₃ m' IH₁) },
           { exact le_antisymm (IH₂ m h₁) (h₃ m' IH₁) } } } } }
 
-end rel
-
+end omega_ordering
 namespace fin
 
 def add' {n} (i : fin n) : fin (n + 1) := ⟨i, nat.lt.step i.property⟩

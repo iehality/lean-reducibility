@@ -45,9 +45,7 @@ instance {n} {η : Tree n} : linear_order (branch η) :=
     have h₁ := (list.is_initial_iff_suffix.mp μ₁.property).1,
     have h₂ := (list.is_initial_iff_suffix.mp μ₂.property).1,
     exact list.suffix_or_suffix_of_suffix h₁ h₂ },
-  decidable_le := λ μ₁ μ₂, list.decidable_suffix μ₁.val μ₂.val,
-  decidable_eq := subtype.decidable_eq,
-  decidable_lt := λ μ₁ μ₂, list.is_initial_decidable μ₁.val μ₂.val, }
+  decidable_le := λ μ₁ μ₂, list.decidable_suffix μ₁.val μ₂.val }
 
 def Tree.branches {n} (η : Tree n) : list (branch η) :=
 (list.range_r η.length).pmap (λ m (h :m < η.length), (⟨η↾*m, list.is_initial_of_lt_length h⟩ : branch η))
@@ -55,6 +53,13 @@ def Tree.branches {n} (η : Tree n) : list (branch η) :=
 -- η.branches = [ ... η↾*2, η↾*1, η↾*0]
 
 namespace branch
+
+instance {n} {η : Tree n} : has_coe (branch η) (Tree n) :=
+⟨subtype.val⟩
+
+lemma le_iff {n} {η : Tree n} {μ₁ μ₂ : branch η} : μ₁ ≤ μ₂ ↔ μ₁.val ⊆ μ₂.val := by refl
+
+lemma lt_iff {n} {η : Tree n} {μ₁ μ₂ : branch η} : μ₁ < μ₂ ↔ μ₁.val ⊂ μ₂.val := by refl
 
 @[simp] def cons' {n} {η : Tree n} {a} (μ : branch η) : branch (a :: η) :=
 ⟨μ.val, μ.property.trans (η.is_initial_cons _)⟩
@@ -131,9 +136,6 @@ by { have : (branch_univ' η).card = (branch_univ η).card,
      { apply finset.card_image_of_injective, intros x y, exact subtype.eq },
      simp[this] }
 
-instance {n} {η : Tree n} : has_coe (branch η) (Tree n) :=
-⟨subtype.val⟩
-
 end branch
 
 structure Path (n : ℕ) :=
@@ -160,14 +162,18 @@ begin
   { simp[←nat.add_one, ←add_assoc], exact IH.trans (Λ.mono _) }
 end
 
-end Path
+lemma ssubset_of_le {n m : ℕ} {η : Tree i} (ss : η ⊂ Λ.path n) (le : n ≤ m) : η ⊂ Λ.path m :=
+list.suffix_of_is_initial_is_initial ss (Λ.mono' le)
 
-structure strategy (R : Type*) :=
-(par₀ : Tree 0 → ℕ)
-(par₁ : Tree 1 → ℕ)
-(requirement : Tree 1 × ℕ → R)
-(computation : Tree 0 × R → Tree 0 × R → Prop)
-(inf : Tree 1 × ℕ → Tree 1 × ℕ → Tree 1 × ℕ)
+def ssubset {i} (η : Tree i) (Λ : Path i) : Prop := ∃ n, η ⊂ Λ.path n
+def subset {i} (η : Tree i) (Λ : Path i): Prop := ∃ n, η ⊆ Λ.path n
+
+infix ` ⊂' `:50   := Path.ssubset
+infix ` ⊆' `:50   := Path.subset
+
+
+
+end Path
 
 def out {n} : Π {η : Tree n}, branch η → infinity ⊕ Tree' n
 | []       ⟨μ, μ_p⟩ := by exfalso; simp* at*
