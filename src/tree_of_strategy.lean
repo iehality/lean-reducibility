@@ -8,7 +8,7 @@ structure strategy (R : Type*) :=
 (par₀ : Tree 0 → ℕ)
 (par₁ : Tree 1 → ℕ)
 (requirement : Tree 1 × ℕ → R)
-(computation : Tree 0 → Tree 1 × ℕ → Tree' 0)
+(computation : Tree 0 → option (Tree 1 × ℕ) → infinity ⊕ Tree' 0)
 (omega_ordering : omega_ordering (Tree 1 × ℕ))
 
 namespace strategy
@@ -409,7 +409,6 @@ begin
     { simp[lambda'_divergent_out_iff, eqn_η] at div', exact div' },
     have := this _ up_μ₀ div, contradiction }
 end
-  
 
 def requirement {μ : Tree 0} (υ : branch μ → option (Tree 1)) : option R := (assignment S υ).map S.requirement
 
@@ -484,7 +483,7 @@ by { have := @approx.lambda'_divergent_out_iff μ (S.up' μ) n η, simp at this,
 lemma lambda_initial_eq {μ : Tree 0} {n : ℕ} : (S.lambda μ)↾*n = S.lambda' μ n :=
 @approx.lambda_initial_eq μ (S.up' μ) n
 
-def assignment (η : Tree 0) : option (Tree 1 × ℕ) := approx.assignment S (up' S η)
+def assignment (μ : Tree 0) : option (Tree 1 × ℕ) := approx.assignment S (up' S μ)
 
 variables (Λ : Path 0)
 
@@ -682,7 +681,13 @@ begin
     have := (out_iff (max s s₀) (le_max_right s s₀)).mp h ⟨μ, lt⟩, simp at this,
     simp[out_eqn] at this, exact this },
   { intros h, simp[out_iff s₀ (by simp)], exact @h s₀ }
-end  
+end
+
+@[simp] def computation_path_aux : ℕ → Tree 0
+| 0       := []
+| (s + 1) := S.computation (computation_path_aux s) (S.assignment (computation_path_aux s)) :: computation_path_aux s
+
+def computation_path : Path 0 := ⟨S.computation_path_aux, by simp⟩
 
 end strategy
 
