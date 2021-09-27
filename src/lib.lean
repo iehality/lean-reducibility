@@ -522,9 +522,18 @@ begin
   refine ⟨map f l'', _⟩, simp[←h]
 end
 
-@[simp] def ordered (r : α → α → Prop) : list α → Prop
+def ordered (r : α → α → Prop) : list α → Prop
 | []       := true
 | (a :: l) := ordered l ∧ (∀ a', a' ∈ l → r a' a)
+
+@[simp] lemma ordered_nil {r : α → α → Prop} : [].ordered r :=
+by simp[ordered]
+
+@[simp] lemma ordered_singleton {r : α → α → Prop} (a : α) : [a].ordered r :=
+by simp[ordered]
+
+lemma ordered_cons {r : α → α → Prop} {l : list α} {a : α} (o : (a :: l).ordered r) : l.ordered r :=
+by simp[ordered] at o; exact o.1
 
 lemma ordered_mono {r : α → α → Prop} {l : list α} (o : l.ordered r) :
   ∀ {n m : ℕ} (lt : n < m) {a₁ a₂ : α} (h₁ : l.rnth n = a₁) (h₂ : l.rnth m = a₂), r a₁ a₂ :=
@@ -536,7 +545,7 @@ begin
       simp[nat.add_sub_of_le le] at this, exact @this },
   intros n m a₁ a₂ eqn₁ eqn₂, induction l with a l IH generalizing n m a₁ a₂,
   { simp at eqn₂, exfalso, exact option.not_mem_none a₂ eqn₂ },
-  { simp at o,
+  { simp[ordered] at o,
     have lt : n < l.length, { have := rnth_some_lt eqn₂, simp at this,
       simp[nat.succ_add n m, ←nat.add_one] at this, exact buffer.lt_aux_1 this },
     have eqn₁ : l.rnth n = ↑a₁, { simp[lt, rnth_cons] at eqn₁, exact eqn₁ },
@@ -564,14 +573,14 @@ lemma ordered_filter {r : α → α → Prop} (p : α → Prop) [decidable_pred 
   (h : l.ordered r), (l.filter p).ordered r 
 | []       h := by simp
 | (a :: l) h := by { simp[filter] at h ⊢,
-    by_cases C : p a; simp[C],
+    by_cases C : p a; simp[C, ordered],
     { exact ⟨ordered_filter h.1, λ a' mem pa', h.2 _ mem⟩ },
     { exact ordered_filter h.1 } }
 
 lemma ordered_map {α β} {r : α → α → Prop} {r' : β → β → Prop} (f : α → β)
   (isom : ∀ x y, r x y → r' (f x) (f y)) : ∀ {l : list α} (o : l.ordered r), (l.map f).ordered r'
 | []       o := by simp
-| (a :: l) o := by { simp at o ⊢, refine ⟨ordered_map o.1, λ a' mem, isom _ _ (o.2 _ mem)⟩ }
+| (a :: l) o := by { simp[ordered] at o ⊢, refine ⟨ordered_map o.1, λ a' mem, isom _ _ (o.2 _ mem)⟩ }
 
 end list
 
