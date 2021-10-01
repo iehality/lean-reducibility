@@ -126,7 +126,7 @@ theorem t_reducible.of_eq {A B : set α} {C : set β} (hA : A ≤ₜ C) (H : ∀
 
 @[refl] theorem t_reducible.refl (A : set α) [D : decidable_pred A] : A ≤ₜ A := ⟨D, D, nat.rpartrec.refl⟩
 
-@[trans] theorem t_reducible.trans {A : set α} {B : set β} {C : set γ} :
+theorem t_reducible.trans {A : set α} {B : set β} {C : set γ} :
   A ≤ₜ B → B ≤ₜ C → A ≤ₜ C :=
 λ ⟨Da, Db, hab⟩ ⟨Db0, Dc, hbc⟩,
 ⟨Da, Dc, by simp only [encode_to_bool_eq Db Db0] at hab; exact nat.rpartrec.trans hab hbc⟩
@@ -494,7 +494,8 @@ end
 
 theorem Rec_equiv_Jump3 (A : set ℕ) : Rec A ≤ₜ A′′′ :=
 begin
-  simp[Rec, wert], sorry
+  have : Rec A = {e : ℕ | ∃ i, ∀ x, ∃ s, (⟦i⟧ᵪ^(chr A) [s] x = some tt ↔ (⟦e⟧ₙ^(chr A) [s] x).is_some)},
+  { simp[Rec, wert], ext e, simp, sorry }, sorry
 end
 
 lemma rre_enumeration_iff {A : set α} {f : β → σ} (h : ∃ a, a ∈ A) :
@@ -540,5 +541,11 @@ lemma re_enumeration_iff {A : set α} {f : β → σ} (h : ∃ a, a ∈ A) :
   r.e. A → ∃ e : ℕ → α, computable e ∧ (∀ x, x ∈ A ↔ ∃ n, e n = x) := λ hyp,
 by { rcases rre_enumeration_iff h (hyp.to_rpart_in ↑ᵣ(@id ℕ)) with ⟨e, lmm1, lmm2⟩,
      refine ⟨e, rcomputable.le_comp_comp lmm1 computable.id, lmm2⟩ }
+
+theorem post_1 {A : set ℕ} {B : set β} {f : γ → τ} :
+  B ≤₁ A′ → ∃ (R : α × ℕ → bool) (le : R computable_in! f), A = { x | ∃ y, R (x, y) } := λ h,
+begin
+  sorry
+end
 
 end classical

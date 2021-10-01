@@ -4,14 +4,6 @@ open encodable denumerable
 
 attribute [simp] set.set_of_app_iff
 
-@[derive decidable_eq]
-inductive infinity : Type
-| infinity : infinity
-
-@[derive decidable_eq]
-inductive zero : Type
-| zero : zero
-
 def Tree' : ℕ → Type
 | 0       := bool
 | (n + 1) := list (Tree' n)
@@ -183,10 +175,16 @@ lemma out_eq_iff {n} : ∀ {η : Tree n} {μ : branch η} {ν}, out μ = ν ↔ 
              { exfalso, simp at C, rcases C with ⟨_, rfl⟩, simp at this, exact this },
              { exact C } } } }
 
-def Tree'.is_pie : Π {k} (η : Tree' k), bool
+@[simp] def Tree'.is_pie : Π {k} (η : Tree' k), bool
 | 0       ff       := ff
 | 0       tt       := tt
-| (k + 1) (η :: _) := Tree'.is_pie η
+| (k + 1) (η :: _) := !Tree'.is_pie η
+| (k + 1) []       := ff
+
+@[simp] def Tree'.is_validated : Π {k} (η : Tree' k), bool
+| 0       ff       := ff
+| 0       tt       := tt
+| (k + 1) (η :: _) := Tree'.is_validated η
 | (k + 1) []       := ff
 
 def Tree.is_pie {k} (η : Tree' k) : bool := η.is_pie
@@ -194,7 +192,12 @@ def Tree.is_pie {k} (η : Tree' k) : bool := η.is_pie
 def branch.pie {k} {η : Tree k} (μ : branch η) : Prop := (out μ).is_pie = tt
 def branch.sigma {k} {η : Tree k} (μ : branch η) : Prop := (out μ).is_pie = ff
 
+structure strategy :=
+(n : ℕ)
+(omega_ordering (k : ℕ) : omega_ordering (Tree k))
+
 namespace strategy
+variables (S : strategy)
 
 namespace approx
 variables {k : ℕ}
@@ -202,14 +205,33 @@ variables {k : ℕ}
 def derivative (η : Tree (k + 1)) {μ : Tree k} (υ : branch μ → option (Tree (k + 1))) : list (branch μ) :=
 μ.branches.filter (λ a, υ a = η)
 
+lemma derivative_ordered (η : Tree 1) {μ : Tree 0} (υ : branch μ → option (Tree 1)) :
+  (derivative η υ).ordered (<) :=
+by simp[derivative]; exact list.ordered_filter _ (branch.branches_ordered μ)
+
+def initial_derivative
+  (η : Tree (k + 1)) {μ : Tree k} (υ : branch μ → option (Tree (k + 1))) : option (branch μ) :=
+(derivative η υ).nth 0
+
+def pie_derivative
+  (η : Tree (k + 1)) {μ : Tree k} (υ : branch μ → option (Tree (k + 1))) : list (branch μ) :=
+(derivative η υ).filter (λ μ₀, (out μ₀).is_pie)
+
+def principal_derivative
+  (η : Tree (k + 1)) {μ : Tree k} (υ : branch μ → option (Tree (k + 1))) : option (branch μ) :=
+((pie_derivative η υ).nth 0).cases_on' (initial_derivative η υ) some
+
 def lambda : ∀ {μ : Tree k} (υ : branch μ → option (Tree (k + 1))), Tree (k + 1)
 | []       _ := []
-| (x :: μ) υ :=
-    let ih := lambda (@branch.extend_fn k _ μ _ υ (by simp)) in 
+| (x :: μ) υ := let ih := lambda (@branch.extend_fn k _ μ _ υ (by simp)) in 
     if ∃ h : (υ ⟨μ, by simp⟩).is_some, (option.get h = ih) ∨
-      (x.is_pie = tt ∧ (derivative (option.get h) υ).filter (λ μ₀, (out μ₀).is_pie) = [])
+      (x.is_pie = tt ∧ pie_derivative (option.get h) υ = [])
     then (x :: μ) :: ih
     else ih
+
+def antiderivative {μ : Tree k} (υ : branch μ → option (Tree (k + 1))) : option (Tree (k + 1)) :=
+(S.omega_ordering (k + 1)).Min (lambda υ :: ((lambda υ).branches.filter (λ μ₀, (out μ₀).is_pie)).map subtype.val)
+
 
 end approx
 
