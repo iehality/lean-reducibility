@@ -706,6 +706,13 @@ nat.least_number ⟨n, ex⟩
 
 end nat
 
+namespace set
+variables {α : Type*}
+lemma compl_eq (p : α → Prop) : {x | p x}ᶜ = {x | ¬ p x} :=
+by { exact compl_set_of (λ (a : α), p a) } 
+
+end set
+
 section classical
 local attribute [instance, priority 0] classical.prop_decidable
 

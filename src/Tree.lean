@@ -65,6 +65,9 @@ def Tree.branches {n} (η : Tree n) : list (branch η) :=
 (λ _, by simp)
 -- η.branches = [ ... η↾*2, η↾*1, η↾*0]
 
+def Tree.branches' {n} (η : Tree n) : list (Tree n) := η.branches.map subtype.val
+
+
 namespace branch
 variables {k : ℕ}
 
@@ -93,6 +96,13 @@ funext (by simp[extend])
   Tree.branches (x :: η) = ⟨η, by simp⟩ :: η.branches.map (extend (by simp)) :=
 by { simp[Tree.branches, list.map_pmap], apply list.pmap_congr, simp,
      intros m eqn₁ eqn₂, simp [list.initial_cons eqn₂, extend] }
+
+@[simp] lemma branches'_nil {n} : @Tree.branches' n [] = [] := rfl
+
+@[simp] lemma branches'_cons {n} (η : Tree n) (x) :
+  Tree.branches' (x :: η) = η :: η.branches' :=
+by { simp [Tree.branches', branches_cons, function.comp], unfold_coes }
+
 
 lemma branches_suffix_of_suffix {n} {μ₁ μ₂ : Tree n} (s : μ₁ <:+ μ₂) :
   μ₁.branches.map (branch.extend s) <:+ μ₂.branches :=
@@ -229,11 +239,31 @@ def lambda : ∀ {μ : Tree k} (υ : branch μ → option (Tree (k + 1))), Tree 
     then (x :: μ) :: ih
     else ih
 
-def antiderivative {μ : Tree k} (υ : branch μ → option (Tree (k + 1))) : option (Tree (k + 1)) :=
+def up {μ : Tree k} (υ : branch μ → option (Tree (k + 1))) : option (Tree (k + 1)) :=
 (S.omega_ordering (k + 1)).Min (lambda υ :: ((lambda υ).branches.filter (λ μ₀, (out μ₀).is_pie)).map subtype.val)
 
-
 end approx
+variables {k : ℕ}
+
+def up' : Π (η : Tree k) (μ : branch η), option (Tree (k + 1))
+| []       ⟨μ, μ_p⟩ := by exfalso; simp* at*
+| (_ :: η) ⟨μ, _⟩   := if h : μ ⊂ᵢ η then up' η ⟨μ, h⟩ else approx.up S (up' η)
+
+def up (η : Tree k) : option (Tree (k + 1)) := approx.up S (up' S η)
+
+@[simp] lemma up'_up_consistent {η : Tree k} : ∀ (μ : branch η), S.up' η μ = S.up μ.val :=
+begin
+  induction η with ν η IH,
+  { intros μ, have := μ.property, simp* at* },
+  { intros μ, cases μ with μ μ_p, 
+    have : μ = η ∨ μ ⊂ᵢ η, from list.is_initial_cons_iff.mp μ_p,
+    cases this; simp[this, up'],
+    { refl }, { exact IH _ } }
+end
+
+def lambda (η : Tree k) : Tree (k + 1) := approx.lambda (S.up' η)
+
+
 
 
 end strategy

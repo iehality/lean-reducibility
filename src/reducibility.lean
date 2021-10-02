@@ -2,6 +2,8 @@ import coding function
 import computability.reduce
 open encodable denumerable part
 
+universes u v
+
 local attribute [simp] set.set_of_app_iff
 
 lemma bool.to_bool_ext (p : Prop) (D0 D1 : decidable p) :
@@ -126,10 +128,25 @@ theorem t_reducible.of_eq {A B : set α} {C : set β} (hA : A ≤ₜ C) (H : ∀
 
 @[refl] theorem t_reducible.refl (A : set α) [D : decidable_pred A] : A ≤ₜ A := ⟨D, D, nat.rpartrec.refl⟩
 
-theorem t_reducible.trans {A : set α} {B : set β} {C : set γ} :
+@[trans] theorem t_reducible.trans {A : set α} {B : set β} {C : set γ} :
   A ≤ₜ B → B ≤ₜ C → A ≤ₜ C :=
 λ ⟨Da, Db, hab⟩ ⟨Db0, Dc, hbc⟩,
 ⟨Da, Dc, by simp only [encode_to_bool_eq Db Db0] at hab; exact nat.rpartrec.trans hab hbc⟩
+
+@[refl] theorem t_reducible_equiv.refl
+  (A : set α) [D : decidable_pred A] :
+  A ≡ₜ A :=
+⟨t_reducible.refl A, t_reducible.refl A⟩
+
+@[symm] theorem t_reducible_equiv.symm
+  {A : set α} {B : set β} :
+  A ≡ₜ B → B ≡ₜ A :=
+and.swap
+
+@[trans] theorem t_reducible_equiv.trans 
+  {A : set α} {B : set β} {C : set γ} :
+  A ≡ₜ B → B ≡ₜ C → A ≡ₜ C :=
+λ ⟨ab, ba⟩ ⟨bc, cb⟩, ⟨t_reducible.trans ab bc, t_reducible.trans cb ba⟩
 
 theorem many_one_reducible.to_turing {A : set α} {B : set β} [DA : decidable_pred A] [DB : decidable_pred B] :
   A ≤₀ B → A ≤ₜ B := λ h,
@@ -167,6 +184,8 @@ theorem degree0 (A : set α) :
   computable_pred A ↔ A ≡ₜ (∅ : set β) := 
 ⟨λ ⟨D, h⟩, ⟨computable_le _ ⟨D, h⟩, @computable_le _ _ _ _ _ _ D computable_0⟩,
  λ ⟨h, _⟩, le_computable_computable h computable_0⟩
+
+theorem degree0' (A : set α) : computable_pred A ↔ A ≡ₜ (∅ : set ℕ) := degree0 A
 
 def Join (A : ℕ → set ℕ) : set ℕ := {x | x.unpair.1 ∈ A x.unpair.2}
 
@@ -305,6 +324,16 @@ begin
     apply part.ext, simp, intros u, cases C : chr A a; simp at C ⊢, exact C,
     exact not_not.mpr C })
 end
+
+theorem t_reducible_iff_rre {A : set α} {B : set β} :
+  A ≤ₜ B ↔ A re_in! chr B ∧ Aᶜ re_in! chr B :=
+⟨λ h, ⟨h.rre, h.compl_rre⟩, begin
+  rintros ⟨h₁, h₂⟩, apply classical_iff.mpr,
+  show chr A computable_in! chr B,
+  rcases rre_pred_iff.mp h₁ with ⟨χ, pA, hA⟩,
+  rcases rre_pred_iff.mp h₂ with ⟨χc, pAc, hAc⟩,
+  sorry,
+ end⟩
 
 theorem rre_Jumpcomputable {A : set α} {B : set ℕ} : A re_in! chr B → A ≤ₜ B′ := 
 λ h, classical_iff.mpr 
@@ -499,7 +528,7 @@ begin
 end
 
 lemma rre_enumeration_iff {A : set α} {f : β → σ} (h : ∃ a, a ∈ A) :
-  A re_in! f → ∃ e : ℕ → α, e computable_in! f ∧ (∀ x, x ∈ A ↔ ∃ n, e n = x) :=
+  A re_in! f → (∃ e : ℕ → α, e computable_in! f ∧ (∀ x, x ∈ A ↔ ∃ n, e n = x)) :=
 begin
   rcases h with ⟨a₀, hyp_a₀⟩,
   { intros hyp,
@@ -542,10 +571,128 @@ lemma re_enumeration_iff {A : set α} {f : β → σ} (h : ∃ a, a ∈ A) :
 by { rcases rre_enumeration_iff h (hyp.to_rpart_in ↑ᵣ(@id ℕ)) with ⟨e, lmm1, lmm2⟩,
      refine ⟨e, rcomputable.le_comp_comp lmm1 computable.id, lmm2⟩ }
 
-theorem post_1 {A : set ℕ} {B : set β} {f : γ → τ} :
-  B ≤₁ A′ → ∃ (R : α × ℕ → bool) (le : R computable_in! f), A = { x | ∃ y, R (x, y) } := λ h,
+inductive arith_hie : ℕ → bool → set ℕ → Prop
+| computable (b) {A : set ℕ} (h : computable_pred A) : arith_hie 0 b A
+| Pie   (n) {A : set ℕ} (h : arith_hie n ff A) : arith_hie (n + 1) tt {x | ∀ n, (x.mkpair n) ∈ A}
+| Sigma (n) {A : set ℕ} (h : arith_hie n tt A) : arith_hie (n + 1) ff {x | ∃ n, (x.mkpair n) ∈ A}
+
+def Pie_pred (n : ℕ) (A : set ℕ) : Prop := arith_hie n tt A
+notation `𝚷⁰` := Pie_pred
+
+def Sigma_pred (n : ℕ) (A : set ℕ) : Prop := arith_hie n ff A
+notation `𝚺⁰` := Sigma_pred
+
+@[simp] lemma Pie_pred0_iff {A : set ℕ} : 𝚷⁰ 0 A ↔ computable_pred A :=
+⟨λ h, by { cases h, simp* }, arith_hie.computable _⟩
+
+@[simp] lemma Sigma_pred0_iff {A : set ℕ} : 𝚺⁰ 0 A ↔ computable_pred A :=
+⟨λ h, by { cases h, simp* }, arith_hie.computable _⟩
+
+lemma Pie_pred_iff {A : set ℕ} {n : ℕ} :
+  𝚷⁰ (n + 1) A ↔ ∃ B : set ℕ, 𝚺⁰ n B ∧ A = {x | ∀ y, (x.mkpair y) ∈ B}  :=
+⟨λ h, by { cases h, refine ⟨h_A, h_h, by refl⟩ }, by { rintros ⟨B, p, rfl⟩, refine arith_hie.Pie _ p }⟩
+
+
+lemma Sigma_pred_iff {A : set ℕ} {n : ℕ} :
+  𝚺⁰ (n + 1) A ↔ ∃ B : set ℕ, 𝚷⁰ n B ∧ A = {x | ∃ y, (x.mkpair y) ∈ B}  :=
+⟨λ h, by { cases h, refine ⟨h_A, h_h, by refl⟩ }, by { rintros ⟨B, p, rfl⟩, refine arith_hie.Sigma _ p }⟩
+
+lemma Pie_pred2_iff {A : set ℕ} {n : ℕ} :
+  𝚷⁰ (n + 2) A ↔ ∃ B : set ℕ, 𝚷⁰ n B ∧ A = {x | ∀ y, ∃ z, (x.mkpair y).mkpair z ∈ B}  :=
+by { simp[Sigma_pred_iff, Pie_pred_iff], split,
+     { rintros ⟨B₁, ⟨B₂, sigma, rfl⟩, rfl⟩, refine ⟨B₂, sigma, by refl⟩ },
+     { rintros ⟨B₁, sigma, rfl⟩, refine ⟨_, ⟨B₁, sigma, rfl⟩, by refl⟩ } }
+
+lemma Sigma_pred2_iff {A : set ℕ} {n : ℕ} :
+  𝚺⁰ (n + 2) A ↔ ∃ B : set ℕ, 𝚺⁰ n B ∧ A = {x | ∃ y, ∀ z, (x.mkpair y).mkpair z ∈ B}  :=
+by { simp[Sigma_pred_iff, Pie_pred_iff], split,
+     { rintros ⟨B₁, ⟨B₂, sigma, rfl⟩, rfl⟩, refine ⟨B₂, sigma, by refl⟩ },
+     { rintros ⟨B₁, sigma, rfl⟩, refine ⟨_, ⟨B₁, sigma, rfl⟩, by refl⟩ } }
+
+lemma arith_hie_compl : ∀ {n : ℕ} {A : set ℕ},
+  𝚷⁰ n A ↔ 𝚺⁰ n Aᶜ
+| 0       A := by { simp[degree0'], exactI ⟨λ h, (equiv_compl A).trans h, λ h, (equiv_compl A).symm.trans h⟩ }
+| (n + 1) A := by { simp[Sigma_pred_iff, Pie_pred_iff], split,
+    { rintros ⟨B, sigma, rfl⟩,
+      refine ⟨Bᶜ, (@arith_hie_compl n Bᶜ).mpr (by simp[sigma]), by simp[set.compl_set_of]⟩ },
+    { rintros ⟨B, pie, eqn⟩,
+      refine ⟨Bᶜ, (@arith_hie_compl n B).mp pie, 
+        by rw ←(compl_compl A); rw eqn; simp[set.compl_set_of]⟩ } }
+
+lemma Pie_pred.many_one : ∀ {n : ℕ} {A B : set ℕ} (sigma : 𝚷⁰ n B) (le : A ≤₀ B), 𝚷⁰ n A
+| 0       A B sigma le := by { simp at*, exact le_computable_computable le.to_turing sigma }
+| 1       A B sigma ⟨f, f_comp, le⟩ := by { 
+    rcases Pie_pred_iff.mp sigma with ⟨B', pie, rfl⟩,
+    let C : set ℕ := {x | (f x.unpair.1).mkpair x.unpair.2 ∈ B'},
+    have : C ≤₀ B',
+    { refine ⟨λ x, (f x.unpair.1).mkpair x.unpair.2, _, λ x, by simp[C]; refl⟩,
+      refine primrec₂.mkpair.to_comp.comp (f_comp.comp (fst.comp unpair).to_comp) (snd.comp unpair).to_comp },
+    have pie' : 𝚺⁰ 0 C, { simp at pie ⊢, exact le_computable_computable this.to_turing pie },
+    have : A = {x | ∀ y, x.mkpair y ∈ C}, { simp[C], exact set.ext le },
+    refine Pie_pred_iff.mpr ⟨C, pie', this⟩ }
+| (n + 2) A B sigma ⟨f, f_comp, le⟩ := by {
+    rcases Pie_pred2_iff.mp sigma with ⟨B', sigma', rfl⟩,
+    let C : set ℕ := {x | ((f x.unpair.1.unpair.1).mkpair x.unpair.1.unpair.2).mkpair x.unpair.2 ∈ B'},
+    have : C ≤₀ B',
+    { refine ⟨λ x, ((f x.unpair.1.unpair.1).mkpair x.unpair.1.unpair.2).mkpair x.unpair.2,
+        _, λ x, by simp[C]; refl⟩,
+      refine primrec₂.mkpair.to_comp.comp
+        (primrec₂.mkpair.to_comp.comp (f_comp.comp (fst.comp $ unpair.comp $ fst.comp unpair).to_comp)
+        (snd.comp $ unpair.comp $ fst.comp unpair).to_comp) (snd.comp unpair).to_comp },    
+    have IH : 𝚷⁰ n C, from Pie_pred.many_one sigma' this,
+    have : A = {x | ∀ y, ∃ z, (x.mkpair y).mkpair z ∈ C},
+    { simp[C], exact set.ext le },
+    refine Pie_pred2_iff.mpr ⟨C, IH, this⟩ }
+
+lemma Sigma_pred.many_one : ∀ {n : ℕ} {A B : set ℕ} (sigma : 𝚺⁰ n B) (le : A ≤₀ B), 𝚺⁰ n A
+| 0       A B sigma le := by { simp at*, exact le_computable_computable le.to_turing sigma }
+| 1       A B sigma ⟨f, f_comp, le⟩ := by { 
+    rcases Sigma_pred_iff.mp sigma with ⟨B', pie, rfl⟩,
+    let C : set ℕ := {x | (f x.unpair.1).mkpair x.unpair.2 ∈ B'},
+    have : C ≤₀ B',
+    { refine ⟨λ x, (f x.unpair.1).mkpair x.unpair.2, _, λ x, by simp[C]; refl⟩,
+      refine primrec₂.mkpair.to_comp.comp (f_comp.comp (fst.comp unpair).to_comp) (snd.comp unpair).to_comp },
+    have pie' : 𝚷⁰ 0 C, { simp at pie ⊢, exact le_computable_computable this.to_turing pie },
+    have : A = {x | ∃ y, x.mkpair y ∈ C}, { simp[C], exact set.ext le },
+    refine Sigma_pred_iff.mpr ⟨C, pie', this⟩ }
+| (n + 2) A B sigma ⟨f, f_comp, le⟩ := by {
+    rcases Sigma_pred2_iff.mp sigma with ⟨B', sigma', rfl⟩,
+    let C : set ℕ := {x | ((f x.unpair.1.unpair.1).mkpair x.unpair.1.unpair.2).mkpair x.unpair.2 ∈ B'},
+    have : C ≤₀ B',
+    { refine ⟨λ x, ((f x.unpair.1.unpair.1).mkpair x.unpair.1.unpair.2).mkpair x.unpair.2,
+        _, λ x, by simp[C]; refl⟩,
+      refine primrec₂.mkpair.to_comp.comp
+        (primrec₂.mkpair.to_comp.comp (f_comp.comp (fst.comp $ unpair.comp $ fst.comp unpair).to_comp)
+        (snd.comp $ unpair.comp $ fst.comp unpair).to_comp) (snd.comp unpair).to_comp },    
+    have IH : 𝚺⁰ n C, from Sigma_pred.many_one sigma' this,
+    have : A = {x : ℕ | ∃ (y : ℕ), ∀ (z : ℕ), (x.mkpair y).mkpair z ∈ C},
+    { simp[C], exact set.ext le },
+    refine Sigma_pred2_iff.mpr ⟨C, IH, this⟩ }
+
+lemma Sigma_pred.exists {n : ℕ} {A : set ℕ} (h : 𝚺⁰ (n + 1) A) : 𝚺⁰ (n + 1) {x | ∃ y, (x.mkpair y) ∈ A} :=
 begin
-  sorry
+  rcases (Sigma_pred_iff.mp h) with ⟨B, pie, rfl⟩,
+  simp,
+  let B' : set ℕ := {x | (x.unpair.1.mkpair x.unpair.2.unpair.1).mkpair x.unpair.2.unpair.2 ∈ B},
+  have eqn : {x : ℕ | ∃ y n, ((x.mkpair y).mkpair n) ∈ B} = {x | ∃ y : ℕ, (x.mkpair y) ∈ B' },
+  { apply set.ext, intros x, simp[B'], split,
+    { rintros ⟨y, n, mem⟩, refine ⟨y.mkpair n, _⟩, simp[mem] },
+    { rintros ⟨y, mem⟩, refine ⟨y.unpair.1, y.unpair.2, mem⟩ } },
+  have le : B' ≤₀ B,
+  { refine ⟨λ x, (x.unpair.1.mkpair x.unpair.2.unpair.1).mkpair x.unpair.2.unpair.2, _, λ x, by simp[B']; refl⟩,
+    refine (primrec₂.mkpair.comp
+      (primrec₂.mkpair.comp (fst.comp unpair) $ fst.comp $ unpair.comp $ snd.comp unpair)
+      (snd.comp $ unpair.comp $ snd.comp unpair)).to_comp },
+  refine Sigma_pred_iff.mpr ⟨B', pie.many_one le, eqn⟩
+end
+
+lemma Pie_pred.exists {n : ℕ} {A : set ℕ} (h : 𝚷⁰ (n + 1) A) : 𝚷⁰ (n + 1) {x | ∀ y, (x.mkpair y) ∈ A} :=
+by simp[arith_hie_compl, set.compl_set_of] at h ⊢; exact h.exists
+
+theorem post_1 {A : set ℕ} {B : set α} {f : γ → τ} :
+  B re_in! chr A′ → ∃ (R : set (α × ℕ)) (le : R ≤ₜ A), B = { x | ∃ y, (x, y) ∈ R } := λ h,
+begin
+  
 end
 
 end classical
