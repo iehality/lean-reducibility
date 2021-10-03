@@ -713,6 +713,7 @@ by { exact compl_set_of (λ (a : α), p a) }
 
 end set
 
+
 section classical
 local attribute [instance, priority 0] classical.prop_decidable
 
