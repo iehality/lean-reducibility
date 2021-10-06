@@ -477,6 +477,24 @@ lemma suffix_iff_is_initial {l₁ l₂ : list α} : l₁ <:+ l₂ ↔ l₁ ⊂�
 lemma is_initial_iff_suffix {l₁ l₂ : list α} : l₁ ⊂ᵢ l₂ ↔ l₁ <:+ l₂ ∧ l₁ ≠ l₂ :=
 by { simp[suffix_iff_is_initial, or_and_distrib_right], intros h₁ h₂, simp[h₂] at*, exact h₁ }
 
+lemma is_initial_cons_iff_suffix {x : α} {l₁ l₂ : list α} :
+  l₁ ⊂ᵢ x :: l₂ ↔ l₁ <:+ l₂ :=
+by { simp[is_initial_cons_iff, suffix_iff_is_initial], exact or.comm }
+
+lemma suffix_cons_iff_is_initial {l₁ l₂ : list α} :
+  (∃ x : α, x :: l₁ <:+ l₂) ↔ l₁ ⊂ᵢ l₂ :=
+⟨λ ⟨x, l, eqn⟩, ⟨l, x, eqn⟩, λ ⟨l, a, eqn⟩, ⟨a, l, eqn⟩⟩
+
+lemma is_initial_of_pos_suffix {l₁ l₂ l : list α}
+  (h : l ++ l₁ <:+ l₂) (pos : 0 < l.length) : l₁ ⊂ᵢ l₂ :=
+begin
+    cases C : l.reverse with a l IH,
+    { exfalso, simp at C, rcases C with rfl, simp at pos, contradiction },
+    { have := congr_arg list.reverse C, simp at this, rcases this with rfl,
+      rcases h with ⟨l', rfl⟩,
+      exact ⟨l' ++ l.reverse, a, by simp⟩ }
+end
+
 lemma rnth_eq_iff_suffix_cons_initial {l : list α} {n : ℕ} {a : α} :
   l.rnth n = a ↔ a :: l↾*n <:+ l :=
 begin
@@ -521,6 +539,26 @@ begin
   rcases h with ⟨l'', h⟩,
   refine ⟨map f l'', _⟩, simp[←h]
 end
+
+def incomparable (l₁ l₂ : list α) : Prop := ¬l₁ <:+ l₂ ∧ ¬l₂ <:+ l₁
+
+infix ` ∥ ` :50 := incomparable
+
+lemma incomparable_iff_suffix_is_initial {l₁ l₂ : list α} :
+  l₁ ∥ l₂ ↔ ¬l₁ ⊂ᵢ l₂ ∧ ¬l₂ <:+ l₁ :=
+⟨λ ⟨h₁, h₂⟩, ⟨λ A, h₁ (suffix_of_is_initial A), h₂⟩,
+  λ ⟨h₁, h₂⟩, ⟨λ A, by { simp[is_initial_iff_suffix] at h₁, simp[h₁ A, suffix_refl] at h₂, contradiction }, h₂⟩⟩
+
+lemma incomparable.symm {l₁ l₂ : list α} :
+  l₁ ∥ l₂ → l₂ ∥ l₁ := λ ⟨h₁, h₂⟩, ⟨h₂, h₁⟩
+
+lemma incomparable.symm_iff {l₁ l₂ : list α} :
+  l₁ ∥ l₂ ↔ l₂ ∥ l₁ := ⟨incomparable.symm, incomparable.symm⟩
+
+  lemma incomparable_iff_is_initial_suffix {l₁ l₂ : list α} :
+  l₁ ∥ l₂ ↔ ¬l₁ <:+ l₂ ∧ ¬l₂ ⊂ᵢ l₁ :=
+⟨λ h, by simp[incomparable_iff_suffix_is_initial.mp h.symm], λ h,
+  incomparable.symm (incomparable_iff_suffix_is_initial.mpr (by simp[h]))⟩
 
 def ordered (r : α → α → Prop) : list α → Prop
 | []       := true
@@ -612,11 +650,24 @@ instance {α : Type u} [omega_ordering α] : linear_order α :=
     by { have := @le_antisymm ℕ _ _ _ h₁ h₂, exact omega_ordering.inj this },
   le_total := λ x y, @le_total ℕ _ _ _,
   decidable_le := λ x y,
-    @has_le.le.decidable ℕ _ (omega_ordering.ordering x) (omega_ordering.ordering y), }
+    @has_le.le.decidable ℕ _ (omega_ordering.ordering x) (omega_ordering.ordering y) }
+
+lemma le_iff {α} [omega_ordering α] {a b : α} :
+  a ≤ b ↔ (omega_ordering.ordering a) ≤ (omega_ordering.ordering b) := by refl
+
+lemma lt_iff {α} [omega_ordering α] {a b : α} :
+  a < b ↔ (omega_ordering.ordering a) < (omega_ordering.ordering b) := by refl
 
 def Min {α : Type u} (o : omega_ordering α) : list α → option α
 | []       := none
 | (a :: l) := if h : (Min l).is_some then some (min a (option.get h)) else a
+
+lemma min_some_of_pos {α : Type u} (o : omega_ordering α) : ∀ (l : list α) (h : 0 < l.length), (o.Min l).is_some
+| []       h := by exfalso; simp at h; contradiction
+| (a :: l) h := by { simp[Min],  cases C : o.Min l; simp[C], unfold_coes, simp }
+
+def Min_le {α : Type u} (o : omega_ordering α) (l : list α) (h : 0 < l.length) : α :=
+option.get (min_some_of_pos o l h)
 
 variables {α : Type u} {o : omega_ordering α}
 
@@ -639,6 +690,12 @@ variables {α : Type u} {o : omega_ordering α}
         { rintros rfl, exact ⟨or.inr IH₁, le_of_not_ge C₁, IH₂⟩ },
         { rintros ⟨(h₁ | h₁), h₂, h₃⟩, {exfalso, rcases h₁ with rfl, exact C₁ (h₃ m' IH₁) },
           { exact le_antisymm (IH₂ m h₁) (h₃ m' IH₁) } } } } }
+
+lemma Min_le_mem {l : list α} {h} : o.Min_le l h ∈ l:=
+(mem_of_Min_iff_le.mp (option.mem_def.mp (option.get_mem (min_some_of_pos o l h)))).1
+
+lemma Min_le_minimum {l : list α} {h} : ∀ a ∈ l, o.Min_le l h ≤ a :=
+(mem_of_Min_iff_le.mp (option.mem_def.mp (option.get_mem (min_some_of_pos o l h)))).2
 
 end omega_ordering
 namespace fin
