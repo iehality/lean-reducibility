@@ -29,9 +29,9 @@ notation `∞` := sum.inl infinity.infinity
 instance {n} : has_ssubset (Tree n) := ⟨λ x y, x ⊂ᵢ y⟩
 instance {n} : has_subset (Tree n) := ⟨λ x y, x <:+ y⟩
 
-def branch {n} (η : Tree n) := { μ : Tree n // μ ⊂ᵢ η }
+def ancestor {n} (η : Tree n) := { μ : Tree n // μ ⊂ᵢ η }
 
-instance {n} {η : Tree n} : linear_order (branch η) :=
+instance {n} {η : Tree n} : linear_order (ancestor η) :=
 { le := λ x y, x.val <:+ y.val,
   lt := λ x y, x.val ⊂ᵢ y.val,
   le_refl := λ μ, by simp,
@@ -47,96 +47,96 @@ instance {n} {η : Tree n} : linear_order (branch η) :=
     exact list.suffix_or_suffix_of_suffix h₁ h₂ },
   decidable_le := λ μ₁ μ₂, list.decidable_suffix μ₁.val μ₂.val }
 
-def Tree.branches {n} (η : Tree n) : list (branch η) :=
-(list.range_r η.length).pmap (λ m (h :m < η.length), (⟨η↾*m, list.is_initial_of_lt_length h⟩ : branch η))
+def Tree.ancestors {n} (η : Tree n) : list (ancestor η) :=
+(list.range_r η.length).pmap (λ m (h :m < η.length), (⟨η↾*m, list.is_initial_of_lt_length h⟩ : ancestor η))
 (λ _, by simp)
--- η.branches = [ ... η↾*2, η↾*1, η↾*0]
+-- η.ancestors = [ ... η↾*2, η↾*1, η↾*0]
 
-namespace branch
+namespace ancestor
 
-instance {n} {η : Tree n} : has_coe (branch η) (Tree n) :=
+instance {n} {η : Tree n} : has_coe (ancestor η) (Tree n) :=
 ⟨subtype.val⟩
 
-lemma le_iff {n} {η : Tree n} {μ₁ μ₂ : branch η} : μ₁ ≤ μ₂ ↔ μ₁.val ⊆ μ₂.val := by refl
+lemma le_iff {n} {η : Tree n} {μ₁ μ₂ : ancestor η} : μ₁ ≤ μ₂ ↔ μ₁.val ⊆ μ₂.val := by refl
 
-lemma lt_iff {n} {η : Tree n} {μ₁ μ₂ : branch η} : μ₁ < μ₂ ↔ μ₁.val ⊂ μ₂.val := by refl
+lemma lt_iff {n} {η : Tree n} {μ₁ μ₂ : ancestor η} : μ₁ < μ₂ ↔ μ₁.val ⊂ μ₂.val := by refl
 
-@[simp] def cons' {n} {η : Tree n} {a} (μ : branch η) : branch (a :: η) :=
-⟨μ.val, μ.property.trans (η.is_initial_cons _)⟩
-
-@[simp] def extend {n} {η₁ η₂ : Tree n} (s : η₁ <:+ η₂) (μ : branch η₁) : branch η₂ :=
+@[simp] def extend {n} {η₁ η₂ : Tree n} (s : η₁ <:+ η₂) (μ : ancestor η₁) : ancestor η₂ :=
 ⟨μ.val, list.suffix_of_is_initial_is_initial μ.property s⟩
 
 @[simp] lemma extend_id {n} {η : Tree n} {s} : @extend _ η η s = id :=
 funext (by simp)
 
-@[simp] lemma branches_nil {n} : @Tree.branches n [] = [] := rfl
+@[simp] lemma ancestors_nil {n} : @Tree.ancestors n [] = [] := rfl
 
-@[simp] lemma branches_cons {n} (η : Tree n) (x) : Tree.branches (x :: η) = ⟨η, by simp⟩ :: η.branches.map cons' :=
-by { simp[Tree.branches, list.map_pmap], apply list.pmap_congr, simp,
-     intros m eqn₁ eqn₂, simp [list.initial_cons eqn₂] }
+@[simp] lemma ancestors_cons {n} (η : Tree n) (x) :
+  Tree.ancestors (x :: η) = ⟨η, by simp⟩ :: η.ancestors.map (extend (by simp)) :=
+by { simp[Tree.ancestors, list.map_pmap], apply list.pmap_congr, simp,
+     intros m eqn₁ eqn₂, simp [list.initial_cons eqn₂, extend] }
 
-lemma branches_suffix_of_suffix {n} {μ₁ μ₂ : Tree n} (s : μ₁ <:+ μ₂) :
-  μ₁.branches.map (branch.extend s) <:+ μ₂.branches :=
+lemma ancestors_suffix_of_suffix {n} {μ₁ μ₂ : Tree n} (s : μ₁ <:+ μ₂) :
+  μ₁.ancestors.map (ancestor.extend s) <:+ μ₂.ancestors :=
 begin
   rcases s with ⟨l, h⟩,
   induction l with x l IH generalizing μ₁ μ₂,
   { simp at h, rcases h with rfl, simp },
   { simp at h, rcases h with rfl, simp,
-    have : μ₁.branches.map (λ ν₁, (⟨ν₁.val, _⟩ : branch (x :: (l ++ μ₁))))
-      <:+ list.map cons' (Tree.branches (l.append μ₁)),
-    { have := list.map_suffix cons' (@IH μ₁ (l.append μ₁) rfl), simp[function.comp] at this, exact this },
+    have : μ₁.ancestors.map (λ ν₁, (⟨ν₁.val, _⟩ : ancestor (x :: (l ++ μ₁))))
+      <:+ list.map (extend (list.suffix_cons _ _)) (Tree.ancestors (l.append μ₁)),
+    { have := list.map_suffix (extend (list.suffix_cons _ _)) (@IH μ₁ (l.append μ₁) rfl),
+      simp[function.comp] at this, exact this },
     exact this.trans (list.suffix_cons _ _) }
 end
 
-@[simp] lemma branches_length {n} {μ : Tree n} : μ.branches.length = μ.length := by simp[Tree.branches]
+@[simp] lemma ancestors_length {n} {μ : Tree n} : μ.ancestors.length = μ.length := by simp[Tree.ancestors]
 
-lemma branches_rnth {n} {μ : Tree n} {i : ℕ} (h : i < μ.length)  :
-  μ.branches.rnth i = some ⟨μ↾*i, list.is_initial_of_lt_length h⟩ :=
+lemma ancestors_rnth {n} {μ : Tree n} {i : ℕ} (h : i < μ.length)  :
+  μ.ancestors.rnth i = some ⟨μ↾*i, list.is_initial_of_lt_length h⟩ :=
 begin
-  have : μ.branches.rnth i = μ.branches.nth (list.length μ - 1 - i),
-  { have := @list.rnth_eq_nth_of_lt _ μ.branches i (by simp[h]), simp at this, exact this },
-  rw this, simp[Tree.branches, list.nth_pmap],
+  have : μ.ancestors.rnth i = μ.ancestors.nth (list.length μ - 1 - i),
+  { have := @list.rnth_eq_nth_of_lt _ μ.ancestors i (by simp[h]), simp at this, exact this },
+  rw this, simp[Tree.ancestors, list.nth_pmap],
   refine ⟨i, _, rfl⟩,
   have := @list.rnth_eq_nth_of_lt _ (list.range_r (list.length μ)) i (by simp[h]), simp[h] at this,
   exact eq.symm this
 end
 
-lemma branches_ordered {n} : ∀ (μ : Tree n), μ.branches.ordered (<)
+lemma ancestors_ordered {n} : ∀ (μ : Tree n), μ.ancestors.ordered (<)
 | []       := by simp
-| (x :: η) := by simp; exact ⟨list.ordered_map cons' (λ x y lt, lt) (branches_ordered η), λ η₀ mem, η₀.property⟩
+| (x :: η) := by simp[list.ordered];
+    exact ⟨list.ordered_map (extend (by simp)) (λ x y lt, lt) (ancestors_ordered η), λ η₀ mem, η₀.property⟩
 
-lemma nodup_Tree.branches {n} (η : Tree n) : (Tree.branches η).nodup :=
+lemma nodup_Tree.ancestors {n} (η : Tree n) : (Tree.ancestors η).nodup :=
 list.nodup_pmap
   (λ m₁ eqn₁ m₂ eqn₂ eqn, by { simp at eqn, have : (η↾*m₁).length = m₁, from list.initial_length eqn₁,
        simp [eqn, list.initial_length eqn₂] at this, simp[this] })
   (list.nodup_range_r _)
 
-def branch_univ {n} (η : Tree n) : finset (branch η) :=
-⟨Tree.branches η, nodup_Tree.branches η⟩
+def ancestor_univ {n} (η : Tree n) : finset (ancestor η) :=
+⟨Tree.ancestors η, nodup_Tree.ancestors η⟩
 
-@[simp] lemma branches_complete {n} {η : Tree n} (η₀ : branch η) : η₀ ∈ η.branches :=
-list.mem_pmap.2 ⟨η₀.val.length, by { simp[branch_univ],
+@[simp] lemma ancestors_complete {n} {η : Tree n} (η₀ : ancestor η) : η₀ ∈ η.ancestors :=
+list.mem_pmap.2 ⟨η₀.val.length, by { simp[ancestor_univ],
 refine ⟨list.is_initial_length η₀.property, _⟩, apply subtype.ext, simp,
 exact list.eq_initial_of_is_initial η₀.property }⟩
 
-@[simp] lemma mem_fin_range {n} {η : Tree n} (η₀ : branch η) : η₀ ∈ branch_univ η :=
-branches_complete _
+@[simp] lemma mem_fin_range {n} {η : Tree n} (η₀ : ancestor η) : η₀ ∈ ancestor_univ η :=
+ancestors_complete _
 
-instance {n} (η : Tree n) : fintype (branch η) :=
-⟨branch_univ η, mem_fin_range⟩
+instance {n} (η : Tree n) : fintype (ancestor η) :=
+⟨ancestor_univ η, mem_fin_range⟩
 
-def branch_univ' {n} (η : Tree n) : finset (Tree n) := (branch_univ η).image subtype.val  
+def ancestor_univ' {n} (η : Tree n) : finset (Tree n) := (ancestor_univ η).image subtype.val  
 
-@[simp] lemma branch_univ_card {n} (η : Tree n) : (branch_univ η).card = η.length :=
-by simp[branch_univ, Tree.branches]
+@[simp] lemma ancestor_univ_card {n} (η : Tree n) : (ancestor_univ η).card = η.length :=
+by simp[ancestor_univ, Tree.ancestors]
 
-@[simp] lemma branch_univ'_card {n} (η : Tree n) : (branch_univ' η).card = η.length :=
-by { have : (branch_univ' η).card = (branch_univ η).card,
+@[simp] lemma ancestor_univ'_card {n} (η : Tree n) : (ancestor_univ' η).card = η.length :=
+by { have : (ancestor_univ' η).card = (ancestor_univ η).card,
      { apply finset.card_image_of_injective, intros x y, exact subtype.eq },
      simp[this] }
 
-end branch
+end ancestor
 
 structure Path (n : ℕ) :=
 (path : ℕ → Tree n)
@@ -175,11 +175,11 @@ infix ` ⊆' `:50   := Path.subset
 
 end Path
 
-def out {n} : Π {η : Tree n}, branch η → infinity ⊕ Tree' n
+def out {n} : Π {η : Tree n}, ancestor η → infinity ⊕ Tree' n
 | []       ⟨μ, μ_p⟩ := by exfalso; simp* at*
 | (ν :: η) ⟨μ, μ_p⟩ := if h : μ ⊂ᵢ η then out ⟨μ, h⟩ else ν
 
-lemma out_eq_iff {n} : ∀ {η : Tree n} {μ : branch η} {ν}, out μ = ν ↔ ν :: μ.val <:+ η
+lemma out_eq_iff {n} : ∀ {η : Tree n} {μ : ancestor η} {ν}, out μ = ν ↔ ν :: μ.val <:+ η
 | []       ⟨μ, μ_p⟩ _  := by exfalso; simp* at*
 | (ν :: η) ⟨μ, μ_p⟩ ν' :=
     by { simp, have : μ = η ∨ μ ⊂ᵢ η, from list.is_initial_cons_iff.mp μ_p, cases this,
@@ -192,21 +192,21 @@ lemma out_eq_iff {n} : ∀ {η : Tree n} {μ : branch η} {ν}, out μ = ν ↔ 
              { exfalso, simp at C, rcases C with ⟨_, rfl⟩, simp at this, exact this },
              { exact C } } } }
 
-lemma suffix_out_cons {n} {η : Tree n} (μ : branch η) : out μ :: μ.val <:+ η :=
+lemma suffix_out_cons {n} {η : Tree n} (μ : ancestor η) : out μ :: μ.val <:+ η :=
 by { have := @out_eq_iff n η μ (out μ), simp* at* }
 
-lemma out_cons'_eq {n} {η : Tree n} (ν) (μ : branch η)  :
-  @out n (ν :: η) μ.cons' = out μ :=
-by { simp[out, branch.cons'], intros h, exfalso, have := h μ.property, exact this }
+lemma out_cons'_eq {n} {η : Tree n} (ν) (μ : ancestor η)  :
+  @out n (ν :: η) (μ.extend (list.suffix_cons ν η)) = out μ :=
+by { simp[out, ancestor.extend], intros h, exfalso, have := h μ.property, exact this }
 
-lemma out_cons'_eq' {n} {η : Tree n} (ν) (μ : branch η) {h : μ.val ⊂ᵢ ν :: η} :
+lemma out_cons'_eq' {n} {η : Tree n} (ν) (μ : ancestor η) {h : μ.val ⊂ᵢ ν :: η} :
   @out n (ν :: η) ⟨μ.val, h⟩ = out μ :=
-by { simp[out, branch.cons'], intros h, exfalso, have := h μ.property, exact this }
+by { simp[out], intros h, exfalso, have := h μ.property, exact this }
 
-lemma suffix_out_eq {n} : ∀ {η₁ η₂: Tree n} {μ₁ : branch η₁} {μ₂ : branch η₂}
+lemma suffix_out_eq {n} : ∀ {η₁ η₂: Tree n} {μ₁ : ancestor η₁} {μ₂ : ancestor η₂}
   (h₁ : μ₁.val = μ₂.val) (h₂ : η₂ <:+ η₁), out μ₁ = out μ₂ :=
 begin
-  suffices : ∀ (l : list _) {η₁ η₂: Tree n} {μ₁ : branch η₁} {μ₂ : branch η₂}
+  suffices : ∀ (l : list _) {η₁ η₂: Tree n} {μ₁ : ancestor η₁} {μ₂ : ancestor η₂}
     (h₁ : μ₁.val = μ₂.val) (h₂ : l.reverse ++ η₂ = η₁), out μ₁ = out μ₂,
   { intros η₁ η₂ μ₁ μ₂ h₁ h₂, rcases h₂ with ⟨l, h₂⟩,
     exact this l.reverse h₁ (by simp[h₂]) },
@@ -214,19 +214,23 @@ begin
   induction l with ν l IH generalizing η₁ η₂,
   { simp at h₂, rcases h₂ with rfl, congr, exact subtype.eq h₁ },
   { simp at h₂,
-    let μ₂' : branch (ν :: η₂) := ⟨μ₂.val, μ₂.property.trans (by simp)⟩,
+    let μ₂' : ancestor (ν :: η₂) := ⟨μ₂.val, μ₂.property.trans (by simp)⟩,
     have h₁' : μ₁.val = μ₂'.val, { simp[μ₂', h₁] },
     have eqn₁ : out μ₁ = out μ₂', from IH h₁' h₂,
     have eqn₂ : out μ₂' = out μ₂, from out_cons'_eq' ν μ₂,
     simp[eqn₁, eqn₂] }
 end
 
+@[simp] lemma out_extend_eq {k} {η₁ η₂ : Tree k} {h : η₁ <:+ η₂} {μ₁ : ancestor η₁} :
+  out (ancestor.extend h μ₁) = out μ₁ :=
+suffix_out_eq (by simp) h
+
 lemma rnth_eq_iff_out {n} {η : Tree n} {ν} {m : ℕ} :
   η.rnth m = some ν ↔ ν :: η↾*m <:+ η :=
 list.rnth_eq_iff_suffix_cons_initial
 
-lemma rnth_eq_some_out {n} {η : Tree n} {μ : branch η} {m : ℕ} (h : m < η.length) :
-  η.rnth m = some (out (⟨η↾*m, list.is_initial_of_lt_length h⟩ : branch η)) :=
+lemma rnth_eq_some_out {n} {η : Tree n} {μ : ancestor η} {m : ℕ} (h : m < η.length) :
+  η.rnth m = some (out (⟨η↾*m, list.is_initial_of_lt_length h⟩ : ancestor η)) :=
 rnth_eq_iff_out.mpr (suffix_out_cons ⟨η↾*m, list.is_initial_of_lt_length h⟩)
 
 
