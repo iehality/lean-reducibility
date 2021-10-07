@@ -12,6 +12,9 @@ def Tree (n : ℕ) := Tree' (n + 1)
 
 instance {k} : has_append (Tree k) := ⟨list.append⟩
 instance {k} : has_mem (Tree' k) (Tree k) := ⟨list.mem⟩
+instance : ∀ {k}, inhabited (Tree' k)
+| 0       := ⟨tt⟩
+| (k + 1) := ⟨[]⟩ 
 
 instance : ∀ n, decidable_eq (Tree' n)
 | 0       := bool.decidable_eq
@@ -188,6 +191,9 @@ lemma out_eq_iff {n} : ∀ {η : Tree n} {μ : ancestor η} {ν}, out μ = ν �
              { exfalso, simp at C, rcases C with ⟨_, rfl⟩, simp at this, exact this },
              { exact C } } } }
 
+lemma out_eq_iff' {n} {η : Tree n} {μ : ancestor η} {ν} : ν = out μ ↔ ν :: μ.val <:+ η :=
+by { rw[←out_eq_iff], exact eq_comm }
+
 lemma suffix_out_cons {n} {η : Tree n} (μ : ancestor η) : out μ :: μ.val <:+ η :=
 by { have := @out_eq_iff n η μ (out μ), simp* at* }
 
@@ -246,11 +252,9 @@ by { unfold Tree'.is_sigma, cases Tree'.is_pie η; simp }
 def ancestor.pie_outcome {k} {η : Tree k} (μ : ancestor η) : bool := (out μ).is_sigma
 def ancestor.sigma_outcome {k} {η : Tree k} (μ : ancestor η) : bool := (out μ).is_pie
 
---lemma pie_of_out_out {k} {μ : Tree k} (μ₀ : ancestor μ) : (out (out μ₀)) = 
-
 structure strategy :=
 (n : ℕ)
-(omega_ordering (k : ℕ) : omega_ordering (Tree k))
+(omega_ordering (k : ℕ) : omega_ordering (Tree k × ℕ))
 
 namespace strategy
 variables (S : strategy)
@@ -284,9 +288,12 @@ def lambda : ∀ {μ : Tree k} (υ : ancestor μ → Tree (k + 1)), Tree (k + 1)
     (x.is_pie ∧ pie_derivative (υ ⟨μ, by simp⟩) (ancestor.extend_fn υ μ (by simp)) = [])
     then (x :: μ) :: (υ ⟨μ, by simp⟩) else ih
 
-def up {μ : Tree k} (υ : ancestor μ → Tree (k + 1)) : Tree (k + 1) :=
+def assignment {μ : Tree k} (υ : ancestor μ → Tree (k + 1)) : Tree (k + 1) × ℕ :=
 (S.omega_ordering (k + 1)).Min_le
-  (lambda υ :: ((lambda υ).ancestors.filter (λ μ₀, (out μ₀).is_pie)).map subtype.val) (by simp)
+  ((lambda υ, 0) :: ((lambda υ).ancestors.filter (λ η, (out η).is_pie)).map (λ η, (η.val, (derivative η.val υ).length))) (by simp)
+
+def up {μ : Tree k} (υ : ancestor μ → Tree (k + 1)) : Tree (k + 1) :=
+(assignment S υ).1
 
 end approx
 variables {k : ℕ}
@@ -294,6 +301,8 @@ variables {k : ℕ}
 def up' : Π (η : Tree k) (μ : ancestor η), Tree (k + 1)
 | []       ⟨μ, μ_p⟩ := by exfalso; simp* at*
 | (_ :: η) ⟨μ, _⟩   := if h : μ ⊂ᵢ η then up' η ⟨μ, h⟩ else approx.up S (up' η)
+
+def assignment (η : Tree k) : Tree (k + 1) × ℕ := approx.assignment S (up' S η)
 
 def up (η : Tree k) : Tree (k + 1) := approx.up S (up' S η)
 
@@ -323,13 +332,36 @@ by { simp[ancestor.extend_fn], exact eq.symm S.up'_up_consistent' }
   approx.lambda (ancestor.extend_fn (S.up' μ) μ₀ h) = S.lambda μ₀ :=
 by {simp[ancestor.extend_fn, lambda], congr, funext x, simp}
 
+lemma assignment_fst_eq_up {μ : Tree k} : (S.assignment μ).1 = S.up μ :=
+by simp[assignment, up, approx.up]
+
+lemma up_eq_lambda_or_pie (μ : Tree k) : S.up μ = S.lambda μ ∨ ∃ η : ancestor (S.lambda μ), (out η).is_pie ∧ S.up μ = η :=
+by { have : S.assignment μ ∈ _, from omega_ordering.Min_le_mem, simp at this,
+     cases this,
+     { left, simp[←assignment_fst_eq_up, this], refl },
+     { right, rcases this with ⟨η, pie, eqn⟩, refine ⟨η, pie, _⟩, simp[←assignment_fst_eq_up, ←eqn] } }
+
+lemma up_eq_or_lt (μ : Tree k) : S.up μ = S.lambda μ ∨ ∃ lt : S.up μ ⊂ᵢ S.lambda μ, (out ⟨S.up μ, lt⟩).is_pie :=
+by { have : S.assignment μ ∈ _, from omega_ordering.Min_le_mem, simp at this,
+     cases this,
+     { left, simp[←assignment_fst_eq_up, this], refl },
+     { right, rcases this with ⟨η, pie, eqn⟩, simp[←assignment_fst_eq_up, ←eqn], exact ⟨η.property, pie⟩ } }
+
+@[simp] lemma lambda_nil_eq : S.lambda ([] : Tree k) = [] :=
+by simp[lambda, approx.lambda]
+
+lemma lambda_cons_eq (x) (μ : Tree k) : S.lambda (x :: μ) = (x :: μ) :: S.up μ ∨ S.lambda (x :: μ) = S.lambda μ :=
+by { unfold lambda, simp[approx.lambda],
+     by_cases C : S.up μ = approx.lambda (S.up' μ) ∨ ↥(x.is_pie) ∧ approx.pie_derivative (S.up μ) (S.up' μ) = [];
+     simp[C] }
+
+@[simp] lemma up_nil_eq : S.up ([] : Tree k) = [] :=
+by { have := S.up_eq_or_lt ([] : Tree k), simp at this, exact this }
+
 -- Consistency
 
 lemma up_le_lambda (μ : Tree k) : S.up μ <:+ S.lambda μ :=
-by { have : S.up μ ∈ (S.lambda μ :: ((S.lambda μ).ancestors.filter (λ μ₀, (out μ₀).is_pie)).map subtype.val),
-       from omega_ordering.Min_le_mem, simp at this,
-     cases this, { simp[this] },
-     { rcases this with ⟨lt, _⟩, exact list.suffix_of_is_initial lt }}
+by { rcases S.up_eq_or_lt μ with (eqn | ⟨lt, eqn⟩), { simp[eqn] }, { exact list.suffix_of_is_initial lt } }
 
 lemma eq_lambda_of_le_lambda {μ : Tree k} {η : Tree (k + 1)} (le : η <:+ S.lambda μ) :
   η = [] ∨ ∃ μ₀ : ancestor μ, η = S.lambda ((out μ₀) :: μ₀.val) ∧ 
@@ -437,9 +469,9 @@ lemma suffix_of_suffix {μ₁ μ₂ μ₃ : Tree k}
 by { have := mt (S.incomparable_of_incomparable le₁ le₂) (λ nonle, nonle.1 h),
      simp[list.incomparable_iff_is_initial_suffix, S.noninitial_of_suffix le₁] at this, exact this }
 
-lemma sigma_preserve {μ₁ : Tree k} {η : ancestor (S.lambda μ₁)} (sigma : (out η).is_sigma)
-  {μ₂ : Tree k} (le : μ₁ <:+ μ₂) 
-  (lt : η.val ⊂ᵢ S.lambda μ₂) : out η :: η.val <:+ S.lambda μ₂ :=
+lemma sigma_preserve {μ₁ : Tree k} {μ₂ : Tree k} (le : μ₁ <:+ μ₂)
+  {η : ancestor (S.lambda μ₁)} (sigma : (out η).is_sigma) (lt : η.val ⊂ᵢ S.lambda μ₂) :
+  out η :: η.val <:+ S.lambda μ₂ :=
 begin
   rcases le with ⟨l, rfl⟩,
   induction l with x ν IH,
@@ -461,63 +493,62 @@ begin
         { have := list.suffix_of_suffix_length_le IH' (eqn.trans (S.up_le_lambda _)) (by simp),
           simp at this, exact this },
         simp[lambda_eqn, this], exact eqn.trans (by simp) },
-      { have : S.up (ν ++ μ₁) ∈ (S.lambda (ν ++ μ₁) :: ((S.lambda (ν ++ μ₁)).ancestors.filter (λ μ₀, (out μ₀).is_pie)).map subtype.val),
-          from omega_ordering.Min_le_mem, simp at this,
-        rcases this with (eqn | ⟨_, mem⟩),
-        { exfalso, simp[eqn] at C₂, simp[←C₂] at lt, contradiction },
+      { have C₃ := S.up_eq_or_lt (ν ++ μ₁), rcases C₃ with (eqn | ⟨lt_up, pie⟩),
+        { exfalso, simp[eqn] at C₂, simp[C₂] at lt, contradiction },
         { exfalso,
-          have : out ⟨η.val, lt⟩ = out η, from out_eq_iff.mpr IH', simp[←this] at sigma,
-          have : (out ⟨S.up (ν ++ μ₁), _⟩).is_pie, from (list.mem_filter.mp mem).2, simp[←C₂, this] at this, 
-          have := neg_is_pie_iff.mpr sigma this, contradiction } } },
+          have : out ⟨η.val, lt⟩ = out η, from out_eq_iff.mpr IH',
+          have : out ⟨S.up (ν ++ μ₁), lt_up⟩ = out η, rw←this, from suffix_out_eq (by simp[C₂]) (by refl),
+          simp[this] at pie, exact neg_is_pie_iff.mpr sigma pie } } },
     { have lambda_eqn : S.lambda (x :: (ν ++ μ₁)) = S.lambda (ν ++ μ₁),
       { simp[lambda, approx.lambda, C] },
       simp[lambda_eqn] at lt ⊢, exact IH lt } }
 end
 
-
-lemma up_divergent {μ : Tree k}
-  (lt : S.up μ ⊂ᵢ S.lambda μ) {μ₀ : ancestor μ} (der : S.up μ₀.val = S.up μ) : (out μ₀).is_sigma :=
+lemma eq_out_of_sigma {μ₁ μ₂ : Tree k} (le : μ₁ <:+ μ₂)
+  (η : Tree (k + 1)) (lt₁ : η ⊂ᵢ S.lambda μ₁) (lt₂ : η ⊂ᵢ S.lambda μ₂) (sigma : (out ⟨η, lt₁⟩).is_sigma) :
+  out ⟨η, lt₁⟩ = out ⟨η, lt₂⟩ :=
 begin
-  induction μ with x μ IH generalizing μ₀,
-  {  }
-
+  have lmm₁ : out ⟨η, lt₁⟩ :: η <:+ S.lambda μ₂, from S.sigma_preserve le sigma lt₂,
+  have lmm₂ : out ⟨η, lt₂⟩ :: η <:+ S.lambda μ₂, from suffix_out_cons ⟨η, lt₂⟩,
+  have := list.suffix_of_suffix_length_le lmm₁ lmm₂ (by simp), simp at this, exact this
 end
 
-lemma up_divergent {μ : Tree k}
-  (lt : S.up μ ⊂ᵢ S.lambda μ) {μ₀ : ancestor μ} (der : S.up μ₀.val = S.up μ) : (out μ₀).is_sigma :=
+private lemma sigma_outcome_of_eq_up (μ) {μ₁ μ₂ : Tree k} (lt₁ : μ₁ ⊂ᵢ μ₂) (lt₂ : μ₂ ⊂ᵢ μ)
+  (eqn : S.up μ₁ = S.up μ₂) (up_lt : S.up μ₂ ⊂ᵢ S.lambda μ₂) : (out ⟨μ₁, lt₁⟩).is_sigma :=
 begin
-  have out_pie : (out ⟨S.up μ, lt⟩).is_pie,
-  { have : S.up μ ∈ (S.lambda μ :: ((S.lambda μ).ancestors.filter (λ μ₀, (out μ₀).is_pie)).map subtype.val),
-       from omega_ordering.Min_le_mem, simp at this,
-    rcases this with (eqn | ⟨_, mem⟩),
-    { exfalso, simp[eqn] at lt, contradiction },
-    { exact (list.mem_filter.mp mem).2 } },
-  have := S.eq_lambda_of_lt_lambda ⟨S.up μ, lt⟩, simp at this, 
-  rcases this with ⟨μ₁, eqn_lambda, h, eqn_out, eqn_up⟩,
-  have C : μ₀ < μ₁ ∨ μ₀ = μ₁ ∨ μ₁ < μ₀, exact trichotomous μ₀ μ₁, cases C,
-  { sorry }
-
-end
-
-lemma up_divergent {μ : Tree k}
-  (lt : S.up μ ⊂ᵢ S.lambda μ) {μ₀ : ancestor μ} (der : S.up μ₀.val = S.up μ) : (out μ₀).is_sigma :=
-begin
-  suffices : ¬(out μ₀).is_pie,
-  { simp[Tree'.is_sigma, this], cases (out μ₀).is_pie; simp at this ⊢, contradiction },
+  suffices : ¬(out ⟨μ₁, lt₁⟩).is_pie,
+  { simp[Tree'.is_sigma, this], cases (out ⟨μ₁, lt₁⟩).is_pie; simp at this ⊢, contradiction },
   intros A,
-  have : (out ⟨S.up μ, lt⟩).is_pie,
-  { have : S.up μ ∈ (S.lambda μ :: ((S.lambda μ).ancestors.filter (λ μ₀, (out μ₀).is_pie)).map subtype.val),
-       from omega_ordering.Min_le_mem, simp at this,
-    rcases this with (eqn | ⟨_, mem⟩),
-    { exfalso, simp[eqn] at lt, contradiction },
-    { exact (list.mem_filter.mp mem).2 } },
-  have : (out ⟨S.up μ, lt⟩).is_sigma,
-  { have := S.eq_lambda_of_lt_lambda ⟨S.up μ, lt⟩, simp at this, 
-    rcases this with ⟨μ₁, eqn_lambda, h, eqn_out, eqn_up⟩,
-    cases C : (out μ₁).is_pie,
-    { exfalso, simp[C] at h, }
-      }
+  induction μ with x μ IH generalizing μ₁ μ₂,
+  { simp at lt₂, contradiction },
+  { have up_lt₁ : S.up μ₁ ⊂ᵢ S.lambda μ₂, { simp[eqn, up_lt] },
+    have C₁ : μ₂ ⊂ᵢ μ ∨ μ₂ = μ, from list.suffix_iff_is_initial.mp (list.is_initial_cons_iff_suffix.mp lt₂),
+    rcases C₁ with (C₁ | rfl),
+    { exact IH lt₁ C₁ eqn up_lt A },
+    { have eqn_lam₁ : S.lambda (out ⟨μ₁, lt₁⟩ :: μ₁) = (out ⟨μ₁, lt₁⟩ :: μ₁) :: S.up μ₁,
+      { have C₂ : S.up μ₁ ⊂ᵢ S.lambda μ₁ ∨ S.up μ₁ = S.lambda μ₁, from list.suffix_iff_is_initial.mp (S.up_le_lambda μ₁),
+        cases C₂,
+        { have : approx.pie_derivative (S.up μ₁) (S.up' μ₁) = [],
+          { simp[approx.pie_derivative, approx.derivative, list.filter_eq_nil],
+            rintros ⟨ν, lt_ν⟩ pie_ν eqn_ν, exact IH lt_ν lt₁ eqn_ν C₂ pie_ν },
+          unfold lambda, simp[approx.lambda, A, this] },
+        { unfold lambda at C₂ ⊢, simp[approx.lambda, C₂] } },
+      have out_eq : out (⟨S.up μ₁, by simp[eqn_lam₁]⟩ : ancestor (S.lambda (out ⟨μ₁, lt₁⟩ :: μ₁))) = out ⟨μ₁, lt₁⟩ :: μ₁,
+        from out_eq_iff.mpr (by simp[eqn_lam₁]),      
+      have : out ⟨S.up μ₁, _⟩ = out ⟨S.up μ₁, up_lt₁⟩,
+        from @eq_out_of_sigma S _ (out ⟨μ₁, lt₁⟩ :: μ₁) μ₂ (suffix_out_cons ⟨μ₁, lt₁⟩)
+        (S.up μ₁) (by simp[eqn_lam₁]) up_lt₁ (by simp[out_eq, Tree'.is_sigma, A]),
+      have sigma : (out ⟨S.up μ₁, up_lt₁⟩).is_sigma,
+      { simp[←this, out_eq, Tree'.is_sigma, A] },
+      have C₂ := S.up_eq_or_lt μ₂, rcases C₂ with (eqn | ⟨lt', pie⟩),
+      { simp[eqn] at up_lt, contradiction },
+      { simp[←eqn] at pie lt', exact neg_is_pie_iff.mpr sigma pie } } }
 end
+
+lemma sigma_outcome_of_eq_up {μ₁ μ₂ : Tree k} (lt : μ₁ ⊂ᵢ μ₂)
+  (eqn : S.up μ₁ = S.up μ₂) (up_lt : S.up μ₂ ⊂ᵢ S.lambda μ₂) : (out ⟨μ₁, lt⟩).is_sigma :=
+sigma_outcome_of_eq_up S ((default _) :: μ₂) lt (by simp) eqn up_lt
+
 
 
 end strategy
