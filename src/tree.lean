@@ -12,6 +12,7 @@ def Tree (n : ℕ) := Tree' (n + 1)
 
 instance {k} : has_append (Tree k) := ⟨list.append⟩
 instance {k} : has_mem (Tree' k) (Tree k) := ⟨list.mem⟩
+instance {k} : has_mem (Tree' k) (Tree' (k + 1)) := ⟨list.mem⟩
 instance : ∀ {k}, inhabited (Tree' k)
 | 0       := ⟨tt⟩
 | (k + 1) := ⟨[]⟩ 
@@ -19,30 +20,6 @@ instance : ∀ {k}, inhabited (Tree' k)
 instance : ∀ n, decidable_eq (Tree' n)
 | 0       := bool.decidable_eq
 | (n + 1) := @list.decidable_eq _ (Tree'.decidable_eq n)
-
-@[simp] def Tree'.proper : ∀ {n}, Tree' n → Prop
-| 0       _ := true
-| 1       _ := true
-| (n + 2) η := list.ordered (⊂ᵢ) η ∧
-    ∀ {μ : Tree' (n + 1)}, list.mem μ η → Tree'.proper μ
-
-lemma Tree_aux.proper_of_mem {n} {η : Tree' (n + 1)}
-  (proper : η.proper) {μ : Tree' n} (mem : list.mem μ η) : μ.proper :=
-by cases n; simp at proper; exact proper.2 mem
-
-lemma Tree_aux.proper_of_cons {n} {η : Tree' (n + 1)} {μ : Tree' n} 
-  (proper : @Tree'.proper (n + 1) (list.cons μ η)) : η.proper :=
-by cases n; simp at*; refine ⟨list.ordered_cons proper.1, λ ν mem, proper.2 (or.inr mem)⟩
-
-namespace Tree_proper
-
-def nil (k : ℕ) : @Tree'.proper (k + 1) ([] : Tree k) := 
-by cases k; simp[list.mem]
-
-def singleton {k : ℕ} (η : Tree' k) (proper : η.proper) : @Tree'.proper (k + 1) [η] :=
-by cases k; simp[list.mem, proper]
-
-end Tree_proper
 
 def ancestor {n} (η : Tree n) := { μ : Tree n // μ ⊂ᵢ η }
 
@@ -71,7 +48,9 @@ def Tree.ancestors {n} (η : Tree n) : list (ancestor η) :=
 (λ _, by simp)
 -- η.ancestors = [ ... η↾*2, η↾*1, η↾*0]
 
-def Tree.ancestors' {n} (η : Tree n) : list (Tree n) := η.ancestors.map subtype.val
+def Tree.ancestors' {n} (η : Tree n) : Tree (n + 1) := η.ancestors.map subtype.val
+
+def Tree.ancestors_or_refl {n} (η : Tree n) : Tree (n + 1) := η :: η.ancestors'
 
 namespace ancestor
 variables {k : ℕ}
@@ -125,7 +104,7 @@ begin
     exact this.trans (list.suffix_cons _ _) }
 end
 
-@[simp] lemma ancestors_length {n} {μ : Tree n} : μ.ancestors.length = μ.length := by simp[Tree.ancestors]
+@[simp] lemma ancestors_or_reflngth {n} {μ : Tree n} : μ.ancestors.length = μ.length := by simp[Tree.ancestors]
 
 lemma ancestors_rnth {n} {μ : Tree n} {i : ℕ} (h : i < μ.length)  :
   μ.ancestors.rnth i = some ⟨μ↾*i, list.is_initial_of_lt_length h⟩ :=
@@ -156,6 +135,9 @@ def ancestor_univ {n} (η : Tree n) : finset (ancestor η) :=
 list.mem_pmap.2 ⟨η₀.val.length, by { simp[ancestor_univ],
 refine ⟨list.is_initial_length η₀.property, _⟩, apply subtype.ext, simp,
 exact list.eq_initial_of_is_initial η₀.property }⟩
+
+lemma ancestors'_complete {n} {η : Tree n} (η₀ : Tree n) (lt : η₀ ⊂ᵢ η) : η₀ ∈ η.ancestors' :=
+by { simp[Tree.ancestors'], refine ⟨⟨η₀, lt⟩, rfl⟩ }
 
 @[simp] lemma mem_fin_range {n} {η : Tree n} (η₀ : ancestor η) : η₀ ∈ ancestor_univ η :=
 ancestors_complete _
@@ -199,7 +181,7 @@ begin
   { simp[←nat.add_one, ←add_assoc], exact IH.trans (Λ.mono _) }
 end
 
-lemma ssubset_of_le {n m : ℕ} {η : Tree i} (ss : η ⊂ Λ.path n) (le : n ≤ m) : η ⊂ Λ.path m :=
+lemma ssubset_of_le {n m : ℕ} {η : Tree i} (ss : η ⊂ᵢ Λ.path n) (le : n ≤ m) : η ⊂ᵢ Λ.path m :=
 list.suffix_of_is_initial_is_initial ss (Λ.mono' le)
 
 def ssubset {i} (η : Tree i) (Λ : Path i) : Prop := ∃ n, η ⊂ᵢ Λ.path n
@@ -309,3 +291,96 @@ begin
   have : ancestor.mk' lt₁ < ancestor.mk' lt₂ ∨ ancestor.mk' lt₂ ≤ ancestor.mk' lt₁,
   from lt_or_ge (ancestor.mk' lt₁) (ancestor.mk' lt₂), simp[ancestor.lt_iff, ancestor.le_iff] at this, exact this
 end
+
+def Tree'.weight_aux : ∀ {k}, Tree' k → ℕ
+| 0       tt := 0
+| 0       ff := 1
+| (k + 1) μ  := list.weight_of (@Tree'.weight_aux k) μ
+
+def Tree'.proper : ∀ {n}, Tree' n → Prop
+| 0       _ := true
+| 1       _ := true
+| (n + 2) η := list.ordered (⊂ᵢ) η ∧
+    ∀ {μ : Tree' (n + 1)}, μ ∈ η → Tree'.proper μ
+
+namespace Tree'.proper
+
+lemma proper_of_mem {n} {η : Tree n}
+  (proper : η.proper) {μ : Tree' n} (mem : μ ∈ η) : μ.proper :=
+by cases n; simp[Tree'.proper] at proper; exact proper.2 mem
+
+lemma proper_of_cons {n} {η : Tree n} {μ : Tree' n} 
+  (proper : @Tree'.proper (n + 1) (μ :: η)) : η.proper :=
+by cases n; simp[Tree'.proper] at*; refine ⟨list.ordered_cons proper.1, proper.2.2⟩
+
+@[simp] def nil (k : ℕ) : @Tree'.proper (k + 1) ([] : Tree k) := 
+by cases k; simp[Tree'.proper]
+
+def singleton {k : ℕ} (η : Tree' k) (proper : η.proper) : @Tree'.proper (k + 1) [η] :=
+by cases k; simp[Tree'.proper, proper]
+
+lemma proper_of_le {k} {η₁ η₂ : Tree k} (le : η₁ <:+ η₂) (proper : η₂.proper) : η₁.proper :=
+by { cases k; simp[Tree'.proper],
+     refine ⟨list.ordered_suffix le proper.1, λ μ mem, _⟩,
+     have : μ ∈ η₂, { rcases le with ⟨_, rfl⟩, exact list.mem_append_right _ mem},
+     exact proper.2 this }
+
+end Tree'.proper
+
+variables {k : ℕ}
+
+lemma lt_weight_aux_of_lt {μ₁ μ₂ : Tree k} (lt : μ₁ ⊂ᵢ μ₂) : μ₁.weight_aux < μ₂.weight_aux :=
+list.lt_weight_of_is_initial lt
+
+lemma lt_weight_aux_of_mem {μ : Tree' k} {η : Tree k} (lt : μ ∈ η) : μ.weight_aux < η.weight_aux :=
+list.lt_weight_of_mem lt
+
+lemma weight_aux_injective : ∀ {k}, function.injective (@Tree'.weight_aux k)
+| 0       tt tt eqn := by simp[Tree'.weight_aux] at eqn
+| 0       tt ff eqn := by simp[Tree'.weight_aux] at eqn; contradiction
+| 0       ff tt eqn := by simp[Tree'.weight_aux] at eqn; contradiction
+| 0       ff ff eqn := by simp[Tree'.weight_aux] at eqn
+| (k + 1) μ₁ μ₂ eqn := list.weight_of_injective (@weight_aux_injective k) eqn
+
+lemma ancestors_or_refl_initial_of_initial {n} {μ₁ μ₂ : Tree n} (lt : μ₁ ⊂ᵢ μ₂) :
+  μ₁.ancestors_or_refl ⊂ᵢ μ₂.ancestors_or_refl :=
+begin
+  rcases lt with ⟨l, x, rfl⟩, induction l with a l IH,
+  { simp[Tree.ancestors_or_refl] },
+  { simp, refine IH.trans (by simp[Tree.ancestors_or_refl]) }
+end
+
+def Tree.weight : Π {k}, Tree k → ℕ
+| 0       μ        := μ.weight_aux
+| (k + 1) []       := 0
+| (k + 1) (ν :: μ) := ν.weight_aux + 1
+
+lemma lt_weight_of_lt : ∀ {k} {μ₁ μ₂ : Tree k} (proper : μ₂.proper),
+  μ₁ ⊂ᵢ μ₂ → μ₁.weight < μ₂.weight
+| 0       μ₁         μ₂         _       lt := by {simp[Tree.weight], exact lt_weight_aux_of_lt lt }
+| (k + 1) μ          []         _       lt := by { simp at lt, contradiction }
+| (k + 1) []         (ν :: μ)   _       lt := by simp[Tree.weight]
+| (k + 1) (ν₁ :: μ₁) (ν₂ :: μ₂) proper lt := by {
+    simp[Tree.weight], 
+    have : ν₁ ⊂ᵢ ν₂,
+    { have : ν₁ ∈ μ₂, { rcases list.is_initial_cons_iff_suffix.mp lt with ⟨l, rfl⟩, simp },
+      exact proper.1.2 ν₁ this },
+    exact lt_weight_aux_of_lt this }
+
+lemma lt_weight_of_mem : ∀ {k} {μ : Tree k} {η : Tree (k + 1)} (proper : η.proper), μ ∈ η → μ.weight < η.weight
+| k μ        []       _      mem := by { simp at mem, contradiction }
+| k []       (ν :: η) _      mem := by { cases k; simp[Tree.weight, Tree'.weight_aux] at mem ⊢ }
+| 0 (σ :: μ) (ν :: η) proper mem := by {
+    simp[Tree.weight] at mem ⊢, rcases mem with (rfl | mem),
+    { simp },
+    { rcases proper.1.2 (σ :: μ) mem with ⟨l, a, rfl⟩,
+      refine nat.lt.step (lt_weight_aux_of_lt ⟨l, a, rfl⟩) } }
+| (k + 1) (σ :: μ) (ν :: η) proper mem := by {
+    simp[Tree.weight] at mem ⊢, rcases mem with (rfl | mem),
+    { exact lt_weight_aux_of_mem (by simp) },
+    { rcases proper.1.2 (σ :: μ) mem with ⟨_, _, rfl⟩, exact lt_weight_aux_of_mem (by simp) } }
+
+lemma lt_weight_cons_of_lt {μ₁ μ₂ : Tree k} {η₁ η₂ : Tree (k + 1)} (lt : μ₁ ⊂ᵢ μ₂) :
+  Tree.weight (μ₁ :: η₁) < Tree.weight (μ₂ :: η₂) :=
+by { simp[Tree.weight], exact lt_weight_aux_of_lt lt}
+

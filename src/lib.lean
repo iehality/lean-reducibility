@@ -573,6 +573,14 @@ by simp[ordered]
 lemma ordered_cons {r : α → α → Prop} {l : list α} {a : α} (o : (a :: l).ordered r) : l.ordered r :=
 by simp[ordered] at o; exact o.1
 
+lemma ordered_suffix {r : α → α → Prop} {l₁ l₂ : list α} (le : l₁ <:+ l₂) (o : l₂.ordered r) : l₁.ordered r :=
+begin
+  rcases le with ⟨l, rfl⟩,
+  induction l with a l IH,
+  { exact o },
+  { simp[ordered] at o, exact IH o.1 }
+end
+
 lemma ordered_mono {r : α → α → Prop} {l : list α} (o : l.ordered r) :
   ∀ {n m : ℕ} (lt : n < m) {a₁ a₂ : α} (h₁ : l.rnth n = a₁) (h₂ : l.rnth m = a₂), r a₁ a₂ :=
 begin
@@ -619,6 +627,42 @@ lemma ordered_map {α β} {r : α → α → Prop} {r' : β → β → Prop} (f 
   (isom : ∀ x y, r x y → r' (f x) (f y)) : ∀ {l : list α} (o : l.ordered r), (l.map f).ordered r'
 | []       o := by simp
 | (a :: l) o := by { simp[ordered] at o ⊢, refine ⟨ordered_map o.1, λ a' mem, isom _ _ (o.2 _ mem)⟩ }
+
+def weight_of (wt : α → ℕ) : list α → ℕ
+| []       := 0
+| (a :: l) := nat.mkpair (wt a) l.weight_of + 1
+
+@[simp] lemma weight_of_nil (wt : α → ℕ) : ([] : list α).weight_of wt = 0 := rfl
+
+lemma lt_weight_of_is_initial {wt : α → ℕ} {l₁ l₂ : list α} (lt : l₁ ⊂ᵢ l₂) : l₁.weight_of wt < l₂.weight_of wt :=
+begin
+  rcases lt with ⟨l, x, rfl⟩, induction l with y l IH; simp[weight_of],
+  { exact nat.lt_succ_iff.mpr (nat.right_le_mkpair (wt x) (weight_of wt l₁)) },
+  { exact nat.lt_succ_iff.mpr (le_of_lt (gt_of_ge_of_gt (nat.right_le_mkpair (wt y) (weight_of wt (l ++ x :: l₁))) IH)) }
+end
+
+lemma lt_weight_of_mem {wt : α → ℕ} {a : α} {l : list α} (lt : a ∈ l) : wt a < l.weight_of wt :=
+begin
+  induction l with x l IH,
+  { simp at lt, contradiction },
+  { simp at lt, rcases lt with (rfl | mem); simp[weight_of],
+    exact nat.lt_succ_iff.mpr (nat.left_le_mkpair (wt a) (weight_of wt l)),
+    refine nat.lt_succ_iff.mpr (le_of_lt (gt_of_ge_of_gt (nat.right_le_mkpair (wt x) (l.weight_of wt)) (IH mem))) }
+end
+
+lemma weight_of_injective {wt : α → ℕ} (inj : function.injective wt) : function.injective (list.weight_of wt)
+| []         []         eqn := rfl
+| []         (a :: l)   eqn := by { exfalso, simp[weight_of] at eqn, exact ne.symm (nat.succ_ne_zero _) eqn }
+| (a :: l)   []         eqn := by { exfalso, simp[weight_of] at eqn, exact eqn }
+| (a₁ :: l₁) (a₂ :: l₂) eqn := by { simp[weight_of] at eqn,
+    have eqn := congr_arg nat.unpair eqn, simp at eqn,
+    have eqn₁ : a₁ = a₂, from inj eqn.1,
+    have eqn₂ : l₁ = l₂, from weight_of_injective eqn.2,
+    simp[eqn₁, eqn₂] }
+
+
+
+
 
 end list
 
