@@ -4,12 +4,13 @@ open encodable denumerable
 
 attribute [simp] set.set_of_app_iff
 
-structure strategy :=
-(n : ℕ)
-(omega_ordering (k : ℕ) : omega_ordering (Tree k × ℕ))
+structure strategy (α : Type) :=
+(rank : ℕ)
+(priority (k : ℕ) : omega_ordering (Tree k × ℕ))
+(generator : α → vector ℕ rank → α)
 
 namespace strategy
-variables (S : strategy)
+variables {α : Type} (S : strategy α)
 
 namespace approx
 variables {k : ℕ}
@@ -41,7 +42,7 @@ def lambda : ∀ {μ : Tree k} (υ : ancestor μ → Tree (k + 1)), Tree (k + 1)
     then (x :: μ) :: (υ ⟨μ, by simp⟩) else ih
 
 def assignment {μ : Tree k} (υ : ancestor μ → Tree (k + 1)) : Tree (k + 1) × ℕ :=
-(S.omega_ordering (k + 1)).Min_le
+(S.priority (k + 1)).Min_le
   ((lambda υ, 0) :: ((lambda υ).ancestors.filter (λ η, (out η).is_pie)).map (λ η, (η.val, (derivative η.val υ).length))) (by simp)
 
 def up {μ : Tree k} (υ : ancestor μ → Tree (k + 1)) : Tree (k + 1) :=
@@ -113,7 +114,7 @@ by { unfold lambda, simp[approx.lambda],
 @[simp] lemma up_nil_eq : S.up ([] : Tree k) = [] :=
 by { have := S.up_eq_or_lt ([] : Tree k), simp at this, exact this }
 
--- Consistency
+-- Consistency 1
 
 lemma up_le_lambda (μ : Tree k) : S.up μ <:+ S.lambda μ :=
 by { rcases S.up_eq_or_lt μ with (eqn | ⟨lt, eqn⟩), { simp[eqn] }, { exact list.suffix_of_is_initial lt } }
@@ -153,6 +154,13 @@ by { have := S.eq_lambda_of_le_lambda (suffix_out_cons η), simp at this,
      rcases this with ⟨μ₀, eqn₁, h, eqn₂⟩,
      exact ⟨μ₀, eqn₁, h, list.head_eq_of_cons_eq eqn₂, list.tail_eq_of_cons_eq eqn₂⟩ }
 
+lemma eq_lambda_of_pred {μ ν : Tree k} {η : Tree (k + 1)} (eqn : S.lambda μ = ν :: η) : S.lambda ν = S.lambda μ :=
+begin
+  have lt : η ⊂ᵢ S.lambda μ, { simp[eqn] },
+  rcases S.eq_lambda_of_lt_lambda ⟨η, lt⟩ with ⟨μ₀, eqn_lam, _, eqn_out, eqn_up⟩, simp at*,
+  have : out ⟨η, lt⟩ = ν, { simp[out_eq_iff, eqn] },
+  simp[←eqn_out, this] at eqn_lam, simp[eqn, eqn_lam]
+end
 
 lemma suffix_of_mem_lambda {ρ μ : Tree k}
   (h : μ ∈ S.lambda ρ) : μ <:+ ρ :=
@@ -344,7 +352,7 @@ begin
       have out_eq : out (⟨S.up μ₁, by simp[eqn_lam₁]⟩ : ancestor (S.lambda (out ⟨μ₁, lt₁⟩ :: μ₁))) = out ⟨μ₁, lt₁⟩ :: μ₁,
         from out_eq_iff.mpr (by simp[eqn_lam₁]),      
       have : out ⟨S.up μ₁, _⟩ = out ⟨S.up μ₁, up_lt₁⟩,
-        from @eq_out_of_sigma S _ (out ⟨μ₁, lt₁⟩ :: μ₁) μ₂ (suffix_out_cons ⟨μ₁, lt₁⟩)
+        from @eq_out_of_sigma _ S _ (out ⟨μ₁, lt₁⟩ :: μ₁) μ₂ (suffix_out_cons ⟨μ₁, lt₁⟩)
         (S.up μ₁) (by simp[eqn_lam₁]) up_lt₁ (by simp[out_eq, Tree'.is_sigma, A]),
       have sigma : (out ⟨S.up μ₁, up_lt₁⟩).is_sigma,
       { simp[←this, out_eq, Tree'.is_sigma, A] },
@@ -352,6 +360,8 @@ begin
       { simp[eqn] at up_lt, contradiction },
       { simp[←eqn] at pie lt', exact neg_is_pie_iff.mpr sigma pie } } }
 end
+
+-- Consistency 2
 
 lemma sigma_outcome_of_eq_up {μ₁ μ₂ : Tree k} (lt : μ₁ ⊂ᵢ μ₂)
   (eqn : S.up μ₁ = S.up μ₂) (up_lt : S.up μ₂ ⊂ᵢ S.lambda μ₂) : (out ⟨μ₁, lt⟩).is_sigma :=
@@ -402,6 +412,98 @@ begin
         rcases this with ⟨s₂, eqn_s₂, C₂⟩,
         refine ⟨s₂, eqn_s₁.trans eqn_s₂, λ s eqn_s, _⟩, simp[rnth_eqn _ eqn_s₂, rnth_eqn _ (eqn_s₂.trans eqn_s)], 
         refine eq.symm (S.eq_out_of_sigma (Λ.mono' eqn_s) _ _ C₂) } } }
+end
+
+theorem Path_exists :
+  ∃ Λ' : Path (k + 1), ∀ n, ∃ s₀, ∀ s, s₀ ≤ s → S.lambda (Λ.path s)↾*n = Λ'.path n :=
+begin
+  let P : ℕ → ℕ → Prop := λ n s₀, (∀ s, s₀ ≤ s → S.lambda (Λ.path s)↾*n = S.lambda (Λ.path s₀)↾*n),
+  have : ∀ n, ∃ s₀, P n s₀, from λ n, S.finite_injury Λ n,
+  have : ∀ n, ∃ s₀, (∀ s, s < s₀ → ¬P n s) ∧ P n s₀,
+  { intros n, exact nat.least_number (this n) },
+  have : ∃ (f : ℕ → ℕ), ∀ x, (∀ s, s < f x → ¬P x s) ∧ P x (f x),
+    from classical.skolem.mp this,
+  rcases this with ⟨f, h_f⟩,
+  let path : ℕ → Tree (k + 1) := λ n, S.lambda (Λ.path (f n))↾*n,
+  have mono : ∀ n, path n <:+ path (n + 1),
+  { intros n, simp[path],
+    have mono : f n ≤ f (n + 1),
+    { suffices : ¬f (n + 1) < f n, { simp* at* },
+      intros A,
+      have min : ∃ x, f (n + 1) ≤ x ∧ ¬S.lambda (Λ.path x)↾*n = S.lambda (Λ.path (f (n + 1)))↾*n,
+      { have := (h_f n).1 _ A, simp[P] at this, exact this },
+      rcases min with ⟨m, le_m, neq⟩,
+      have : S.lambda (Λ.path m)↾*(n + 1) = S.lambda (Λ.path (f (n + 1)))↾*(n + 1),
+      { have := (h_f (n + 1)).2 _ le_m, exact this },
+      have := (congr_arg (λ l : list _, l↾*n) this), simp at this, exact neq this },
+    have : S.lambda (Λ.path (f (n + 1)))↾*n = S.lambda (Λ.path (f n))↾*n, from (h_f n).2 _ mono, 
+    simp[←this],
+    rw (show S.lambda (Λ.path (f (n + 1)))↾*n = S.lambda (Λ.path (f (n + 1)))↾*(n + 1)↾*n, by simp),
+    exact list.suffix_initial _ _ },
+  refine ⟨⟨path, mono⟩, λ n, ⟨f n, λ s eqn_s, _⟩⟩,
+  exact (h_f n).2 _ eqn_s
+end
+
+noncomputable def Lambda (Λ : Path k) : Path (k + 1) := classical.epsilon
+(λ Λ',  ∀ n, ∃ s₀, ∀ s, s₀ ≤ s → S.lambda (Λ.path s)↾*n = Λ'.path n)
+
+theorem Lambda_spec : ∀ n, ∃ s₀, ∀ s, s₀ ≤ s → S.lambda (Λ.path s)↾*n = (S.Lambda Λ).path n :=
+classical.epsilon_spec (S.Path_exists Λ)
+
+@[simp] def lambda_itr : ∀ (μ : Tree k) (i : ℕ), Tree (k + i)
+| μ 0       := μ
+| μ (i + 1) := S.lambda (lambda_itr μ i)
+
+@[simp] def up_itr : ∀ (μ : Tree k) (i : ℕ), Tree (k + i)
+| μ 0       := μ
+| μ (i + 1) := S.up (up_itr μ i)
+
+lemma lambda_proper {μ : Tree k} (proper : μ.proper) : (S.lambda μ).proper :=
+begin
+  induction μ with ν μ IH,
+  { simp },
+  { have C : S.lambda (ν :: μ) = (ν :: μ) :: S.up μ ∨ S.lambda (ν :: μ) = S.lambda μ, from S.lambda_cons_eq ν μ,
+    have proper' : @Tree'.proper (k + 1) μ, exact Tree'.proper.proper_of_cons proper,
+    cases C,
+    { simp[C, Tree'.proper],
+      have lt_of_mem : ∀ η, η ∈ S.up μ → η ⊂ᵢ ν :: μ,
+      { intros η mem,
+        have mem' : η ∈ S.lambda μ, { rcases S.up_le_lambda μ with ⟨l, h⟩,simp[←h, mem] },
+        exact list.is_initial_cons_iff_suffix.mpr (S.suffix_of_mem_lambda mem') },
+      have proper_of_mem : ∀ η : Tree' (k + 1), η ∈ S.up μ → η.proper,
+      { intros η mem,
+        have mem' : η ∈ S.lambda μ, { rcases S.up_le_lambda μ with ⟨l, h⟩,simp[←h, mem] },
+        exact (IH proper').2 mem' },      
+      refine ⟨⟨list.ordered_suffix (S.up_le_lambda μ) ((IH proper').1), lt_of_mem⟩, proper, proper_of_mem⟩ },
+    { simp[C], exact IH proper' } }
+end
+
+lemma up_proper {μ : Tree k} (proper : μ.proper) : (S.up μ).proper :=
+Tree'.proper.proper_of_le (S.up_le_lambda μ) (S.lambda_proper proper)
+
+lemma weight_lambda_mono {μ₁ μ₂ : Tree k} (lt : μ₁ ⊂ᵢ μ₂) (ne : S.lambda μ₁ ≠ S.lambda μ₂) :
+  (S.lambda μ₁).weight < (S.lambda μ₂).weight :=
+begin
+  cases eqn₁ : S.lambda μ₁ with π η₁;
+  cases eqn₂ : S.lambda μ₂ with σ η₂,
+  { simp [eqn₁, eqn₂] at ne, contradiction },
+  { simp },
+  { exfalso, have := S.noninitial_of_suffix (list.suffix_of_is_initial lt), simp[eqn₁, eqn₂] at this, contradiction },
+  have le₁ : π <:+ μ₁, from  S.suffix_of_mem_lambda (by simp[eqn₁]),
+  have le₂ : σ <:+ μ₂, from  S.suffix_of_mem_lambda (by simp[eqn₂]),
+  have le₁' : π <:+ μ₂, from list.suffix_of_is_initial (list.is_initial_of_suffix_is_initial le₁ lt),
+  have eqn_lam₁ : S.lambda π = S.lambda μ₁, from S.eq_lambda_of_pred eqn₁,
+  have eqn_lam₂ : S.lambda σ = S.lambda μ₂, from S.eq_lambda_of_pred eqn₂,
+  have C : π ⊂ᵢ σ ∨ π = σ ∨ σ ⊂ᵢ π, from trichotomous_of_le_of_le le₁' le₂,
+  cases C,
+  { exact lt_weight_cons_of_lt C }, exfalso, rcases C with ⟨rfl, C⟩,
+  { simp[←eqn_lam₁, ←eqn_lam₂] at ne, contradiction },
+  { have := S.suffix_of_suffix (list.suffix_of_is_initial C) le₁' (by simp[eqn_lam₂]),
+    simp[eqn_lam₁, eqn_lam₂] at this, 
+    have C₁ : S.lambda μ₂ ⊂ᵢ S.lambda μ₁ ∨ S.lambda μ₂ = S.lambda μ₁,
+      from list.suffix_iff_is_initial.mp this,
+    cases C₁, { exact S.noninitial_of_suffix (list.suffix_of_is_initial lt) C₁ },
+    { exact ne (eq.symm C₁)} }
 end
 
 end strategy

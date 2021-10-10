@@ -292,10 +292,12 @@ begin
   from lt_or_ge (ancestor.mk' lt₁) (ancestor.mk' lt₂), simp[ancestor.lt_iff, ancestor.le_iff] at this, exact this
 end
 
-def Tree'.weight_aux : ∀ {k}, Tree' k → ℕ
-| 0       tt := 0
-| 0       ff := 1
-| (k + 1) μ  := list.weight_of (@Tree'.weight_aux k) μ
+lemma trichotomous_of_le_of_le {k} {μ₁ μ₂ η : Tree k} (le₁ : μ₁ <:+ η) (le₂ : μ₂ <:+ η) : μ₁ ⊂ᵢ μ₂ ∨ μ₁ = μ₂ ∨ μ₂ ⊂ᵢ μ₁ :=
+begin
+  have := lt_or_le_of_le_of_le le₁ le₂, simp[list.suffix_iff_is_initial] at this,
+  rcases this with (h | h | h); simp[h]
+end
+
 
 def Tree'.proper : ∀ {n}, Tree' n → Prop
 | 0       _ := true
@@ -327,6 +329,11 @@ by { cases k; simp[Tree'.proper],
 
 end Tree'.proper
 
+def Tree'.weight_aux : ∀ {k}, Tree' k → ℕ
+| 0       tt := 0
+| 0       ff := 1
+| (k + 1) μ  := list.weight_of (@Tree'.weight_aux k) μ
+
 variables {k : ℕ}
 
 lemma lt_weight_aux_of_lt {μ₁ μ₂ : Tree k} (lt : μ₁ ⊂ᵢ μ₂) : μ₁.weight_aux < μ₂.weight_aux :=
@@ -355,8 +362,12 @@ def Tree.weight : Π {k}, Tree k → ℕ
 | (k + 1) []       := 0
 | (k + 1) (ν :: μ) := ν.weight_aux + 1
 
-lemma lt_weight_of_lt : ∀ {k} {μ₁ μ₂ : Tree k} (proper : μ₂.proper),
-  μ₁ ⊂ᵢ μ₂ → μ₁.weight < μ₂.weight
+@[simp] lemma weight_nil : @Tree.weight k [] = 0 := by cases k; simp[Tree.weight, Tree'.weight_aux]
+
+@[simp] lemma weight_cons_pos (μ : Tree' k) (η : Tree k) : 0 < Tree.weight (μ :: η) :=
+by {cases k; simp[Tree.weight, Tree'.weight_aux, list.weight_of] }
+
+lemma lt_weight_of_lt : ∀ {k} {μ₁ μ₂ : Tree k} (proper : μ₂.proper), μ₁ ⊂ᵢ μ₂ → μ₁.weight < μ₂.weight
 | 0       μ₁         μ₂         _       lt := by {simp[Tree.weight], exact lt_weight_aux_of_lt lt }
 | (k + 1) μ          []         _       lt := by { simp at lt, contradiction }
 | (k + 1) []         (ν :: μ)   _       lt := by simp[Tree.weight]
@@ -368,9 +379,9 @@ lemma lt_weight_of_lt : ∀ {k} {μ₁ μ₂ : Tree k} (proper : μ₂.proper),
     exact lt_weight_aux_of_lt this }
 
 lemma lt_weight_of_mem : ∀ {k} {μ : Tree k} {η : Tree (k + 1)} (proper : η.proper), μ ∈ η → μ.weight < η.weight
-| k μ        []       _      mem := by { simp at mem, contradiction }
-| k []       (ν :: η) _      mem := by { cases k; simp[Tree.weight, Tree'.weight_aux] at mem ⊢ }
-| 0 (σ :: μ) (ν :: η) proper mem := by {
+| k       μ        []       _      mem := by { simp at mem, contradiction }
+| k       []       (ν :: η) _      mem := by { cases k; simp[Tree.weight, Tree'.weight_aux] at mem ⊢ }
+| 0       (σ :: μ) (ν :: η) proper mem := by {
     simp[Tree.weight] at mem ⊢, rcases mem with (rfl | mem),
     { simp },
     { rcases proper.1.2 (σ :: μ) mem with ⟨l, a, rfl⟩,

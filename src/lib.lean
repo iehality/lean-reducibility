@@ -404,6 +404,12 @@ by simp[is_initial, *] at*
 @[simp] lemma not_is_initial_nil (l : list α) : ¬ l ⊂ᵢ [] := λ h,
 by simp[is_initial, *] at*
 
+@[simp] lemma is_initial_nil_cons (l : list α) (a : α) : [] ⊂ᵢ a :: l :=
+by { cases C : l.reverse with x l',
+     { have := congr_arg list.reverse C, simp at this, exact ⟨[], a, by simp[this]⟩ },
+     { have := congr_arg list.reverse C, simp at this, exact ⟨[a] ++ l'.reverse, x, by simp[this]⟩ } }
+
+
 lemma is_initial.trans {l₁ l₂ l₃ : list α} (h₁ : l₁ ⊂ᵢ l₂) (h₂ : l₂ ⊂ᵢ l₃) : l₁ ⊂ᵢ l₃ :=
 by { rcases h₁ with ⟨l12, a12, h₁⟩, rcases h₂ with ⟨l23, a23, h₂⟩,
      refine ⟨l23 ++ [a23] ++ l12, a12, by simp[h₁, h₂]⟩ }
@@ -549,6 +555,9 @@ lemma incomparable_iff_suffix_is_initial {l₁ l₂ : list α} :
 ⟨λ ⟨h₁, h₂⟩, ⟨λ A, h₁ (suffix_of_is_initial A), h₂⟩,
   λ ⟨h₁, h₂⟩, ⟨λ A, by { simp[is_initial_iff_suffix] at h₁, simp[h₁ A, suffix_refl] at h₂, contradiction }, h₂⟩⟩
 
+@[simp] lemma incomparable.antirefl {l : list α} : ¬ l ∥ l :=
+by simp[incomparable]
+
 lemma incomparable.symm {l₁ l₂ : list α} :
   l₁ ∥ l₂ → l₂ ∥ l₁ := λ ⟨h₁, h₂⟩, ⟨h₂, h₁⟩
 
@@ -659,10 +668,6 @@ lemma weight_of_injective {wt : α → ℕ} (inj : function.injective wt) : func
     have eqn₁ : a₁ = a₂, from inj eqn.1,
     have eqn₂ : l₁ = l₂, from weight_of_injective eqn.2,
     simp[eqn₁, eqn₂] }
-
-
-
-
 
 end list
 
@@ -805,15 +810,15 @@ by { revert ex, contrapose, simp, intros h, exact nat.strong_rec' h }
 lemma least_number' {p : ℕ → Prop} {n} (ex : p n) : ∃ n, (∀ m, m < n → ¬ p m) ∧ p n :=
 nat.least_number ⟨n, ex⟩
 
+#check set.infinite.exists_nat_lt
+
 end nat
 
-namespace set
-variables {α : Type*}
-lemma compl_eq (p : α → Prop) : {x | p x}ᶜ = {x | ¬ p x} :=
-by { exact compl_set_of (λ (a : α), p a) } 
+namespace function
 
-end set
+#check @set.finite_of_finite_image
 
+end function
 
 section classical
 local attribute [instance, priority 0] classical.prop_decidable
