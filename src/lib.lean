@@ -38,6 +38,27 @@ prefix `↑ᵒ`:max := coe_ropt_opt
 
 end
 
+namespace nat
+
+lemma least_number {p : ℕ → Prop} (ex : ∃ n, p n) : ∃ n, (∀ m, m < n → ¬ p m) ∧ p n :=
+by { revert ex, contrapose, simp, intros h, exact nat.strong_rec' h }
+
+lemma least_number' {p : ℕ → Prop} {n} (ex : p n) : ∃ n, (∀ m, m < n → ¬ p m) ∧ p n :=
+nat.least_number ⟨n, ex⟩
+
+#check set.infinite.exists_nat_lt
+
+lemma range_infinity_of_injective {f : ℕ → ℕ} (hf : function.injective f) : 
+  ∀ n, ∃ m, n < f m := λ n,
+begin
+  have : set.inj_on f set.univ, { intros x₁ _ x₂ _ eqn, exact hf eqn },
+  have : (f '' set.univ).infinite, from (set.infinite_image_iff this).mpr (set.infinite_univ),
+  rcases set.infinite.exists_nat_lt this n with ⟨k, ⟨m, _, rfl⟩, lt⟩,
+  exact ⟨m, lt⟩
+end
+
+end nat
+
 namespace list
 variables {α : Type*}
 
@@ -197,15 +218,14 @@ begin
   { have : ∀ k, k - (k - m) - n + (k - m) = k - n,
     { intros k,
       have eqn := le_or_lt m k, cases eqn,
-      { simp [nat.sub_sub_assoc (show k ≤ k, by refl) eqn,
-          nat.sub_add_eq_add_sub C, nat.add_sub_cancel' eqn] },
+      { simp [sub_sub_assoc (show k ≤ k, by refl) eqn], omega },
       { have : k - m = 0, from nat.sub_eq_zero_of_le (le_of_lt eqn),
         simp[this] } },
     exact this _ },
   { have : ∀ k, k - (k - m) - n = 0,
     { intros k, 
       have eqn := le_or_lt m k, cases eqn,
-      { simp [nat.sub_sub_assoc (show k ≤ k, by refl) eqn], exact nat.sub_eq_zero_of_le C },
+      { simp [sub_sub_assoc (show k ≤ k, by refl) eqn], exact nat.sub_eq_zero_of_le C },
       { have eqn1 : k - m = 0, from nat.sub_eq_zero_of_le (le_of_lt eqn),
         have eqn2 : k - n = 0, from nat.sub_eq_zero_of_le (le_of_lt $ gt_of_ge_of_gt C eqn),
         simp[eqn1, eqn2] } },
@@ -427,6 +447,10 @@ lemma suffix_of_is_initial_is_initial {l₁ l₂ l₃ : list α} (h₁ : l₁ �
 by { rcases h₁ with ⟨l12, a12, h₁⟩, rcases h₂ with ⟨l23, h₂⟩,
      refine ⟨l23 ++ l12, a12, by simp[h₁, h₂]⟩ }
 
+lemma is_initial.lt_length {l₁ l₂ : list α} (h : l₁ ⊂ᵢ l₂) : l₁.length < l₂.length :=
+by { rcases h with ⟨l, x, rfl⟩, simp,
+     exact (length l₁).lt_add_left (length l₁ + 1) (length l) (lt_add_one (length l₁))}
+
 @[simp] lemma is_initial_cons (a : α) (l : list α) : l ⊂ᵢ a :: l := ⟨[], a, rfl⟩
 
 lemma is_initial_cons_iff {x : α} {l₁ l₂ : list α} :
@@ -467,6 +491,9 @@ begin
 end
 
 lemma suffix_of_is_initial {l₁ l₂ : list α} (h : l₁ ⊂ᵢ l₂) : l₁ <:+ l₂ :=
+by { rcases h with ⟨l₃, a, h⟩, refine ⟨l₃ ++ [a], by simp[h]⟩ }
+
+lemma is_initial.suffix {l₁ l₂ : list α} (h : l₁ ⊂ᵢ l₂) : l₁ <:+ l₂ :=
 by { rcases h with ⟨l₃, a, h⟩, refine ⟨l₃ ++ [a], by simp[h]⟩ }
 
 lemma suffix_iff_is_initial {l₁ l₂ : list α} : l₁ <:+ l₂ ↔ l₁ ⊂ᵢ l₂ ∨ l₁ = l₂ :=
@@ -686,8 +713,11 @@ end option
 class omega_ordering (α : Type u) :=
 (ordering : α → ℕ)
 (inj : function.injective ordering)
+#check omega_ordering.ordering
 
 namespace omega_ordering
+
+def default (α : Type*) [encodable α] : omega_ordering α := ⟨encodable.encode, encode_injective⟩
 
 instance {α : Type u} [omega_ordering α] : linear_order α :=
 { le := λ x y, (omega_ordering.ordering x) ≤ (omega_ordering.ordering y),
@@ -729,7 +759,7 @@ variables {α : Type u} {o : omega_ordering α}
 | (x :: l) m := by { simp[Min], cases C : o.Min l with m'; simp[C],
     { simp at C, simp[C], refine ⟨λ eqn, by simp[eqn], λ eqn, by simp[eqn]⟩ },
     { have : m' ∈ l ∧ ∀ (a : α), a ∈ l → m' ≤ a, from mem_of_Min_iff_le.mp C, rcases this with ⟨IH₁, IH₂⟩,
-      by_cases C₁ : x ≤ m'; simp[min, C₁],
+      by_cases C₁ : x ≤ m'; simp[min, C₁, min_default],
       { split,
         { rintros rfl, simp, intros a mem, exact le_trans C₁ (IH₂ a mem) },
         { rintros ⟨(h₁ | h₁), h₂, h₃⟩, { simp[h₁] },
@@ -740,11 +770,46 @@ variables {α : Type u} {o : omega_ordering α}
         { rintros ⟨(h₁ | h₁), h₂, h₃⟩, {exfalso, rcases h₁ with rfl, exact C₁ (h₃ m' IH₁) },
           { exact le_antisymm (IH₂ m h₁) (h₃ m' IH₁) } } } } }
 
-lemma Min_le_mem {l : list α} {h} : o.Min_le l h ∈ l:=
+lemma Min_le_mem (o : omega_ordering α) (l : list α) {h} : o.Min_le l h ∈ l :=
 (mem_of_Min_iff_le.mp (option.mem_def.mp (option.get_mem (min_some_of_pos o l h)))).1
 
-lemma Min_le_minimum {l : list α} {h} : ∀ a ∈ l, o.Min_le l h ≤ a :=
+lemma Min_le_minimum (o : omega_ordering α) {l : list α} {h} : ∀ a ∈ l, o.Min_le l h ≤ a :=
 (mem_of_Min_iff_le.mp (option.mem_def.mp (option.get_mem (min_some_of_pos o l h)))).2
+
+lemma eq_Min_sequence (o : omega_ordering α) (A : ℕ → list α) (pos : ∀ s, 0 < (A s).length)
+  (hA₁ : ∀ s t, s < t → ¬o.Min_le (A s) (pos s) ∈ A t)
+  {a : α} (mem : a ∈ A 0) (hA₂ : ∀ s, o.Min_le (A s) (pos s) < a → a ∈ (A s) → a ∈ A (s + 1)) :
+  ∃ s, a = o.Min_le (A s) (pos s) :=
+begin
+  suffices : ¬∀ s, a ∈ A s,
+  { revert this, contrapose, simp, intros h s,
+    induction s with s IH, { exact mem },
+    { refine hA₂ s _ IH,
+      have C : o.Min_le (A s) (pos s) < a ∨ o.Min_le (A s) (pos s) = a, from lt_or_eq_of_le (o.Min_le_minimum a IH),
+      cases C,
+      { exact C }, { exfalso, exact h s (eq.symm C) } } },
+  intros mem,
+  have lt : ∀ s, o.Min_le (A s) (pos s) < a,
+  { intros s, have : o.Min_le (A s) (pos s) ≤ a, from o.Min_le_minimum a (mem s),
+    have C : o.Min_le (A s) (pos s) < a ∨ o.Min_le (A s) (pos s) = a, from lt_or_eq_of_le this,
+    rcases C with (C | rfl),
+    { exact C }, { exfalso, exact (hA₁ s (s + 1) (lt_add_one s)) (mem (s + 1)) } },
+  have : function.injective (λ s, ordering (o.Min_le (A s) (pos s))),
+  { intros s₁ s₂ eqn, simp at eqn,
+    have C : s₁ < s₂ ∨ s₁ = s₂ ∨ s₂ < s₁, exact trichotomous s₁ s₂, cases C,
+    { exfalso,
+      have : o.Min_le (A s₁) (pos s₁) ∉ A s₂, from hA₁ s₁ s₂ C,
+      have : o.Min_le (A s₁) (pos s₁) ∈ A s₂, rw inj eqn, from o.Min_le_mem _,
+      contradiction }, cases C,
+    { exact C },
+    { exfalso,
+      have : o.Min_le (A s₂) (pos s₂) ∉ A s₁, from hA₁ s₂ s₁ C,
+      have : o.Min_le (A s₂) (pos s₂) ∈ A s₁, rw ← inj eqn, from o.Min_le_mem _,
+      contradiction } },
+  have : ∃ s, a < o.Min_le (A s) (pos s), from nat.range_infinity_of_injective this (ordering a),
+  rcases this with ⟨s, eqn⟩,
+  exact nat.lt_asymm (lt s) eqn
+end
 
 end omega_ordering
 namespace fin
@@ -802,54 +867,8 @@ def list.of_list {α : Type*} : ∀ l : list α, (fin (l.length) → α)
 | []        := finitary.nil
 | (a :: as) := as.of_list ::ᶠ a
 
-namespace nat
-
-lemma least_number {p : ℕ → Prop} (ex : ∃ n, p n) : ∃ n, (∀ m, m < n → ¬ p m) ∧ p n :=
-by { revert ex, contrapose, simp, intros h, exact nat.strong_rec' h }
-
-lemma least_number' {p : ℕ → Prop} {n} (ex : p n) : ∃ n, (∀ m, m < n → ¬ p m) ∧ p n :=
-nat.least_number ⟨n, ex⟩
-
-#check set.infinite.exists_nat_lt
-
-end nat
-
 namespace function
 
-#check @set.finite_of_finite_image
+#check set.infinite_image_iff
 
 end function
-
-section classical
-local attribute [instance, priority 0] classical.prop_decidable
-
-noncomputable def Prop_encode : Prop → ℕ := λ P, if P then 1 else 0
-
-def Prop_decode : ℕ → option Prop
-| 0       := some false
-| 1       := some true
-| (n + 2) := none
-
-noncomputable instance encodable.Prop : encodable Prop :=
-⟨Prop_encode, Prop_decode, λ P, by by_cases C : P; simp[C, Prop_encode, Prop_decode]⟩
-
-theorem Prop_prim : nat.primrec (λ n, encodable.encode (encodable.decode Prop n)) :=
-begin
-  let f : ℕ → ℕ := (λ n, cond (n = 0) (encode $ some false)
-    (cond (n = 1) (encode $ some true) (encode (none : option Prop)))),
-  have : (λ n, encode (decode Prop n)) = f,
-  { funext n, simp[f], cases n; simp[decode, Prop_decode],
-    cases n; simp[decode, Prop_decode] },
-  rw this, apply primrec.nat_iff.mp,
-  refine primrec.cond
-    (primrec₂.comp primrec.eq primrec.id (primrec.const _))
-    (primrec.const _)
-    (primrec.cond
-      (primrec₂.comp primrec.eq primrec.id (primrec.const _))
-      (primrec.const _)
-      (primrec.const _))
-end
-
-noncomputable instance primcodable.Prop : primcodable Prop := ⟨Prop_prim⟩
-
-end classical

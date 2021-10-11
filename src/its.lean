@@ -92,13 +92,13 @@ lemma assignment_fst_eq_up {μ : Tree k} : (S.assignment μ).1 = S.up μ :=
 by simp[assignment, up, approx.up]
 
 lemma up_eq_lambda_or_pie (μ : Tree k) : S.up μ = S.lambda μ ∨ ∃ η : ancestor (S.lambda μ), (out η).is_pie ∧ S.up μ = η :=
-by { have : S.assignment μ ∈ _, from omega_ordering.Min_le_mem, simp at this,
+by { have : S.assignment μ ∈ _, from omega_ordering.Min_le_mem _ _, simp at this,
      cases this,
      { left, simp[←assignment_fst_eq_up, this], refl },
      { right, rcases this with ⟨η, pie, eqn⟩, refine ⟨η, pie, _⟩, simp[←assignment_fst_eq_up, ←eqn] } }
 
 lemma up_eq_or_lt (μ : Tree k) : S.up μ = S.lambda μ ∨ ∃ lt : S.up μ ⊂ᵢ S.lambda μ, (out ⟨S.up μ, lt⟩).is_pie :=
-by { have : S.assignment μ ∈ _, from omega_ordering.Min_le_mem, simp at this,
+by { have : S.assignment μ ∈ _, from omega_ordering.Min_le_mem _ _, simp at this,
      cases this,
      { left, simp[←assignment_fst_eq_up, this], refl },
      { right, rcases this with ⟨η, pie, eqn⟩, simp[←assignment_fst_eq_up, ←eqn], exact ⟨η.property, pie⟩ } }
@@ -450,6 +450,21 @@ noncomputable def Lambda (Λ : Path k) : Path (k + 1) := classical.epsilon
 theorem Lambda_spec : ∀ n, ∃ s₀, ∀ s, s₀ ≤ s → S.lambda (Λ.path s)↾*n = (S.Lambda Λ).path n :=
 classical.epsilon_spec (S.Path_exists Λ)
 
+lemma lt_Lambda_iff {Λ : Path k} {η : Tree (k + 1)} :
+  η ⊂' S.Lambda Λ ↔ ∃ s₀, ∀ s, s₀ ≤ s → η ⊂ᵢ S.lambda (Λ.path s) :=
+⟨λ ⟨n, h⟩, by {
+    rcases S.Lambda_spec Λ n with ⟨s₀, eqn⟩,
+    refine ⟨s₀, λ s eqn_s, _⟩,
+    have : S.lambda (Λ.path s)↾*n = (S.Lambda Λ).path n, from eqn s eqn_s, simp[←this] at h,
+    have : S.lambda (Λ.path s)↾*n <:+ S.lambda (Λ.path s), from list.suffix_initial _ _,
+    exact list.suffix_of_is_initial_is_initial h this }, 
+  λ ⟨s₀, h⟩, by { 
+    rcases S.Lambda_spec Λ (η.length + 1) with ⟨s₁, eqn⟩,
+    refine ⟨η.length + 1, _⟩,
+    have := eqn (max s₀ s₁) (le_max_right s₀ s₁), rw ←this,
+    rcases h (max s₀ s₁) (le_max_left s₀ s₁) with ⟨l, a, eqn⟩,
+    simp[←eqn, list.initial] }⟩
+
 @[simp] def lambda_itr : ∀ (μ : Tree k) (i : ℕ), Tree (k + i)
 | μ 0       := μ
 | μ (i + 1) := S.lambda (lambda_itr μ i)
@@ -504,6 +519,22 @@ begin
       from list.suffix_iff_is_initial.mp this,
     cases C₁, { exact S.noninitial_of_suffix (list.suffix_of_is_initial lt) C₁ },
     { exact ne (eq.symm C₁)} }
+end
+
+#check S.derivative
+
+lemma infinite_substrategy (infinite : Λ.infinite) {η : Tree (k + 1)} (lt : η ⊂' S.Lambda Λ) :
+  (∃ {n} (μ : ancestor (Λ.path n)), S.lambda μ.val ⊆' S.Lambda Λ ∧ S.up μ.val = η ∧ (out μ).is_pie) ∨
+  (∀ n, ∃ {s} (μ : ancestor (Λ.path s)), S.lambda μ.val ⊆' S.Lambda Λ ∧ S.assignment μ.val = (η, n) ∧ (out μ).is_sigma) :=
+begin
+  suffices :
+    (∀ {n} (μ : ancestor (Λ.path n)), S.lambda μ.val ⊆' S.Lambda Λ → S.up μ.val = η → (out μ).is_sigma) →
+    (∀ n, ∃ {s} (μ : ancestor (Λ.path s)), S.lambda μ.val ⊆' S.Lambda Λ ∧ S.assignment μ.val = (η, n) ∧ (out μ).is_sigma),
+  { refine or_iff_not_imp_left.mpr _, simp, exact this },
+  intros sigma n,
+  induction n with n IH,
+  { rcases S.lt_Lambda_iff.mp lt with ⟨s₀, lt⟩,
+     }
 end
 
 end strategy
