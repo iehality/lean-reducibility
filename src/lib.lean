@@ -429,12 +429,11 @@ by { cases C : l.reverse with x l',
      { have := congr_arg list.reverse C, simp at this, exact ⟨[], a, by simp[this]⟩ },
      { have := congr_arg list.reverse C, simp at this, exact ⟨[a] ++ l'.reverse, x, by simp[this]⟩ } }
 
-
 lemma is_initial.trans {l₁ l₂ l₃ : list α} (h₁ : l₁ ⊂ᵢ l₂) (h₂ : l₂ ⊂ᵢ l₃) : l₁ ⊂ᵢ l₃ :=
 by { rcases h₁ with ⟨l12, a12, h₁⟩, rcases h₂ with ⟨l23, a23, h₂⟩,
      refine ⟨l23 ++ [a23] ++ l12, a12, by simp[h₁, h₂]⟩ }
 
-lemma is_initial_of_suffix_is_initial {l₁ l₂ l₃ : list α} (h₁ : l₁ <:+ l₂) (h₂ : l₂ ⊂ᵢ l₃) : l₁ ⊂ᵢ l₃ :=
+lemma is_suffix.is_initial_of_is_initial {l₁ l₂ l₃ : list α} (h₁ : l₁ <:+ l₂) (h₂ : l₂ ⊂ᵢ l₃) : l₁ ⊂ᵢ l₃ :=
 by { rcases h₁ with ⟨l12, h₁⟩,
      cases C : l12.reverse with a' l',
      { simp at C, rcases C with rfl,
@@ -443,7 +442,13 @@ by { rcases h₁ with ⟨l12, h₁⟩,
        rcases h₂ with ⟨l23, a23, h₂⟩, simp at h₁,
        refine ⟨l23 ++ [a23] ++ l'.reverse, a', by simp[h₁, h₂]⟩ } }
 
-lemma suffix_of_is_initial_is_initial {l₁ l₂ l₃ : list α} (h₁ : l₁ ⊂ᵢ l₂) (h₂ : l₂ <:+ l₃) : l₁ ⊂ᵢ l₃ :=
+lemma is_initial_antisymm {l₁ l₂ : list α} (h₁ : l₁ ⊂ᵢ l₂) (h₂ : l₂ ⊂ᵢ l₁) : false :=
+by { rcases h₁ with ⟨l, a, rfl⟩, rcases h₂ with ⟨l', a', eqn⟩, 
+     have := congr_arg list.length eqn, simp[add_assoc] at this,
+     rw (show l₁.length + (1 + 1) = (1+1) + l₁.length, from add_comm _ _) at this,
+     simp[←add_assoc] at this, contradiction }
+
+lemma is_initial.is_initial_of_suffix {l₁ l₂ l₃ : list α} (h₁ : l₁ ⊂ᵢ l₂) (h₂ : l₂ <:+ l₃) : l₁ ⊂ᵢ l₃ :=
 by { rcases h₁ with ⟨l12, a12, h₁⟩, rcases h₂ with ⟨l23, h₂⟩,
      refine ⟨l23 ++ l12, a12, by simp[h₁, h₂]⟩ }
 
@@ -509,6 +514,9 @@ lemma suffix_iff_is_initial {l₁ l₂ : list α} : l₁ <:+ l₂ ↔ l₁ ⊂�
 
 lemma is_initial_iff_suffix {l₁ l₂ : list α} : l₁ ⊂ᵢ l₂ ↔ l₁ <:+ l₂ ∧ l₁ ≠ l₂ :=
 by { simp[suffix_iff_is_initial, or_and_distrib_right], intros h₁ h₂, simp[h₂] at*, exact h₁ }
+  
+lemma is_initial_suffix_antisymm {l₁ l₂ : list α} (lt : l₁ ⊂ᵢ l₂) (le : l₂ <:+ l₁) : false :=
+by {cases suffix_iff_is_initial.mp le, { exact is_initial_antisymm lt h }, { simp[h] at lt, contradiction } }
 
 lemma is_initial_cons_iff_suffix {x : α} {l₁ l₂ : list α} :
   l₁ ⊂ᵢ x :: l₂ ↔ l₁ <:+ l₂ :=
@@ -527,6 +535,23 @@ begin
       rcases h with ⟨l', rfl⟩,
       exact ⟨l' ++ l.reverse, a, by simp⟩ }
 end
+
+lemma is_suffix.is_initial_of_lt {l₁ l₂ : list α}
+  (h : l₁ <:+ l₂) (lt : l₁.length < l₂.length) : l₁ ⊂ᵢ l₂ :=
+begin
+  rcases h with ⟨l, rfl⟩,
+  induction l with a l IH, { exfalso, simp at lt, contradiction },
+  { simp[is_initial_cons_iff_suffix] }
+end
+
+lemma is_suffix.eq_of_eq {l₁ l₂ : list α}
+  (h : l₁ <:+ l₂) (lt : l₁.length = l₂.length) : l₁ = l₂ :=
+begin
+  exact eq_of_suffix_of_length_eq h lt
+end
+
+lemma is_suffix.le_length {l₁ l₂ : list α} (h : l₁ <:+ l₂) : l₁.length ≤ l₂.length :=
+by { rcases h with ⟨l, rfl⟩, simp }
 
 lemma rnth_eq_iff_suffix_cons_initial {l : list α} {n : ℕ} {a : α} :
   l.rnth n = a ↔ a :: l↾*n <:+ l :=
@@ -775,19 +800,16 @@ lemma Min_le_mem (o : omega_ordering α) (l : list α) {h} : o.Min_le l h ∈ l 
 
 lemma Min_le_minimum (o : omega_ordering α) {l : list α} {h} : ∀ a ∈ l, o.Min_le l h ≤ a :=
 (mem_of_Min_iff_le.mp (option.mem_def.mp (option.get_mem (min_some_of_pos o l h)))).2
-
+ 
 lemma eq_Min_sequence (o : omega_ordering α) (A : ℕ → list α) (pos : ∀ s, 0 < (A s).length)
   (hA₁ : ∀ s t, s < t → ¬o.Min_le (A s) (pos s) ∈ A t)
-  {a : α} (mem : a ∈ A 0) (hA₂ : ∀ s, o.Min_le (A s) (pos s) < a → a ∈ (A s) → a ∈ A (s + 1)) :
+  {a : α} (mem : a ∈ A 0) (hA₂ : ∀ s, a ≠ o.Min_le (A s) (pos s) → a ∈ A s → a ∈ A (s + 1)) :
   ∃ s, a = o.Min_le (A s) (pos s) :=
 begin
   suffices : ¬∀ s, a ∈ A s,
   { revert this, contrapose, simp, intros h s,
     induction s with s IH, { exact mem },
-    { refine hA₂ s _ IH,
-      have C : o.Min_le (A s) (pos s) < a ∨ o.Min_le (A s) (pos s) = a, from lt_or_eq_of_le (o.Min_le_minimum a IH),
-      cases C,
-      { exact C }, { exfalso, exact h s (eq.symm C) } } },
+    { exact hA₂ s (h s) IH } },
   intros mem,
   have lt : ∀ s, o.Min_le (A s) (pos s) < a,
   { intros s, have : o.Min_le (A s) (pos s) ≤ a, from o.Min_le_minimum a (mem s),

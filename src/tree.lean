@@ -62,10 +62,13 @@ lemma lt_iff {n} {η : Tree n} {μ₁ μ₂ : ancestor η} : μ₁ < μ₂ ↔ �
 @[simp] def mk' {k} {η μ : Tree k} (h : μ ⊂ᵢ η) : ancestor η := ⟨μ, h⟩
 
 def extend {η₁ η₂ : Tree k} (le : η₁ <:+ η₂) (μ : ancestor η₁) : ancestor η₂ :=
-⟨μ, list.suffix_of_is_initial_is_initial μ.property le⟩
+⟨μ, list.is_initial.is_initial_of_suffix μ.property le⟩
 
 @[simp] lemma extend_val {η₁ η₂ : Tree k} (le : η₁ <:+ η₂) (μ : ancestor η₁) : 
   (μ.extend le).val = μ := rfl
+
+@[simp] lemma extend_coe {η₁ η₂ : Tree k} (le : η₁ <:+ η₂) (μ : ancestor η₁) : 
+  (↑(μ.extend le) : Tree k) = ↑μ := rfl
 
 def extend_fn {α} {η₂ : Tree k} 
   (f : ancestor η₂ → α) (η₁ : Tree k) (le : η₁ <:+ η₂) : ancestor η₁ → α := λ ν, f (ν.extend le)
@@ -89,8 +92,16 @@ by { simp[Tree.ancestors, list.map_pmap], apply list.pmap_congr, simp,
   Tree.ancestors' (x :: η) = η :: η.ancestors' :=
 by { simp [Tree.ancestors', ancestors_cons, function.comp], unfold_coes }
 
+lemma ancestors'_suffix_of_suffix {n} {μ₁ μ₂ : Tree n} (s : μ₁ <:+ μ₂) :
+  μ₁.ancestors' <:+ μ₂.ancestors' :=
+begin
+  rcases s with ⟨l, rfl⟩,
+  induction l with x l IH,
+  { refl },
+  { simp, exact IH.trans (list.suffix_cons _ _) }
+end
 
-lemma ancestors_suffix_of_suffix {n} {μ₁ μ₂ : Tree n} (s : μ₁ <:+ μ₂) :
+lemma ancestors_suffix_of_suffix' {n} {μ₁ μ₂ : Tree n} (s : μ₁ <:+ μ₂) :
   μ₁.ancestors.map (ancestor.extend s) <:+ μ₂.ancestors :=
 begin
   rcases s with ⟨l, h⟩,
@@ -157,40 +168,6 @@ by { have : (ancestor_univ' η).card = (ancestor_univ η).card,
 
 end ancestor
 
-structure Path (n : ℕ) :=
-(path : ℕ → Tree n)
-(mono : ∀ m, path m <:+ path (m + 1))
-
-namespace Path
-
-def trivialPath_aux {i : ℕ} : ℕ → Tree i
-| 0       := []
-| (n + 1) := (default _) :: trivialPath_aux n
-
-instance (i) : inhabited (Path i) := ⟨⟨trivialPath_aux, by simp[trivialPath_aux]⟩⟩
-
-variables {i : ℕ} (Λ : Path i)
-
-lemma mono' : ∀ {n m : ℕ} (le : n ≤ m), Λ.path n <:+ Λ.path m :=
-begin
-  suffices : ∀ n m, Λ.path n <:+ Λ.path (n + m),
-  { intros n m eqn, have := this n (m - n), simp[nat.add_sub_of_le eqn] at this,
-    exact this },
-  intros n m, induction m with m IH,
-  { refl },
-  { simp[←nat.add_one, ←add_assoc], exact IH.trans (Λ.mono _) }
-end
-
-lemma ssubset_of_le {n m : ℕ} {η : Tree i} (ss : η ⊂ᵢ Λ.path n) (le : n ≤ m) : η ⊂ᵢ Λ.path m :=
-list.suffix_of_is_initial_is_initial ss (Λ.mono' le)
-
-def ssubset {i} (η : Tree i) (Λ : Path i) : Prop := ∃ n, η ⊂ᵢ Λ.path n
-def subset {i} (η : Tree i) (Λ : Path i): Prop := ∃ n, η <:+ Λ.path n
-
-infix ` ⊂' `:50   := Path.ssubset
-infix ` ⊆' `:50   := Path.subset
-
-end Path
 
 def out {n} : Π {η : Tree n}, ancestor η → Tree' n
 | []       ⟨μ, μ_p⟩ := by exfalso; simp* at*
@@ -247,6 +224,138 @@ suffix_out_eq (by simp) h
 
 @[simp] lemma out_cons {k} {η : Tree k} {x} (h : η ⊂ᵢ x :: η) : out ⟨η, h⟩ = x := by simp[out_eq_iff]
 
+
+structure Path (n : ℕ) :=
+(path : ℕ → Tree n)
+(mono : ∀ m, path m <:+ path (m + 1))
+
+namespace Path
+
+lemma ext {k} {Λ₁ Λ₂ : Path k} (h : ∀ s, Λ₁.path s = Λ₂.path s) : Λ₁ = Λ₂ :=
+by { rcases Λ₁ with ⟨P₁, _⟩, rcases Λ₂ with ⟨P₂, _⟩, simp,
+     refine funext h }
+
+def trivialPath_aux {i : ℕ} : ℕ → Tree i
+| 0       := []
+| (n + 1) := (default _) :: trivialPath_aux n
+
+instance (i) : inhabited (Path i) := ⟨⟨trivialPath_aux, by simp[trivialPath_aux]⟩⟩
+
+variables {k : ℕ} (Λ : Path k)
+
+lemma mono' : ∀ {n m : ℕ} (le : n ≤ m), Λ.path n <:+ Λ.path m :=
+begin
+  suffices : ∀ n m, Λ.path n <:+ Λ.path (n + m),
+  { intros n m eqn, have := this n (m - n), simp[nat.add_sub_of_le eqn] at this,
+    exact this },
+  intros n m, induction m with m IH,
+  { refl },
+  { simp[←nat.add_one, ←add_assoc], exact IH.trans (Λ.mono _) }
+end
+
+lemma ssubset_of_le {n m : ℕ} {η : Tree k} (ss : η ⊂ᵢ Λ.path n) (le : n ≤ m) : η ⊂ᵢ Λ.path m :=
+list.is_initial.is_initial_of_suffix ss (Λ.mono' le)
+
+def ssubset (η : Tree k) (Λ : Path k) : Prop := ∃ n, η ⊂ᵢ Λ.path n
+def subset (η : Tree k) (Λ : Path k): Prop := ∃ n, η <:+ Λ.path n
+
+infix ` ⊂' `:50   := Path.ssubset
+infix ` ⊆' `:50   := Path.subset
+
+def infinite (Λ : Path k) : Prop := ∀ n, ∃ m, Λ.path n ⊂ᵢ Λ.path (n + m)
+
+def thick (Λ : Path k) : Prop := Λ.path 0 = [] ∧ ∀ n, ∃ ν, Λ.path (n + 1) = ν :: Λ.path n
+
+def le (Λ₁ Λ₂ : Path k) : Prop := ∀ n, ∃ m, Λ₁.path n <:+ Λ₂.path m
+infix ` ≤ₚ `:80 := le
+
+def equiv (Λ₁ Λ₂ : Path k) : Prop := Λ₁.le Λ₂ ∧ Λ₂.le Λ₁
+infix ` ≃ₚ `:80 := equiv
+
+@[refl] lemma equiv.refl (Λ : Path k) : Λ ≃ₚ Λ :=
+⟨λ n, ⟨n, by refl⟩, λ n, ⟨n, by refl⟩⟩
+
+@[symm] lemma equiv.symm {Λ₁ Λ₂ : Path k} : Λ₁ ≃ₚ Λ₂ → Λ₂ ≃ₚ Λ₁ := and.symm
+
+@[trans] lemma equiv.trans {Λ₁ Λ₂ Λ₃ : Path k} (eqn₁ : Λ₁ ≃ₚ Λ₂) (eqn₂ : Λ₂ ≃ₚ Λ₃) : Λ₁ ≃ₚ Λ₃ :=
+⟨λ n, by { rcases eqn₁.1 n with ⟨m, le₁⟩, rcases eqn₂.1 m with ⟨l, le₂⟩, refine ⟨l, le₁.trans le₂⟩ },
+ λ n, by { rcases eqn₂.2 n with ⟨m, le₁⟩, rcases eqn₁.2 m with ⟨l, le₂⟩, refine ⟨l, le₁.trans le₂⟩ }⟩
+
+lemma le.ssubset_of_ssubset {Λ₁ Λ₂ : Path k} (eqn : Λ₁ ≤ₚ Λ₂) {μ} (lt : μ ⊂' Λ₁) : μ ⊂' Λ₂ :=
+by { rcases lt with ⟨n, lt⟩,
+     rcases eqn n with ⟨m, eqn⟩, refine ⟨m, _⟩, exact list.is_initial.is_initial_of_suffix lt eqn }
+
+lemma infinite_length {Λ : Path k} (h : Λ.infinite) (n : ℕ) : ∃ m, n < (Λ.path m).length :=
+begin
+  induction n with n IH,
+  { rcases h 0 with ⟨m, h⟩, simp at h,
+    refine ⟨m, _⟩, cases Λ.path m; simp at*, { contradiction } },
+  { rcases IH with ⟨m, IH⟩, rcases h m with ⟨m', h⟩, refine ⟨m + m', _⟩,
+    exact gt_of_gt_of_ge (h.lt_length) IH }
+end
+
+lemma thick.infinite {Λ : Path k} (h : Λ.thick) : Λ.infinite :=
+λ s, ⟨1, by { rcases h.2 s with ⟨ν, eqn⟩, simp[eqn] }⟩
+
+lemma thick.is_initial_of_lt {Λ : Path k} (h : Λ.thick) {s t : ℕ} (lt : s < t) : Λ.path s ⊂ᵢ Λ.path t :=
+by { have : Λ.path s ⊂ᵢ Λ.path (s + 1), { rcases h.2 s with ⟨ν, eqn⟩, simp[eqn] },
+     exact list.is_initial.is_initial_of_suffix this (Λ.mono' (nat.succ_le_iff.mpr lt)) }
+
+lemma thick.length {Λ : Path k} (h : Λ.thick) (s : ℕ) : (Λ.path s).length = s :=
+by { induction s with s IH, { simp[h.1] }, { rcases h.2 s with ⟨ν, eqn⟩, simp[eqn, IH] } }
+
+lemma thick.ssubset {Λ : Path k} (h : Λ.thick) {μ} : μ ⊆' Λ ↔ ∃ s, μ = Λ.path s :=
+⟨λ ss, by { rcases ss with ⟨s, eqn⟩, refine ⟨μ.length, _⟩,
+     have : μ.length ≤ s,
+     { have := eqn.le_length, simp[h.length] at this, exact this },
+     have := list.suffix_of_suffix_length_le eqn (Λ.mono' this) (by simp[h.length]),
+     exact list.eq_of_suffix_of_length_eq this (by simp[h.length]) }, λ ⟨s, eqn⟩, ⟨s, by simp[eqn]⟩⟩
+
+lemma thick.le_mono_iff {Λ : Path k} (h : Λ.thick) {n m : ℕ} : n ≤ m ↔ Λ.path n <:+ Λ.path m :=
+begin
+  have C : n < m ∨ n = m ∨ m < n, from trichotomous n m,
+  cases C,
+  { have := h.is_initial_of_lt C, simp[le_of_lt C], exact list.is_initial.suffix this }, rcases C with (rfl | C),
+  { simp },
+  { simp[not_le.mpr C], have := h.is_initial_of_lt C, exact list.is_initial_suffix_antisymm this }
+end
+
+lemma thick.out {Λ : Path k} (h : Λ.thick) (s : ℕ) : Tree' k := out (⟨Λ.path s, h.is_initial_of_lt (lt_add_one s)⟩)
+
+lemma infinite.thick_exists {Λ : Path k} (h : Λ.infinite) :
+  ∃ Λ' : Path k, Λ' ≃ₚ Λ ∧ Λ'.thick :=
+begin
+  have : ∃ f : ℕ → ℕ, ∀ x, x < list.length (Λ.path (f x)), from classical.skolem.mp (infinite_length h),
+  rcases this with ⟨f, eqn⟩,
+  let P : ℕ → Tree k := λ s, Λ.path (f s)↾*s,
+  have P_length : ∀ s, (P s).length = s, from λ s, list.initial_length (eqn s),
+  have le : ∀ s, P s <:+ P (s + 1),
+  { intros s, simp[P],
+    have lmm₁ : P s <:+ Λ.path (max (f s) (f (s + 1))),
+      from (list.suffix_initial (Λ.path (f s)) s).trans (Λ.mono' (le_max_left _ _)),
+    have lmm₂ : P (s + 1) <:+ Λ.path (max (f s) (f (s + 1))),
+      from (list.suffix_initial (Λ.path (f (s + 1))) (s + 1)).trans (Λ.mono' (le_max_right _ _)),  
+    refine list.suffix_of_suffix_length_le lmm₁ lmm₂ (by simp[P_length]) },
+  let Λ' : Path k := ⟨P, le⟩,
+  have equiv : Λ' ≃ₚ Λ,
+  { split, { intros s, exact ⟨f s, list.suffix_initial _ _⟩ },
+    { intros s, refine ⟨(Λ.path s).length, _⟩, simp[Λ', P],
+      have lmm₁ : Λ.path s <:+ Λ.path (max s (f (Λ.path s).length)), from Λ.mono' (le_max_left _ _),
+      have lmm₂ : P (Λ.path s).length <:+ Λ.path (max s (f (Λ.path s).length)),
+        from (list.suffix_initial (Λ.path (f _)) _).trans (Λ.mono' (le_max_right _ _)),
+      refine list.suffix_of_suffix_length_le lmm₁ lmm₂ (by simp[P_length]) } },
+  have thick : Λ'.thick,
+  { split, { simp[Λ', P] },
+    intros s,
+    rcases (le s).is_initial_of_lt (by simp[P, P_length]) with ⟨l, ν, eqn⟩,
+    have : l = [], { have := congr_arg list.length eqn, simp[P_length] at this, exact list.length_eq_zero.mp this },
+    rcases this with rfl, simp at eqn, 
+    refine ⟨ν, eq.symm eqn⟩ },
+  exact ⟨Λ', equiv, thick⟩
+end
+
+end Path
+
 @[simp] def Tree'.is_pie : Π {k} (η : Tree' k), bool
 | 0       ff       := ff
 | 0       tt       := tt
@@ -267,6 +376,9 @@ lemma neg_is_pie_iff {k} {η : Tree k} : ¬η.is_pie ↔ η.is_sigma :=
 by { unfold Tree'.is_sigma, cases Tree'.is_pie η; simp }
 
 @[simp] lemma is_pie_eq_ff {k} {η : Tree' k} : η.is_pie = ff ↔ η.is_sigma :=
+by { unfold Tree'.is_sigma, cases Tree'.is_pie η; simp }
+
+@[simp] lemma is_sigma_eq_ff {k} {η : Tree' k} : η.is_sigma = ff ↔ η.is_pie :=
 by { unfold Tree'.is_sigma, cases Tree'.is_pie η; simp }
 
 lemma pie_or_sigma {k} (η : Tree' k) : η.is_pie ∨ η.is_sigma :=
@@ -368,9 +480,9 @@ def Tree.weight : Π {k}, Tree k → ℕ
 by {cases k; simp[Tree.weight, Tree'.weight_aux, list.weight_of] }
 
 lemma lt_weight_of_lt : ∀ {k} {μ₁ μ₂ : Tree k} (proper : μ₂.proper), μ₁ ⊂ᵢ μ₂ → μ₁.weight < μ₂.weight
-| 0       μ₁         μ₂         _       lt := by {simp[Tree.weight], exact lt_weight_aux_of_lt lt }
-| (k + 1) μ          []         _       lt := by { simp at lt, contradiction }
-| (k + 1) []         (ν :: μ)   _       lt := by simp[Tree.weight]
+| 0       μ₁         μ₂         _      lt := by {simp[Tree.weight], exact lt_weight_aux_of_lt lt }
+| (k + 1) μ          []         _      lt := by { simp at lt, contradiction }
+| (k + 1) []         (ν :: μ)   _      lt := by simp[Tree.weight]
 | (k + 1) (ν₁ :: μ₁) (ν₂ :: μ₂) proper lt := by {
     simp[Tree.weight], 
     have : ν₁ ⊂ᵢ ν₂,

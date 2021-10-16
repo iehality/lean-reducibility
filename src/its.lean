@@ -74,6 +74,11 @@ funext (λ x, by simp)
 
 def derivative (η : Tree (k + 1)) (μ : Tree k) : list (ancestor μ) := approx.derivative η (S.up' μ)
 
+lemma derivative_cons (η : Tree (k + 1)) (ν) (μ : Tree k) :
+  S.derivative η (ν :: μ) = if S.up μ = η then ⟨μ, by simp⟩ :: (S.derivative η μ).map (ancestor.extend (by simp)) else 
+    (S.derivative η μ).map (ancestor.extend (by simp)) :=
+by { simp[derivative, approx.derivative, list.filter, list.map_filter, function.comp], congr }
+
 def pie_derivative (η : Tree (k + 1)) (μ : Tree k) : list (ancestor μ) := approx.pie_derivative η (S.up' μ)
 
 def is_link_free (η : Tree (k + 1)) (μ : Tree k) (μ₀ : ancestor μ) : bool :=
@@ -88,7 +93,7 @@ by { simp[ancestor.extend_fn], exact eq.symm S.up'_up_consistent' }
   approx.lambda (ancestor.extend_fn (S.up' μ) μ₀ h) = S.lambda μ₀ :=
 by {simp[ancestor.extend_fn, lambda], congr, funext x, simp}
 
-lemma assignment_fst_eq_up {μ : Tree k} : (S.assignment μ).1 = S.up μ :=
+lemma assignment_fst_eq_up (μ : Tree k) : (S.assignment μ).1 = S.up μ :=
 by simp[assignment, up, approx.up]
 
 lemma up_eq_lambda_or_pie (μ : Tree k) : S.up μ = S.lambda μ ∨ ∃ η : ancestor (S.lambda μ), (out η).is_pie ∧ S.up μ = η :=
@@ -154,6 +159,14 @@ by { have := S.eq_lambda_of_le_lambda (suffix_out_cons η), simp at this,
      rcases this with ⟨μ₀, eqn₁, h, eqn₂⟩,
      exact ⟨μ₀, eqn₁, h, list.head_eq_of_cons_eq eqn₂, list.tail_eq_of_cons_eq eqn₂⟩ }
 
+lemma eq_lambda_of_le_lambda' {μ : Tree k} {η : Tree (k + 1)} (le : η <:+ S.lambda μ) :
+∃ μ₀ : Tree k, μ₀ <:+ μ ∧ η = S.lambda μ₀ :=
+begin
+  rcases S.eq_lambda_of_le_lambda le with (rfl | ⟨μ₀, eqn₁, _, eqn₂⟩),
+  { refine ⟨[], by simp[lambda, approx.lambda, list.nil_suffix]⟩ },
+  { refine ⟨out μ₀ :: μ₀.val, by simp[eqn₂]; exact suffix_out_cons _, eqn₁⟩ }
+end
+
 lemma eq_lambda_of_pred {μ ν : Tree k} {η : Tree (k + 1)} (eqn : S.lambda μ = ν :: η) : S.lambda ν = S.lambda μ :=
 begin
   have lt : η ⊂ᵢ S.lambda μ, { simp[eqn] },
@@ -200,7 +213,7 @@ begin
       { simp[lambda, approx.lambda, C] }, simp[lambda_eqn], exact IH }
 end
 
-@[simp] lemma noninitial_of_suffix' {μ ν : Tree k} : ¬S.lambda (ν ++ μ) ⊂ᵢ S.lambda μ :=
+@[simp] lemma noninitial_of_suffix' (μ ν : Tree k) : ¬S.lambda (ν ++ μ) ⊂ᵢ S.lambda μ :=
 S.noninitial_of_suffix (by simp)
 
 lemma incomparable_of_incomparable {μ₁ μ₂ μ₃ : Tree k}
@@ -292,7 +305,7 @@ begin
   cases C₁,
   { rcases S.up_eq_lambda_of_pie pie with ⟨⟨ν₁, lt_ν₁⟩, eqn_out₁, eqn_lam₁, eqn_lam₁'⟩, simp at eqn_lam₁ eqn_out₁ eqn_lam₁',
     rcases S.up_eq_lambda_of_pie C₁ with ⟨⟨ν₂, lt_ν₂⟩, eqn_out₂, eqn_lam₂, eqn_lam₂'⟩, simp at eqn_lam₂ eqn_out₂ eqn_lam₂',
-    have lt_ν₂' : ν₂ ⊂ᵢ μ₂, from list.suffix_of_is_initial_is_initial lt_ν₂ le,
+    have lt_ν₂' : ν₂ ⊂ᵢ μ₂, from list.is_initial.is_initial_of_suffix lt_ν₂ le,
     have eqn_out_out : out ⟨ν₂, lt_ν₂'⟩ = out ⟨ν₂, lt_ν₂⟩, from suffix_out_eq (by simp) le,
     suffices : ν₁ = ν₂,
     { rcases this with rfl, 
@@ -457,13 +470,92 @@ lemma lt_Lambda_iff {Λ : Path k} {η : Tree (k + 1)} :
     refine ⟨s₀, λ s eqn_s, _⟩,
     have : S.lambda (Λ.path s)↾*n = (S.Lambda Λ).path n, from eqn s eqn_s, simp[←this] at h,
     have : S.lambda (Λ.path s)↾*n <:+ S.lambda (Λ.path s), from list.suffix_initial _ _,
-    exact list.suffix_of_is_initial_is_initial h this }, 
+    exact list.is_initial.is_initial_of_suffix h this }, 
   λ ⟨s₀, h⟩, by { 
     rcases S.Lambda_spec Λ (η.length + 1) with ⟨s₁, eqn⟩,
     refine ⟨η.length + 1, _⟩,
     have := eqn (max s₀ s₁) (le_max_right s₀ s₁), rw ←this,
     rcases h (max s₀ s₁) (le_max_left s₀ s₁) with ⟨l, a, eqn⟩,
     simp[←eqn, list.initial] }⟩
+
+lemma le_Lambda_of_thick {Λ : Path k} (thick : Λ.thick)
+  {η : Tree (k + 1)} {s₀} (le : η <:+ (S.Lambda Λ).path s₀) :
+  ∃ s₁, η = S.lambda (Λ.path s₁) ∧ ∀ s, s₁ ≤ s → η <:+ S.lambda (Λ.path s) :=
+begin
+  rcases S.Lambda_spec Λ s₀ with ⟨t, eqn⟩,
+  have le' : ∀ s, t ≤ s → η <:+ S.lambda (Λ.path s),
+  { intros s le_s,
+    have : (S.Lambda Λ).path s₀ <:+ S.lambda (Λ.path s), { simp[←eqn s le_s], exact list.suffix_initial _ _ },
+    exact le.trans this },
+  rcases S.eq_lambda_of_le_lambda' (le' t (by refl)) with ⟨μ₁, le_μ₁, rfl⟩,
+  rcases thick.ssubset.mp ⟨t, le_μ₁⟩ with ⟨s₁, rfl⟩,
+  have : ∀ s, s₁ ≤ s → S.lambda (Λ.path s₁) <:+ S.lambda (Λ.path s),
+  { intros s le_s, have C : s ≤ t ∨ t ≤ s, exact le_total s t,
+    cases C,
+    { exact S.suffix_of_suffix (Λ.mono' le_s) (Λ.mono' C) (le' t (by refl)) },
+    { exact le' s C } },
+  refine ⟨s₁, rfl, this⟩
+end
+
+lemma eq_lt_lambda_of_lt_Lambda_of_pie {Λ : Path k} (thick : Λ.thick)
+  {η : Tree (k + 1)} {s₀} (lt : η ⊂ᵢ (S.Lambda Λ).path s₀) (pie : (out ⟨η, lt⟩).is_pie) :
+  ∃ s₁, η = S.lambda (Λ.path s₁) ∧ ∀ s, s₁ ≤ s → out ⟨η, lt⟩ :: η <:+ S.lambda (Λ.path (s + 1)) :=
+begin
+  rcases S.le_Lambda_of_thick thick (suffix_out_cons ⟨η, lt⟩) with ⟨s₁, eqn₁, le₁⟩, simp at eqn₁ le₁,
+  rcases S.le_Lambda_of_thick thick (lt.suffix) with ⟨s₂, rfl, le₂⟩, 
+  have : ∃ s, s₂ ≤ s ∧ S.lambda (Λ.path s₂) = S.lambda (Λ.path s) ∧ S.lambda (Λ.path s₂) ⊂ᵢ S.lambda (Λ.path (s + 1)),
+  { by_contradiction,
+    simp at h,
+    have : ∀ s, s₂ ≤ s → S.lambda (Λ.path s₂) = S.lambda (Λ.path s) → S.lambda (Λ.path s₂) = S.lambda (Λ.path (s + 1)),
+    { intros s le eqn,
+      have : ¬S.lambda (Λ.path s₂) ⊂ᵢ S.lambda (Λ.path (s + 1)), from h s le eqn,
+      rcases list.suffix_iff_is_initial.mp (le₂ (s + 1) (le_add_right le)) with (lt_lam | eq_lam),
+      { exfalso, exact this lt_lam }, { exact eq_lam } },
+    have eq_lam' : ∀ s, s₂ ≤ s → S.lambda (Λ.path s₂) = S.lambda (Λ.path s),
+    { suffices : ∀ s, S.lambda (Λ.path s₂) = S.lambda (Λ.path (s₂ + s)),
+      { intros s le,
+        simp[this (s - s₂), show  s₂ + (s - s₂) = s, from nat.add_sub_of_le le] },
+      intros s, induction s with s IH,
+      { refl }, { simp[←nat.add_one, ←add_assoc], exact this (s₂ + s) (le_self_add) IH } },
+    have lt_lam : S.lambda (Λ.path s₂) ⊂ᵢ S.lambda (Λ.path (max s₁ s₂)),
+      from list.suffix_cons_iff_is_initial.mp ⟨_, le₁ (max s₁ s₂) (le_max_left s₁ s₂)⟩,
+    have eq_lam : S.lambda (Λ.path s₂) = S.lambda (Λ.path (max s₁ s₂)), from eq_lam' (max s₁ s₂) (le_max_right s₁ s₂),
+    simp[eq_lam] at lt_lam, contradiction },
+  rcases this with ⟨s₃, le_s₃, eq_lam_s₂, lt_lam_s₂⟩,
+  have : ∀ s, s₃ ≤ s → out ⟨S.lambda (Λ.path s₂), lt⟩ :: S.lambda (Λ.path s₂) <:+ S.lambda (Λ.path (s + 1)),
+  { intros s le_s, have C : s₁ ≤ s ∨ s < s₁, exact le_or_lt s₁ s, cases C,
+    { exact le₁ (s + 1) (le_add_right C) }, 
+    { have lt₁ : S.lambda (Λ.path s₂) ⊂ᵢ S.lambda (Λ.path s.succ),
+      { rcases list.suffix_iff_is_initial.mp (le₂ (s + 1) (le_add_right (le_s₃.trans le_s))) with (C | C),
+        { exact C }, { exfalso, simp[C] at lt_lam_s₂, refine S.noninitial_of_suffix (Λ.mono' (by simp[le_s])) lt_lam_s₂ } },
+      have lt₂ : S.lambda (Λ.path s₂) ⊂ᵢ S.lambda (Λ.path s₁), from list.suffix_cons_iff_is_initial.mp ⟨_, le₁ s₁ (by refl)⟩,
+      have eqn₁ : out ⟨S.lambda (Λ.path s₂), lt₂⟩ = out ⟨S.lambda (Λ.path s₂), lt⟩, { simp[out_eq_iff], exact le₁ s₁ (by refl) },      
+      have eqn₂ : out ⟨S.lambda (Λ.path s₂), lt₁⟩ = out ⟨S.lambda (Λ.path s₂), lt₂⟩, 
+        from S.eq_out_of_pie (Λ.mono' (nat.succ_le_iff.mpr C)) lt₁ lt₂ (by simp[eqn₁]; exact pie),
+      simp[←eqn₁, ←eqn₂], exact suffix_out_cons ⟨S.lambda (Λ.path s₂), lt₁⟩ } },
+  refine ⟨s₃, eq_lam_s₂, this⟩  
+end
+
+lemma equiv_lambda {Λ₁ Λ₂ : Path k} (equiv : Λ₁ ≃ₚ Λ₂) :
+  S.Lambda Λ₁ = S.Lambda Λ₂ :=
+Path.ext (λ s, begin
+  rcases S.Lambda_spec Λ₁ s with ⟨t₁, eqn₁⟩,
+  have : ∃ μ₁, μ₁ <:+ Λ₁.path t₁ ∧ (S.Lambda Λ₁).path s = S.lambda μ₁,
+    simp [←eqn₁ t₁ (by refl)], from S.eq_lambda_of_le_lambda' (list.suffix_initial _ _),
+  rcases this with ⟨μ₁, le₁, eqn_lam₁⟩,    
+  rcases equiv.1 t₁ with ⟨s₂, le₂⟩,
+  rcases equiv.2 s₂ with ⟨s₃, le₃⟩,
+  have le₃' : Λ₂.path s₂ <:+ Λ₁.path (max t₁ s₃), from le₃.trans (Λ₁.mono' (le_max_right t₁ s₃)),
+  have : S.lambda μ₁ <:+ S.lambda (Λ₁.path (max t₁ s₃)),
+  { simp[←eqn_lam₁, ←eqn₁ (max t₁ s₃) (le_max_left t₁ s₃)], exact list.suffix_initial _ _ },  
+  have : S.lambda μ₁ <:+ S.lambda (Λ₂.path s₂), from S.suffix_of_suffix (le₁.trans le₂) le₃' this,
+  have : S.lambda (Λ₂.path s₂) = (S.Lambda Λ₂).path (S.lambda μ₁).length,
+  { rcases S.Lambda_spec Λ₂ (S.lambda μ₁).length with ⟨t₂, eqn₂⟩,
+    rw ← eqn₂ (max t₂ s₂) (le_max_left t₂ s₂), sorry  },
+  rcases S.Lambda_spec Λ₂ s with ⟨t₂, eqn₂⟩,  
+
+  
+end)
 
 @[simp] def lambda_itr : ∀ (μ : Tree k) (i : ℕ), Tree (k + i)
 | μ 0       := μ
@@ -506,7 +598,7 @@ begin
   { exfalso, have := S.noninitial_of_suffix (list.suffix_of_is_initial lt), simp[eqn₁, eqn₂] at this, contradiction },
   have le₁ : π <:+ μ₁, from  S.suffix_of_mem_lambda (by simp[eqn₁]),
   have le₂ : σ <:+ μ₂, from  S.suffix_of_mem_lambda (by simp[eqn₂]),
-  have le₁' : π <:+ μ₂, from list.suffix_of_is_initial (list.is_initial_of_suffix_is_initial le₁ lt),
+  have le₁' : π <:+ μ₂, from list.suffix_of_is_initial (list.is_suffix.is_initial_of_is_initial le₁ lt),
   have eqn_lam₁ : S.lambda π = S.lambda μ₁, from S.eq_lambda_of_pred eqn₁,
   have eqn_lam₂ : S.lambda σ = S.lambda μ₂, from S.eq_lambda_of_pred eqn₂,
   have C : π ⊂ᵢ σ ∨ π = σ ∨ σ ⊂ᵢ π, from trichotomous_of_le_of_le le₁' le₂,
@@ -523,20 +615,187 @@ end
 
 #check S.derivative
 
-lemma infinite_substrategy (infinite : Λ.infinite) {η : Tree (k + 1)} (lt : η ⊂' S.Lambda Λ) :
-  (∃ {n} (μ : ancestor (Λ.path n)), S.lambda μ.val ⊆' S.Lambda Λ ∧ S.up μ.val = η ∧ (out μ).is_pie) ∨
-  (∀ n, ∃ {s} (μ : ancestor (Λ.path s)), S.lambda μ.val ⊆' S.Lambda Λ ∧ S.assignment μ.val = (η, n) ∧ (out μ).is_sigma) :=
+def antiderivatives (μ : Tree k) : list (Tree (k + 1) × ℕ) := (S.lambda μ, 0) ::
+  ((S.lambda μ).ancestors.filter (λ η, (out η).is_pie)).map (λ η, (η, (S.derivative ↑η μ).length))
+
+lemma Min_antiderivative_eq_assignment (μ : Tree k) :
+  (S.priority (k + 1)).Min_le (S.antiderivatives μ) (by simp[antiderivatives]) = S.assignment μ :=
+by simp[antiderivatives, assignment, approx.assignment]; refl
+
+@[simp] lemma mem_assignment_antiderivatives (μ : Tree k) :
+  S.assignment μ ∈ S.antiderivatives μ := (S.priority (k + 1)).Min_le_mem _
+
+lemma nonsuffix_of_scons (μ₁ μ₂ : Tree k) (lt : μ₁ ⊂ᵢ μ₂) : ¬S.lambda μ₂ <:+ S.up μ₁ := λ le,
 begin
-  suffices :
-    (∀ {n} (μ : ancestor (Λ.path n)), S.lambda μ.val ⊆' S.Lambda Λ → S.up μ.val = η → (out μ).is_sigma) →
-    (∀ n, ∃ {s} (μ : ancestor (Λ.path s)), S.lambda μ.val ⊆' S.Lambda Λ ∧ S.assignment μ.val = (η, n) ∧ (out μ).is_sigma),
-  { refine or_iff_not_imp_left.mpr _, simp, exact this },
-  intros sigma n,
+  have C : S.lambda (out ⟨μ₁, lt⟩ :: μ₁) = (out ⟨μ₁, lt⟩ :: μ₁) :: S.up μ₁ ∨
+    (S.lambda (out ⟨μ₁, lt⟩ :: μ₁) = S.lambda μ₁ ∧ S.up μ₁ ⊂ᵢ S.lambda μ₁),
+  { simp[lambda, approx.lambda],
+    by_cases C :
+      S.up μ₁ = approx.lambda (S.up' μ₁) ∨ (out ⟨μ₁, lt⟩).is_pie ∧ approx.pie_derivative (S.up μ₁) (S.up' μ₁) = []; simp[C],
+    { simp[not_or_distrib] at C, right, refine list.is_initial_iff_suffix.mpr ⟨up_le_lambda S μ₁, C.1⟩ } },
+  rcases C with (C | ⟨C, lt'⟩),
+  { have le_out : out ⟨μ₁, lt⟩ :: μ₁ <:+ μ₂, from suffix_out_cons ⟨μ₁, lt⟩,
+    have lt : S.lambda μ₂ ⊂ᵢ S.lambda (out ⟨μ₁, lt⟩ :: μ₁), simp[C], from list.is_initial_cons_iff_suffix.mpr le,
+    exact noninitial_of_suffix S le_out lt },
+  { have := le.is_initial_of_is_initial lt', exact S.noninitial_of_suffix lt.suffix this }
+end
+
+def le_of_mem_antiderivatives {μ : Tree k} {η : Tree (k + 1)} {n : ℕ} (mem : (η, n) ∈ S.antiderivatives μ) :
+  η <:+ S.lambda μ ∧ n = (S.derivative η μ).length :=
+begin
+  simp[antiderivatives] at mem,
+  rcases mem with (⟨rfl, rfl⟩ | ⟨⟨μ₁, lt⟩, pie, rfl, rfl⟩),
+  { have : S.derivative (S.lambda μ) μ = [],
+    { simp[derivative, approx.derivative, list.filter_eq_nil], rintros ⟨μ₁, lt⟩ eqn,
+      have := S.nonsuffix_of_scons _ _ lt (by simp[←eqn]), contradiction },
+    simp[this] },
+  { simp, exact list.is_initial.suffix lt }
+end
+
+lemma assignment_snd_eq (μ : Tree k) : (S.assignment μ).2 = (S.derivative (S.up μ) μ).length :=
+begin
+  have : S.assignment μ ∈ _, from omega_ordering.Min_le_mem _ _, simp at this, rcases this with (eqn| ⟨η, pie, eqn⟩),
+  { have eqn_lam : S.up μ = S.lambda μ, from congr_arg prod.fst eqn,
+    have : S.derivative (S.up μ) μ = [],
+    { simp[derivative, approx.derivative, list.filter_eq_nil],
+      rintros ⟨μ₁, lt⟩ eqn_μ₁,
+      exact S.nonsuffix_of_scons _ _ lt (by simp[←eqn_lam, ←eqn_μ₁]) },
+    rw[this, eqn], simp },
+  have : ↑η = S.up μ,
+  { have : (S.assignment μ).fst = S.up μ, from S.assignment_fst_eq_up μ, simp[←eqn] at this, exact this },
+  simp[←eqn, this], refl 
+end
+
+lemma assignment_eq (μ : Tree k) : S.assignment μ = (S.up μ, (S.derivative (S.up μ) μ).length) :=
+prod.ext (by simp[S.assignment_fst_eq_up μ]) (by simp[assignment_snd_eq])
+
+lemma derivative_mono (η : Tree (k + 1)) {μ₁ μ₂ : Tree k} (le : μ₁ <:+ μ₂) :
+  (S.derivative η μ₁).map subtype.val <:+ (S.derivative η μ₂).map subtype.val :=
+by { have : ∀ μ, list.map subtype.val (S.derivative η μ) =
+      ((μ.ancestors.map subtype.val).filter (λ a, S.up a = η)),
+    { intros μ, simp[derivative, approx.derivative], simp[list.map_filter, function.comp], congr },
+    simp[this], exact (list.is_suffix.filter _ (ancestor.ancestors'_suffix_of_suffix le)) }
+
+lemma nonmem_antiderivatives {μ₁ μ₂ : Tree k} (lt : μ₁ ⊂ᵢ μ₂) : S.assignment μ₁ ∉ S.antiderivatives μ₂ := λ A,
+begin
+  simp [antiderivatives] at A, rcases A with (A | ⟨⟨η, lt_η⟩, pie, A⟩),
+  { have : S.up μ₁ = S.lambda μ₂, from congr_arg prod.fst A,
+    exact nonsuffix_of_scons S μ₁ μ₂ lt (by simp[this]) },
+  { have : η = S.up μ₁, { have := S.assignment_fst_eq_up μ₁, simp [←A] at this, exact this }, rcases this with rfl,
+    have eq : ((S.derivative (S.up μ₁) μ₂).map subtype.val).length = ((S.derivative (S.up μ₁) μ₁).map subtype.val).length,
+    { have := S.assignment_snd_eq μ₁, simp [←A] at this, simp[this] },
+    have neq : (S.derivative (S.up μ₁) μ₁).map subtype.val ≠ (S.derivative (S.up μ₁) μ₂).map subtype.val,
+    { intros eqn_der,
+      have : μ₁ ∈ (S.derivative (S.up μ₁) μ₁).map subtype.val,
+      { rw eqn_der, simp[derivative, approx.derivative], exact ⟨⟨μ₁, lt⟩, rfl, rfl⟩ },
+      have : μ₁ ∉ (S.derivative (S.up μ₁) μ₁).map subtype.val,
+      { simp[derivative, approx.derivative], rintros ⟨μ₂, lt⟩ _ eqn, simp[←eqn] at lt, contradiction },
+      contradiction },
+    have : (S.derivative (S.up μ₁) μ₁).map subtype.val ⊂ᵢ (S.derivative (S.up μ₁) μ₂).map subtype.val,
+      from list.is_initial_iff_suffix.mpr ⟨S.derivative_mono (S.up μ₁) lt.suffix, neq⟩,
+    have : ((S.derivative (S.up μ₁) μ₁).map subtype.val).length < ((S.derivative (S.up μ₁) μ₂).map subtype.val).length,
+      from list.is_initial_length this,
+    simp[eq] at this, contradiction }
+end
+
+lemma nonmemefe_antiderivatives {μ : Tree k} {ν : Tree' k} (η : Tree (k + 1)) (n : ℕ) (lt : η ⊂ᵢ S.lambda (ν :: μ))
+  (pie : (out ⟨η, lt⟩).is_pie)
+  (mem : (η, n) ∈ S.antiderivatives μ) :
+  (η, n) = S.assignment μ ∧ (η, n + 1) ∈ S.antiderivatives (ν :: μ) ∨ 
+  (η, n) ≠ S.assignment μ ∧ (η, n) ∈ S.antiderivatives (ν :: μ) :=
+begin
+  have der : n = (S.derivative η μ).length, from (S.le_of_mem_antiderivatives mem).2,
+  simp[antiderivatives] at mem ⊢, rcases mem with (⟨rfl, rfl⟩ | ⟨⟨η₁, lt'⟩, pie, rfl, rfl⟩),
+  { by_cases C :
+      S.up μ = S.lambda μ ∨ ν.is_pie ∧ approx.pie_derivative (S.up μ) (S.up' μ) = list.nil,
+    { have eqn : S.lambda (ν :: μ) = (ν :: μ) :: S.up μ, { unfold lambda at*, simp[approx.lambda, C] },
+      cases C,
+      { left, simp[assignment_eq, C, der],
+        have lt : S.lambda μ ⊂ᵢ S.lambda (ν :: μ), { simp[eqn, C] },
+        refine ⟨⟨S.lambda μ, lt⟩, _⟩, simp,
+        have eqn_der : S.derivative (S.lambda μ) (ν :: μ) = [⟨μ, by simp⟩],
+        { simp[derivative_cons, C], exact list.length_eq_zero.mp (eq.symm der) },
+        simp[eqn_der, pie, ←der] },
+      { exfalso,
+        have :  S.lambda μ ⊂ᵢ (ν :: μ) :: S.up μ, simp[←eqn, lt],
+        have : S.lambda μ = S.up μ,
+        { have C₁ := list.is_initial_cons_iff.mp this, 
+          cases C₁, { exact C₁ }, { exfalso, exact list.is_initial_suffix_antisymm C₁ (S.up_le_lambda _) } },
+        have : out ⟨S.lambda μ, lt⟩ = ν :: μ, { simp[out_eq_iff, this, eqn] },
+        simp[this] at pie, exact not_pie_sigma C.1 pie } },
+    { have eqn : S.lambda (ν :: μ) = S.lambda μ, { unfold lambda at*, simp[approx.lambda, C] },
+      have ne_up : ¬S.up μ = S.lambda μ, { simp[not_or_distrib] at C, exact C.1 },
+      right,
+      simp[assignment_eq, eqn], intros h, have := eq.symm h, contradiction } },
+  { by_cases C : S.up μ = η₁,
+    { left, simp[assignment_eq, C], refine ⟨⟨η₁, lt⟩, pie, rfl, by simp[derivative_cons, C]⟩ },
+    { right, simp[assignment_eq, C],
+      exact ⟨λ h, by exfalso; exact C (eq.symm h), or.inr ⟨⟨η₁, lt⟩, pie, rfl, by simp[derivative_cons, C]⟩⟩ } }
+end
+
+lemma infinite_substrategy
+  (thick : Λ.thick) {η : Tree (k + 1)} (s₀) (lt : η ⊂ᵢ (S.Lambda Λ).path s₀) (pie : (out ⟨η, lt⟩).is_pie) (n) :
+  ∃ s, (η, n) = S.assignment (Λ.path s) :=
+begin
+  rcases S.eq_lt_lambda_of_lt_Lambda_of_pie thick lt pie with ⟨s₁, eqn_η, le⟩,
+  suffices : ∃ s, s₁ ≤ s ∧ (η, n) = S.assignment (Λ.path s), { rcases this with ⟨s, _, eqn⟩, exact ⟨s, eqn⟩ },
   induction n with n IH,
-  { rcases S.lt_Lambda_iff.mp lt with ⟨s₀, lt⟩,
-     }
+  { have mem : (η, 0) ∈ S.antiderivatives (Λ.path s₁), { simp[antiderivatives, eqn_η] },
+    have mem_of_ne : ∀ s, 
+      (η, 0) ≠ S.assignment (Λ.path (s₁ + s)) →
+      (η, 0) ∈ S.antiderivatives (Λ.path (s₁ + s)) →
+      (η, 0) ∈ S.antiderivatives (Λ.path (s₁ + s + 1)),
+    { intros s neq mem,   
+      rcases thick.2 (s₁ + s) with ⟨ν, eqn_path⟩,
+      have lt' : η ⊂ᵢ S.lambda (ν :: Λ.path (s₁ + s)),
+      { simp[←eqn_path], exact list.suffix_cons_iff_is_initial.mp ⟨_, le (s₁ + s) (le_self_add)⟩ },
+      have : out ⟨η, lt'⟩ = out ⟨η, lt⟩, { simp[out_eq_iff, ←eqn_path], exact le (s₁ + s) (le_self_add) },
+      have := S.nonmemefe_antiderivatives η 0 lt' (by simp[this]; exact pie) mem,
+      simp[neq, ←eqn_path] at this, exact this },
+    have : ∃ s, (η, 0) = S.assignment (Λ.path (s₁ + s)),
+      from (S.priority (k + 1)).eq_Min_sequence (λ s, S.antiderivatives (Λ.path (s₁ + s))) (by simp[antiderivatives])
+        (λ s t lt, S.nonmem_antiderivatives (thick.is_initial_of_lt (add_lt_add_left lt s₁))) mem mem_of_ne,
+    rcases this with ⟨s, eqn⟩, exact ⟨s₁ + s, le_self_add, eqn⟩ },
+  { rcases IH with ⟨s₂, le_s₂, eqn_IH⟩,
+    have mem : (η, n + 1) ∈ S.antiderivatives (Λ.path (s₂ + 1)),
+    { rcases thick.2 s₂ with ⟨ν, eqn_path⟩,
+      have lt' : η ⊂ᵢ S.lambda (ν :: Λ.path s₂),
+      { simp[←eqn_path], exact list.suffix_cons_iff_is_initial.mp ⟨_, le s₂ le_s₂⟩ },
+      have : out ⟨η, lt'⟩ = out ⟨η, lt⟩, { simp[out_eq_iff, ←eqn_path], exact le s₂ le_s₂ },
+      have : (η, n) = S.assignment (Λ.path s₂) ∧ (η, n + 1) ∈ S.antiderivatives (ν :: Λ.path s₂) ∨
+             (η, n) ≠ S.assignment (Λ.path s₂) ∧ (η, n)     ∈ S.antiderivatives (ν :: Λ.path s₂),
+        from S.nonmemefe_antiderivatives η n lt' (by simp[this]; exact pie) (by simp[eqn_IH]),
+      simp[eqn_IH, ←eqn_path] at this, exact this },
+    have mem_of_ne : ∀ s, 
+      (η, n + 1) ≠ S.assignment (Λ.path (s₂ + 1 + s)) →
+      (η, n + 1) ∈ S.antiderivatives (Λ.path (s₂ + 1 + s)) →
+      (η, n + 1) ∈ S.antiderivatives (Λ.path (s₂ + 1 + s + 1)),
+    { intros s ne mem,
+      rcases thick.2 (s₂ + 1 + s) with ⟨ν, eqn_path⟩,
+      have lt' : η ⊂ᵢ S.lambda (ν :: Λ.path (s₂ + 1 + s)),
+      { simp[←eqn_path], exact list.suffix_cons_iff_is_initial.mp ⟨_, le (s₂ + 1 + s) (by simp[add_assoc]; exact le_add_right le_s₂)⟩ },
+      have : out ⟨η, lt'⟩ = out ⟨η, lt⟩,
+      { simp[out_eq_iff, ←eqn_path], exact le (s₂ + 1 + s) (by simp[add_assoc]; exact le_add_right le_s₂) },
+      have := S.nonmemefe_antiderivatives η (n + 1) lt' (by simp[this]; exact pie) mem,
+      simp[ne, ←eqn_path] at this, exact this },    
+    have : ∃ s, (η, n + 1) = S.assignment (Λ.path (s₂ + 1 + s)),
+      from (S.priority (k + 1)).eq_Min_sequence (λ s, S.antiderivatives (Λ.path (s₂ + 1 + s))) (by simp[antiderivatives])
+        (λ s t lt, S.nonmem_antiderivatives (thick.is_initial_of_lt (add_lt_add_left lt (s₂ + 1)))) mem mem_of_ne,
+    rcases this with ⟨s, eqn⟩,
+    exact ⟨s₂ + 1 + s, (by simp[add_assoc]; exact le_add_right le_s₂), eqn⟩ }
 end
 
 end strategy
+/--/
+
+
+
+    
+    
+
+
+     }
+end
+
 
 

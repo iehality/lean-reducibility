@@ -3,22 +3,6 @@ open encodable denumerable part
 
 local attribute [instance, priority 0] classical.prop_decidable
 
-@[refl] theorem t_reducible_equiv.refl {α} [primcodable α]
-  (A : set α) [D : decidable_pred A] :
-  A ≡ₜ A :=
-⟨t_reducible.refl A, t_reducible.refl A⟩
-
-@[symm] theorem t_reducible_equiv.symm {α β} [primcodable α] [primcodable β]
-  {A : set α} {B : set β} :
-  A ≡ₜ B → B ≡ₜ A :=
-and.swap
-
-@[trans] theorem t_reducible_equiv.trans {α β γ}
-  [primcodable α] [primcodable β] [primcodable γ]
-  {A : set α} {B : set β} {C : set γ} :
-  A ≡ₜ B → B ≡ₜ C → A ≡ₜ C :=
-λ ⟨ab, ba⟩ ⟨bc, cb⟩, ⟨t_reducible.trans ab bc, t_reducible.trans cb ba⟩
-
 theorem equivalence_of_t_reducible_equiv (α) [primcodable α] :
   equivalence (@t_reducible_equiv α α _ _) :=
 ⟨λ x, t_reducible_equiv.refl x,
@@ -130,7 +114,7 @@ instance : partial_order 𝐃 :=
 
 theorem lt_djump (d : 𝐃) : d < d⁺ :=
 by { induction d using turing_degree.ind_on, simp,
-     exact lt_jump _ } 
+     exact lt_Jump _ } 
 
 theorem djump_neq (d : 𝐃) : d ≠ d⁺ := λ h,
 by { have : d⁺ ≤ d, rw ←h,
