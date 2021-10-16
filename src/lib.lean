@@ -38,6 +38,27 @@ prefix `↑ᵒ`:max := coe_ropt_opt
 
 end
 
+namespace nat
+
+lemma least_number {p : ℕ → Prop} (ex : ∃ n, p n) : ∃ n, (∀ m, m < n → ¬ p m) ∧ p n :=
+by { revert ex, contrapose, simp, intros h, exact nat.strong_rec' h }
+
+lemma least_number' {p : ℕ → Prop} {n} (ex : p n) : ∃ n, (∀ m, m < n → ¬ p m) ∧ p n :=
+nat.least_number ⟨n, ex⟩
+
+#check set.infinite.exists_nat_lt
+
+lemma range_infinity_of_injective {f : ℕ → ℕ} (hf : function.injective f) : 
+  ∀ n, ∃ m, n < f m := λ n,
+begin
+  have : set.inj_on f set.univ, { intros x₁ _ x₂ _ eqn, exact hf eqn },
+  have : (f '' set.univ).infinite, from (set.infinite_image_iff this).mpr (set.infinite_univ),
+  rcases set.infinite.exists_nat_lt this n with ⟨k, ⟨m, _, rfl⟩, lt⟩,
+  exact ⟨m, lt⟩
+end
+
+end nat
+
 namespace list
 variables {α : Type*}
 
@@ -197,15 +218,14 @@ begin
   { have : ∀ k, k - (k - m) - n + (k - m) = k - n,
     { intros k,
       have eqn := le_or_lt m k, cases eqn,
-      { simp [nat.sub_sub_assoc (show k ≤ k, by refl) eqn,
-          nat.sub_add_eq_add_sub C, nat.add_sub_cancel' eqn] },
+      { simp [sub_sub_assoc (show k ≤ k, by refl) eqn], omega },
       { have : k - m = 0, from nat.sub_eq_zero_of_le (le_of_lt eqn),
         simp[this] } },
     exact this _ },
   { have : ∀ k, k - (k - m) - n = 0,
     { intros k, 
       have eqn := le_or_lt m k, cases eqn,
-      { simp [nat.sub_sub_assoc (show k ≤ k, by refl) eqn], exact nat.sub_eq_zero_of_le C },
+      { simp [sub_sub_assoc (show k ≤ k, by refl) eqn], exact nat.sub_eq_zero_of_le C },
       { have eqn1 : k - m = 0, from nat.sub_eq_zero_of_le (le_of_lt eqn),
         have eqn2 : k - n = 0, from nat.sub_eq_zero_of_le (le_of_lt $ gt_of_ge_of_gt C eqn),
         simp[eqn1, eqn2] } },
@@ -404,11 +424,16 @@ by simp[is_initial, *] at*
 @[simp] lemma not_is_initial_nil (l : list α) : ¬ l ⊂ᵢ [] := λ h,
 by simp[is_initial, *] at*
 
+@[simp] lemma is_initial_nil_cons (l : list α) (a : α) : [] ⊂ᵢ a :: l :=
+by { cases C : l.reverse with x l',
+     { have := congr_arg list.reverse C, simp at this, exact ⟨[], a, by simp[this]⟩ },
+     { have := congr_arg list.reverse C, simp at this, exact ⟨[a] ++ l'.reverse, x, by simp[this]⟩ } }
+
 lemma is_initial.trans {l₁ l₂ l₃ : list α} (h₁ : l₁ ⊂ᵢ l₂) (h₂ : l₂ ⊂ᵢ l₃) : l₁ ⊂ᵢ l₃ :=
 by { rcases h₁ with ⟨l12, a12, h₁⟩, rcases h₂ with ⟨l23, a23, h₂⟩,
      refine ⟨l23 ++ [a23] ++ l12, a12, by simp[h₁, h₂]⟩ }
 
-lemma is_initial_of_suffix_is_initial {l₁ l₂ l₃ : list α} (h₁ : l₁ <:+ l₂) (h₂ : l₂ ⊂ᵢ l₃) : l₁ ⊂ᵢ l₃ :=
+lemma is_suffix.is_initial_of_is_initial {l₁ l₂ l₃ : list α} (h₁ : l₁ <:+ l₂) (h₂ : l₂ ⊂ᵢ l₃) : l₁ ⊂ᵢ l₃ :=
 by { rcases h₁ with ⟨l12, h₁⟩,
      cases C : l12.reverse with a' l',
      { simp at C, rcases C with rfl,
@@ -417,9 +442,19 @@ by { rcases h₁ with ⟨l12, h₁⟩,
        rcases h₂ with ⟨l23, a23, h₂⟩, simp at h₁,
        refine ⟨l23 ++ [a23] ++ l'.reverse, a', by simp[h₁, h₂]⟩ } }
 
-lemma suffix_of_is_initial_is_initial {l₁ l₂ l₃ : list α} (h₁ : l₁ ⊂ᵢ l₂) (h₂ : l₂ <:+ l₃) : l₁ ⊂ᵢ l₃ :=
+lemma is_initial_antisymm {l₁ l₂ : list α} (h₁ : l₁ ⊂ᵢ l₂) (h₂ : l₂ ⊂ᵢ l₁) : false :=
+by { rcases h₁ with ⟨l, a, rfl⟩, rcases h₂ with ⟨l', a', eqn⟩, 
+     have := congr_arg list.length eqn, simp[add_assoc] at this,
+     rw (show l₁.length + (1 + 1) = (1+1) + l₁.length, from add_comm _ _) at this,
+     simp[←add_assoc] at this, contradiction }
+
+lemma is_initial.is_initial_of_suffix {l₁ l₂ l₃ : list α} (h₁ : l₁ ⊂ᵢ l₂) (h₂ : l₂ <:+ l₃) : l₁ ⊂ᵢ l₃ :=
 by { rcases h₁ with ⟨l12, a12, h₁⟩, rcases h₂ with ⟨l23, h₂⟩,
      refine ⟨l23 ++ l12, a12, by simp[h₁, h₂]⟩ }
+
+lemma is_initial.lt_length {l₁ l₂ : list α} (h : l₁ ⊂ᵢ l₂) : l₁.length < l₂.length :=
+by { rcases h with ⟨l, x, rfl⟩, simp,
+     exact (length l₁).lt_add_left (length l₁ + 1) (length l) (lt_add_one (length l₁))}
 
 @[simp] lemma is_initial_cons (a : α) (l : list α) : l ⊂ᵢ a :: l := ⟨[], a, rfl⟩
 
@@ -463,6 +498,9 @@ end
 lemma suffix_of_is_initial {l₁ l₂ : list α} (h : l₁ ⊂ᵢ l₂) : l₁ <:+ l₂ :=
 by { rcases h with ⟨l₃, a, h⟩, refine ⟨l₃ ++ [a], by simp[h]⟩ }
 
+lemma is_initial.suffix {l₁ l₂ : list α} (h : l₁ ⊂ᵢ l₂) : l₁ <:+ l₂ :=
+by { rcases h with ⟨l₃, a, h⟩, refine ⟨l₃ ++ [a], by simp[h]⟩ }
+
 lemma suffix_iff_is_initial {l₁ l₂ : list α} : l₁ <:+ l₂ ↔ l₁ ⊂ᵢ l₂ ∨ l₁ = l₂ :=
 ⟨begin
     revert l₁ l₂,
@@ -476,6 +514,44 @@ lemma suffix_iff_is_initial {l₁ l₂ : list α} : l₁ <:+ l₂ ↔ l₁ ⊂�
 
 lemma is_initial_iff_suffix {l₁ l₂ : list α} : l₁ ⊂ᵢ l₂ ↔ l₁ <:+ l₂ ∧ l₁ ≠ l₂ :=
 by { simp[suffix_iff_is_initial, or_and_distrib_right], intros h₁ h₂, simp[h₂] at*, exact h₁ }
+  
+lemma is_initial_suffix_antisymm {l₁ l₂ : list α} (lt : l₁ ⊂ᵢ l₂) (le : l₂ <:+ l₁) : false :=
+by {cases suffix_iff_is_initial.mp le, { exact is_initial_antisymm lt h }, { simp[h] at lt, contradiction } }
+
+lemma is_initial_cons_iff_suffix {x : α} {l₁ l₂ : list α} :
+  l₁ ⊂ᵢ x :: l₂ ↔ l₁ <:+ l₂ :=
+by { simp[is_initial_cons_iff, suffix_iff_is_initial], exact or.comm }
+
+lemma suffix_cons_iff_is_initial {l₁ l₂ : list α} :
+  (∃ x : α, x :: l₁ <:+ l₂) ↔ l₁ ⊂ᵢ l₂ :=
+⟨λ ⟨x, l, eqn⟩, ⟨l, x, eqn⟩, λ ⟨l, a, eqn⟩, ⟨a, l, eqn⟩⟩
+
+lemma is_initial_of_pos_suffix {l₁ l₂ l : list α}
+  (h : l ++ l₁ <:+ l₂) (pos : 0 < l.length) : l₁ ⊂ᵢ l₂ :=
+begin
+    cases C : l.reverse with a l IH,
+    { exfalso, simp at C, rcases C with rfl, simp at pos, contradiction },
+    { have := congr_arg list.reverse C, simp at this, rcases this with rfl,
+      rcases h with ⟨l', rfl⟩,
+      exact ⟨l' ++ l.reverse, a, by simp⟩ }
+end
+
+lemma is_suffix.is_initial_of_lt {l₁ l₂ : list α}
+  (h : l₁ <:+ l₂) (lt : l₁.length < l₂.length) : l₁ ⊂ᵢ l₂ :=
+begin
+  rcases h with ⟨l, rfl⟩,
+  induction l with a l IH, { exfalso, simp at lt, contradiction },
+  { simp[is_initial_cons_iff_suffix] }
+end
+
+lemma is_suffix.eq_of_eq {l₁ l₂ : list α}
+  (h : l₁ <:+ l₂) (lt : l₁.length = l₂.length) : l₁ = l₂ :=
+begin
+  exact eq_of_suffix_of_length_eq h lt
+end
+
+lemma is_suffix.le_length {l₁ l₂ : list α} (h : l₁ <:+ l₂) : l₁.length ≤ l₂.length :=
+by { rcases h with ⟨l, rfl⟩, simp }
 
 lemma is_initial_cons_iff_suffix {x : α} {l₁ l₂ : list α} :
   l₁ ⊂ᵢ x :: l₂ ↔ l₁ <:+ l₂ :=
@@ -549,6 +625,9 @@ lemma incomparable_iff_suffix_is_initial {l₁ l₂ : list α} :
 ⟨λ ⟨h₁, h₂⟩, ⟨λ A, h₁ (suffix_of_is_initial A), h₂⟩,
   λ ⟨h₁, h₂⟩, ⟨λ A, by { simp[is_initial_iff_suffix] at h₁, simp[h₁ A, suffix_refl] at h₂, contradiction }, h₂⟩⟩
 
+@[simp] lemma incomparable.antirefl {l : list α} : ¬ l ∥ l :=
+by simp[incomparable]
+
 lemma incomparable.symm {l₁ l₂ : list α} :
   l₁ ∥ l₂ → l₂ ∥ l₁ := λ ⟨h₁, h₂⟩, ⟨h₂, h₁⟩
 
@@ -572,6 +651,14 @@ by simp[ordered]
 
 lemma ordered_cons {r : α → α → Prop} {l : list α} {a : α} (o : (a :: l).ordered r) : l.ordered r :=
 by simp[ordered] at o; exact o.1
+
+lemma ordered_suffix {r : α → α → Prop} {l₁ l₂ : list α} (le : l₁ <:+ l₂) (o : l₂.ordered r) : l₁.ordered r :=
+begin
+  rcases le with ⟨l, rfl⟩,
+  induction l with a l IH,
+  { exact o },
+  { simp[ordered] at o, exact IH o.1 }
+end
 
 lemma ordered_mono {r : α → α → Prop} {l : list α} (o : l.ordered r) :
   ∀ {n m : ℕ} (lt : n < m) {a₁ a₂ : α} (h₁ : l.rnth n = a₁) (h₂ : l.rnth m = a₂), r a₁ a₂ :=
@@ -620,6 +707,38 @@ lemma ordered_map {α β} {r : α → α → Prop} {r' : β → β → Prop} (f 
 | []       o := by simp
 | (a :: l) o := by { simp[ordered] at o ⊢, refine ⟨ordered_map o.1, λ a' mem, isom _ _ (o.2 _ mem)⟩ }
 
+def weight_of (wt : α → ℕ) : list α → ℕ
+| []       := 0
+| (a :: l) := nat.mkpair (wt a) l.weight_of + 1
+
+@[simp] lemma weight_of_nil (wt : α → ℕ) : ([] : list α).weight_of wt = 0 := rfl
+
+lemma lt_weight_of_is_initial {wt : α → ℕ} {l₁ l₂ : list α} (lt : l₁ ⊂ᵢ l₂) : l₁.weight_of wt < l₂.weight_of wt :=
+begin
+  rcases lt with ⟨l, x, rfl⟩, induction l with y l IH; simp[weight_of],
+  { exact nat.lt_succ_iff.mpr (nat.right_le_mkpair (wt x) (weight_of wt l₁)) },
+  { exact nat.lt_succ_iff.mpr (le_of_lt (gt_of_ge_of_gt (nat.right_le_mkpair (wt y) (weight_of wt (l ++ x :: l₁))) IH)) }
+end
+
+lemma lt_weight_of_mem {wt : α → ℕ} {a : α} {l : list α} (lt : a ∈ l) : wt a < l.weight_of wt :=
+begin
+  induction l with x l IH,
+  { simp at lt, contradiction },
+  { simp at lt, rcases lt with (rfl | mem); simp[weight_of],
+    exact nat.lt_succ_iff.mpr (nat.left_le_mkpair (wt a) (weight_of wt l)),
+    refine nat.lt_succ_iff.mpr (le_of_lt (gt_of_ge_of_gt (nat.right_le_mkpair (wt x) (l.weight_of wt)) (IH mem))) }
+end
+
+lemma weight_of_injective {wt : α → ℕ} (inj : function.injective wt) : function.injective (list.weight_of wt)
+| []         []         eqn := rfl
+| []         (a :: l)   eqn := by { exfalso, simp[weight_of] at eqn, exact ne.symm (nat.succ_ne_zero _) eqn }
+| (a :: l)   []         eqn := by { exfalso, simp[weight_of] at eqn, exact eqn }
+| (a₁ :: l₁) (a₂ :: l₂) eqn := by { simp[weight_of] at eqn,
+    have eqn := congr_arg nat.unpair eqn, simp at eqn,
+    have eqn₁ : a₁ = a₂, from inj eqn.1,
+    have eqn₂ : l₁ = l₂, from weight_of_injective eqn.2,
+    simp[eqn₁, eqn₂] }
+
 end list
 
 namespace option
@@ -637,8 +756,11 @@ end option
 class omega_ordering (α : Type u) :=
 (ordering : α → ℕ)
 (inj : function.injective ordering)
+#check omega_ordering.ordering
 
 namespace omega_ordering
+
+def default (α : Type*) [encodable α] : omega_ordering α := ⟨encodable.encode, encode_injective⟩
 
 instance {α : Type u} [omega_ordering α] : linear_order α :=
 { le := λ x y, (omega_ordering.ordering x) ≤ (omega_ordering.ordering y),
@@ -680,7 +802,7 @@ variables {α : Type u} {o : omega_ordering α}
 | (x :: l) m := by { simp[Min], cases C : o.Min l with m'; simp[C],
     { simp at C, simp[C], refine ⟨λ eqn, by simp[eqn], λ eqn, by simp[eqn]⟩ },
     { have : m' ∈ l ∧ ∀ (a : α), a ∈ l → m' ≤ a, from mem_of_Min_iff_le.mp C, rcases this with ⟨IH₁, IH₂⟩,
-      by_cases C₁ : x ≤ m'; simp[min, C₁],
+      by_cases C₁ : x ≤ m'; simp[min, C₁, min_default],
       { split,
         { rintros rfl, simp, intros a mem, exact le_trans C₁ (IH₂ a mem) },
         { rintros ⟨(h₁ | h₁), h₂, h₃⟩, { simp[h₁] },
@@ -691,11 +813,43 @@ variables {α : Type u} {o : omega_ordering α}
         { rintros ⟨(h₁ | h₁), h₂, h₃⟩, {exfalso, rcases h₁ with rfl, exact C₁ (h₃ m' IH₁) },
           { exact le_antisymm (IH₂ m h₁) (h₃ m' IH₁) } } } } }
 
-lemma Min_le_mem {l : list α} {h} : o.Min_le l h ∈ l:=
+lemma Min_le_mem (o : omega_ordering α) (l : list α) {h} : o.Min_le l h ∈ l :=
 (mem_of_Min_iff_le.mp (option.mem_def.mp (option.get_mem (min_some_of_pos o l h)))).1
 
-lemma Min_le_minimum {l : list α} {h} : ∀ a ∈ l, o.Min_le l h ≤ a :=
+lemma Min_le_minimum (o : omega_ordering α) {l : list α} {h} : ∀ a ∈ l, o.Min_le l h ≤ a :=
 (mem_of_Min_iff_le.mp (option.mem_def.mp (option.get_mem (min_some_of_pos o l h)))).2
+ 
+lemma eq_Min_sequence (o : omega_ordering α) (A : ℕ → list α) (pos : ∀ s, 0 < (A s).length)
+  (hA₁ : ∀ s t, s < t → ¬o.Min_le (A s) (pos s) ∈ A t)
+  {a : α} (mem : a ∈ A 0) (hA₂ : ∀ s, a ≠ o.Min_le (A s) (pos s) → a ∈ A s → a ∈ A (s + 1)) :
+  ∃ s, a = o.Min_le (A s) (pos s) :=
+begin
+  suffices : ¬∀ s, a ∈ A s,
+  { revert this, contrapose, simp, intros h s,
+    induction s with s IH, { exact mem },
+    { exact hA₂ s (h s) IH } },
+  intros mem,
+  have lt : ∀ s, o.Min_le (A s) (pos s) < a,
+  { intros s, have : o.Min_le (A s) (pos s) ≤ a, from o.Min_le_minimum a (mem s),
+    have C : o.Min_le (A s) (pos s) < a ∨ o.Min_le (A s) (pos s) = a, from lt_or_eq_of_le this,
+    rcases C with (C | rfl),
+    { exact C }, { exfalso, exact (hA₁ s (s + 1) (lt_add_one s)) (mem (s + 1)) } },
+  have : function.injective (λ s, ordering (o.Min_le (A s) (pos s))),
+  { intros s₁ s₂ eqn, simp at eqn,
+    have C : s₁ < s₂ ∨ s₁ = s₂ ∨ s₂ < s₁, exact trichotomous s₁ s₂, cases C,
+    { exfalso,
+      have : o.Min_le (A s₁) (pos s₁) ∉ A s₂, from hA₁ s₁ s₂ C,
+      have : o.Min_le (A s₁) (pos s₁) ∈ A s₂, rw inj eqn, from o.Min_le_mem _,
+      contradiction }, cases C,
+    { exact C },
+    { exfalso,
+      have : o.Min_le (A s₂) (pos s₂) ∉ A s₁, from hA₁ s₂ s₁ C,
+      have : o.Min_le (A s₂) (pos s₂) ∈ A s₁, rw ← inj eqn, from o.Min_le_mem _,
+      contradiction } },
+  have : ∃ s, a < o.Min_le (A s) (pos s), from nat.range_infinity_of_injective this (ordering a),
+  rcases this with ⟨s, eqn⟩,
+  exact nat.lt_asymm (lt s) eqn
+end
 
 end omega_ordering
 namespace fin
@@ -753,54 +907,8 @@ def list.of_list {α : Type*} : ∀ l : list α, (fin (l.length) → α)
 | []        := finitary.nil
 | (a :: as) := as.of_list ::ᶠ a
 
-namespace nat
+namespace function
 
-lemma least_number {p : ℕ → Prop} (ex : ∃ n, p n) : ∃ n, (∀ m, m < n → ¬ p m) ∧ p n :=
-by { revert ex, contrapose, simp, intros h, exact nat.strong_rec' h }
+#check set.infinite_image_iff
 
-lemma least_number' {p : ℕ → Prop} {n} (ex : p n) : ∃ n, (∀ m, m < n → ¬ p m) ∧ p n :=
-nat.least_number ⟨n, ex⟩
-
-end nat
-
-namespace set
-variables {α : Type*}
-lemma compl_eq (p : α → Prop) : {x | p x}ᶜ = {x | ¬ p x} :=
-by { exact compl_set_of (λ (a : α), p a) } 
-
-end set
-
-
-section classical
-local attribute [instance, priority 0] classical.prop_decidable
-
-noncomputable def Prop_encode : Prop → ℕ := λ P, if P then 1 else 0
-
-def Prop_decode : ℕ → option Prop
-| 0       := some false
-| 1       := some true
-| (n + 2) := none
-
-noncomputable instance encodable.Prop : encodable Prop :=
-⟨Prop_encode, Prop_decode, λ P, by by_cases C : P; simp[C, Prop_encode, Prop_decode]⟩
-
-theorem Prop_prim : nat.primrec (λ n, encodable.encode (encodable.decode Prop n)) :=
-begin
-  let f : ℕ → ℕ := (λ n, cond (n = 0) (encode $ some false)
-    (cond (n = 1) (encode $ some true) (encode (none : option Prop)))),
-  have : (λ n, encode (decode Prop n)) = f,
-  { funext n, simp[f], cases n; simp[decode, Prop_decode],
-    cases n; simp[decode, Prop_decode] },
-  rw this, apply primrec.nat_iff.mp,
-  refine primrec.cond
-    (primrec₂.comp primrec.eq primrec.id (primrec.const _))
-    (primrec.const _)
-    (primrec.cond
-      (primrec₂.comp primrec.eq primrec.id (primrec.const _))
-      (primrec.const _)
-      (primrec.const _))
-end
-
-noncomputable instance primcodable.Prop : primcodable Prop := ⟨Prop_prim⟩
-
-end classical
+end function

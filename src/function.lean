@@ -584,6 +584,10 @@ begin
       (primrec.const e).to_rcomp rcomputable.refl rcomputable.id }
 end
 
+theorem univ_partrec_in {f : α → σ} {e} :
+  (⟦e⟧^f : β →. τ) partrec_in! f :=
+rpartrec.univ_tot _ _ (primrec.const e).to_rcomp rcomputable.refl rcomputable.id
+
 namespace rpartrec
 
 protected theorem cond {c : α → bool} {f : α →. σ} {g : α →. σ} {h : β → τ}
