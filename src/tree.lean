@@ -285,7 +285,7 @@ lemma le.ssubset_of_ssubset {Λ₁ Λ₂ : Path k} (eqn : Λ₁ ≤ₚ Λ₂) {�
 by { rcases lt with ⟨n, lt⟩,
      rcases eqn n with ⟨m, eqn⟩, refine ⟨m, _⟩, exact list.is_initial.is_initial_of_suffix lt eqn }
 
-lemma infinite_length {Λ : Path k} (h : Λ.infinite) (n : ℕ) : ∃ m, n < (Λ.path m).length :=
+lemma infinite.length {Λ : Path k} (h : Λ.infinite) (n : ℕ) : ∃ m, n < (Λ.path m).length :=
 begin
   induction n with n IH,
   { rcases h 0 with ⟨m, h⟩, simp at h,
@@ -301,6 +301,8 @@ lemma thick.is_initial_of_lt {Λ : Path k} (h : Λ.thick) {s t : ℕ} (lt : s < 
 by { have : Λ.path s ⊂ᵢ Λ.path (s + 1), { rcases h.2 s with ⟨ν, eqn⟩, simp[eqn] },
      exact list.is_initial.is_initial_of_suffix this (Λ.mono' (nat.succ_le_iff.mpr lt)) }
 
+
+
 lemma thick.length {Λ : Path k} (h : Λ.thick) (s : ℕ) : (Λ.path s).length = s :=
 by { induction s with s IH, { simp[h.1] }, { rcases h.2 s with ⟨ν, eqn⟩, simp[eqn, IH] } }
 
@@ -311,7 +313,12 @@ lemma thick.ssubset {Λ : Path k} (h : Λ.thick) {μ} : μ ⊆' Λ ↔ ∃ s, μ
      have := list.suffix_of_suffix_length_le eqn (Λ.mono' this) (by simp[h.length]),
      exact list.eq_of_suffix_of_length_eq this (by simp[h.length]) }, λ ⟨s, eqn⟩, ⟨s, by simp[eqn]⟩⟩
 
-lemma thick.le_mono_iff {Λ : Path k} (h : Λ.thick) {n m : ℕ} : n ≤ m ↔ Λ.path n <:+ Λ.path m :=
+lemma thick.lt_mono_iff {Λ : Path k} (h : Λ.thick) {s t : ℕ} : Λ.path s ⊂ᵢ Λ.path t ↔ s < t :=
+by { have : s < t ∨ t ≤ s, from lt_or_ge s t, rcases this with (lt | le),
+     { simp[lt], exact thick.is_initial_of_lt h lt },
+     { simp[not_lt.mpr le], intros lt, exact list.is_initial_suffix_antisymm lt (Λ.mono' le) } }
+
+lemma thick.le_mono_iff {Λ : Path k} (h : Λ.thick) {n m : ℕ} : Λ.path n <:+ Λ.path m ↔ n ≤ m :=
 begin
   have C : n < m ∨ n = m ∨ m < n, from trichotomous n m,
   cases C,
@@ -325,7 +332,7 @@ lemma thick.out {Λ : Path k} (h : Λ.thick) (s : ℕ) : Tree' k := out (⟨Λ.p
 lemma infinite.thick_exists {Λ : Path k} (h : Λ.infinite) :
   ∃ Λ' : Path k, Λ' ≃ₚ Λ ∧ Λ'.thick :=
 begin
-  have : ∃ f : ℕ → ℕ, ∀ x, x < list.length (Λ.path (f x)), from classical.skolem.mp (infinite_length h),
+  have : ∃ f : ℕ → ℕ, ∀ x, x < list.length (Λ.path (f x)), from classical.skolem.mp (infinite.length h),
   rcases this with ⟨f, eqn⟩,
   let P : ℕ → Tree k := λ s, Λ.path (f s)↾*s,
   have P_length : ∀ s, (P s).length = s, from λ s, list.initial_length (eqn s),

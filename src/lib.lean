@@ -210,6 +210,9 @@ by { have : l.length - n = 0, omega, simp[list.initial, this] }
 lemma initial_length {α} {l : list α} {n : ℕ} (h : n < l.length) : (l↾*n).length = n :=
 by simp [list.initial, h]; omega
 
+@[simp] lemma le_initial_length {α} (l : list α) (n : ℕ) : (l↾*n).length ≤ n :=
+by { simp[list.initial], omega }
+
 @[simp] lemma initial_initial {α} (l : list α) (n m : ℕ) :
   (l↾*m)↾*n = l↾*(min m n) :=
 begin
@@ -552,24 +555,6 @@ end
 
 lemma is_suffix.le_length {l₁ l₂ : list α} (h : l₁ <:+ l₂) : l₁.length ≤ l₂.length :=
 by { rcases h with ⟨l, rfl⟩, simp }
-
-lemma is_initial_cons_iff_suffix {x : α} {l₁ l₂ : list α} :
-  l₁ ⊂ᵢ x :: l₂ ↔ l₁ <:+ l₂ :=
-by { simp[is_initial_cons_iff, suffix_iff_is_initial], exact or.comm }
-
-lemma suffix_cons_iff_is_initial {l₁ l₂ : list α} :
-  (∃ x : α, x :: l₁ <:+ l₂) ↔ l₁ ⊂ᵢ l₂ :=
-⟨λ ⟨x, l, eqn⟩, ⟨l, x, eqn⟩, λ ⟨l, a, eqn⟩, ⟨a, l, eqn⟩⟩
-
-lemma is_initial_of_pos_suffix {l₁ l₂ l : list α}
-  (h : l ++ l₁ <:+ l₂) (pos : 0 < l.length) : l₁ ⊂ᵢ l₂ :=
-begin
-    cases C : l.reverse with a l IH,
-    { exfalso, simp at C, rcases C with rfl, simp at pos, contradiction },
-    { have := congr_arg list.reverse C, simp at this, rcases this with rfl,
-      rcases h with ⟨l', rfl⟩,
-      exact ⟨l' ++ l.reverse, a, by simp⟩ }
-end
 
 lemma rnth_eq_iff_suffix_cons_initial {l : list α} {n : ℕ} {a : α} :
   l.rnth n = a ↔ a :: l↾*n <:+ l :=

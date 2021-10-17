@@ -175,8 +175,8 @@ begin
   simp[←eqn_out, this] at eqn_lam, simp[eqn, eqn_lam]
 end
 
-lemma suffix_of_mem_lambda {ρ μ : Tree k}
-  (h : μ ∈ S.lambda ρ) : μ <:+ ρ :=
+lemma initial_of_mem_lambda {ρ μ : Tree k}
+  (h : μ ∈ S.lambda ρ) : ∃ μ₀ : ancestor ρ, μ = out μ₀ :: μ₀.val :=
 begin
   rcases list.mem_iff_rnth.mp h with ⟨n, eqn⟩,
   have le₁ : μ :: S.lambda ρ↾*n <:+ S.lambda ρ, from list.rnth_eq_iff_suffix_cons_initial.mp eqn,
@@ -185,9 +185,16 @@ begin
   have : μ = out μ₀ :: μ₀.val,
   { have := list.suffix_or_suffix_of_suffix le₁ (out_eq_iff.mp out_eq), simp at this,
     cases this; simp [this] },
-  simp[this],
-  exact suffix_out_cons μ₀
+  exact ⟨μ₀, this⟩
 end
+
+lemma suffix_of_mem_lambda {ρ μ : Tree k}
+  (h : μ ∈ S.lambda ρ) : μ <:+ ρ :=
+by rcases S.initial_of_mem_lambda h with ⟨μ₀, rfl⟩; exact suffix_out_cons μ₀
+
+lemma out_eq_out {ρ : Tree k}
+  (η : ancestor (S.lambda ρ)) : ∃ μ₀ : ancestor ρ, out η = out μ₀ :: μ₀.val :=
+S.initial_of_mem_lambda (by { rcases suffix_out_cons η with ⟨l, eqn⟩, simp[←eqn] })
 
 lemma suffix_out {ρ : Tree k}
   (η : ancestor (S.lambda ρ)) : out η <:+ ρ :=
@@ -380,6 +387,21 @@ lemma sigma_outcome_of_eq_up {μ₁ μ₂ : Tree k} (lt : μ₁ ⊂ᵢ μ₂)
   (eqn : S.up μ₁ = S.up μ₂) (up_lt : S.up μ₂ ⊂ᵢ S.lambda μ₂) : (out ⟨μ₁, lt⟩).is_sigma :=
 sigma_outcome_of_eq_up S ((default _) :: μ₂) lt (by simp) eqn up_lt
 
+lemma sigma_outcome_of_pie {μ μ₀ : Tree k} {lt : μ₀ ⊂ᵢ μ} (pie : (out ⟨μ₀, lt⟩).is_pie) :
+  S.lambda (out ⟨μ₀, lt⟩ :: μ₀) = (out ⟨μ₀, lt⟩ :: μ₀) :: S.up μ₀ :=
+begin
+  simp[lambda, approx.lambda],
+  have : S.up μ₀ ⊂ᵢ S.lambda μ₀ ∨ S.up μ₀ = S.lambda μ₀,
+    from list.suffix_iff_is_initial.mp (S.up_le_lambda μ₀),
+  rcases this with (lt_up | eq_up),
+  { have : approx.pie_derivative (S.up μ₀) (S.up' μ₀) = [],
+    { simp[approx.pie_derivative, approx.derivative, list.filter_eq_nil],
+      rintros ⟨μ₁, lt_μ₁⟩ pie' eq_up,
+      have := S.sigma_outcome_of_eq_up lt_μ₁ eq_up lt_up, exact not_pie_sigma pie' this },
+    simp [this, pie] },
+  { simp[eq_up, lambda] }
+end
+
 variables (Λ : Path k)
 
 theorem finite_injury (n : ℕ) :
@@ -478,6 +500,14 @@ lemma lt_Lambda_iff {Λ : Path k} {η : Tree (k + 1)} :
     rcases h (max s₀ s₁) (le_max_left s₀ s₁) with ⟨l, a, eqn⟩,
     simp[←eqn, list.initial] }⟩
 
+lemma le_lamvda_of_lt_Lambda' {Λ : Path k} {η : Tree (k + 1)} {s₀} (lt : η ⊂ᵢ (S.Lambda Λ).path s₀) :
+  ∃ s₁, ∀ s, s₁ ≤ s → out ⟨η, lt⟩ :: η <:+ S.lambda (Λ.path s) :=
+begin
+  rcases S.Lambda_spec Λ s₀ with ⟨s₁, eqn⟩, refine ⟨s₁, λ s le_s, _⟩,
+  have : out ⟨η, lt⟩ :: η <:+ S.lambda (Λ.path s)↾*s₀, simp[eqn s le_s], from suffix_out_cons ⟨η, lt⟩,
+  exact this.trans (list.suffix_initial (lambda S (Λ.path s)) s₀)
+end
+
 lemma le_Lambda_of_thick {Λ : Path k} (thick : Λ.thick)
   {η : Tree (k + 1)} {s₀} (le : η <:+ (S.Lambda Λ).path s₀) :
   ∃ s₁, η = S.lambda (Λ.path s₁) ∧ ∀ s, s₁ ≤ s → η <:+ S.lambda (Λ.path s) :=
@@ -553,7 +583,7 @@ Path.ext (λ s, begin
   { rcases S.Lambda_spec Λ₂ (S.lambda μ₁).length with ⟨t₂, eqn₂⟩,
     rw ← eqn₂ (max t₂ s₂) (le_max_left t₂ s₂), sorry  },
   rcases S.Lambda_spec Λ₂ s with ⟨t₂, eqn₂⟩,  
-
+  sorry
   
 end)
 
@@ -613,7 +643,43 @@ begin
     { exact ne (eq.symm C₁)} }
 end
 
-#check S.derivative
+lemma Lambda_pie_outcome
+  {η : Tree (k + 1)} {s₀} (lt : η ⊂ᵢ (S.Lambda Λ).path s₀) (pie : (out ⟨η, lt⟩).is_pie)
+  {μ : Tree k} {t₀} (lt' : μ ⊂ᵢ Λ.path t₀) (up_eq : S.up μ = η) : (out ⟨μ, lt'⟩).is_sigma :=
+begin
+  rcases up_eq with rfl,
+  rcases S.le_lamvda_of_lt_Lambda' lt with ⟨s₁, le⟩,
+  by_contradiction A, simp at A,
+  have eq_lam : S.lambda (out ⟨μ, lt'⟩ :: μ) = (out ⟨μ, lt'⟩ :: μ) :: S.up μ, 
+    from S.sigma_outcome_of_pie A,
+  have : out ⟨S.up μ, lt⟩ = out ⟨μ, lt'⟩ :: μ,
+  { have lt₁ : S.up μ ⊂ᵢ S.lambda (out ⟨μ, lt'⟩ :: μ), { simp[eq_lam] },
+    have lt₂ : S.up μ ⊂ᵢ S.lambda (Λ.path (max s₁ t₀)),
+      from list.suffix_cons_iff_is_initial.mp ⟨_, le (max s₁ t₀) (le_max_left s₁ t₀)⟩,
+    have eq_out₁ : out ⟨S.up μ, lt₁⟩ = out ⟨μ, lt'⟩ :: μ, { simp[out_eq_iff, eq_lam] },
+    have eq_out₂ : out ⟨S.up μ, lt₁⟩ = out ⟨S.up μ, lt₂⟩,
+      from S.eq_out_of_sigma ((suffix_out_cons ⟨μ, lt'⟩).trans (Λ.mono' (le_max_right s₁ t₀))) lt₁ lt₂ (by simp[eq_out₁, A]),
+    have : out ⟨S.up μ, lt₂⟩ = out ⟨S.up μ, lt⟩,
+    { simp[out_eq_iff], exact le (max s₁ t₀) (le_max_left s₁ t₀) },
+    rw[←eq_out₁, eq_out₂, this] },
+  simp[this] at pie, exact not_pie_sigma A pie
+end
+
+lemma Lambda_sigma_outcome
+  {η : Tree (k + 1)} {s₀} (lt : η ⊂ᵢ (S.Lambda Λ).path s₀) (sigma : (out ⟨η, lt⟩).is_sigma) :
+  ∃ {μ : Tree k} {t₀} (lt' : μ ⊂ᵢ Λ.path t₀) (up_eq : S.up μ = η), (out ⟨μ, lt'⟩).is_pie :=
+begin
+  rcases S.le_lamvda_of_lt_Lambda' lt with ⟨s₁, le⟩,
+  have lt' : η ⊂ᵢ S.lambda (Λ.path s₁), from list.suffix_cons_iff_is_initial.mp ⟨_, le s₁ (by refl)⟩,
+  rcases S.out_eq_out ⟨η, lt'⟩ with ⟨⟨μ, lt_μ⟩, eqn_μ⟩,
+  have eq_out : out ⟨η, lt'⟩ = out ⟨η, lt⟩, { simp[out_eq_iff], exact le s₁ (by refl) },
+  have pie : (out ⟨μ, lt_μ⟩).is_pie, { simp[←eq_out, eqn_μ] at sigma, exact sigma },
+  have : S.up μ = η,
+  { rcases S.eq_lambda_of_lt_lambda ⟨η, lt'⟩ with ⟨⟨μ₀, lt_μ₀⟩, _, _, eqn_μ₀, eq_up₀⟩, 
+    have : μ = μ₀, { simp[eqn_μ] at eqn_μ₀, exact list.tail_eq_of_cons_eq eqn_μ₀ },
+    rcases this with rfl, exact eq.symm eq_up₀ },
+  exact ⟨μ, s₁, lt_μ, this, pie⟩
+end
 
 def antiderivatives (μ : Tree k) : list (Tree (k + 1) × ℕ) := (S.lambda μ, 0) ::
   ((S.lambda μ).ancestors.filter (λ η, (out η).is_pie)).map (λ η, (η, (S.derivative ↑η μ).length))
@@ -784,5 +850,50 @@ begin
     rcases this with ⟨s, eqn⟩,
     exact ⟨s₂ + 1 + s, (by simp[add_assoc]; exact le_add_right le_s₂), eqn⟩ }
 end
+
+lemma Lambda_infinite
+  (thick : Λ.thick) : (S.Lambda Λ).infinite := λ s₀,
+begin
+  rcases S.Lambda_spec Λ s₀ with ⟨s₁, eqn₁⟩,
+  rcases S.Lambda_spec Λ (s₀ + 1) with ⟨s₂, eqn₂⟩,
+  by_contradiction A, simp at A,
+  have eq_Lambda : ∀ s, (S.Lambda Λ).path s₀ = (S.Lambda Λ).path (s₀ + s),
+  { intros s,
+    have : (S.Lambda Λ).path s₀ <:+ (S.Lambda Λ).path (s₀ + s), from (S.Lambda Λ).mono' (le_self_add),
+    rcases list.suffix_iff_is_initial.mp this with (lt | eq), { exfalso, exact A s lt }, { exact eq } },
+  have le_length : ∀ s, s₂ ≤ s → (S.lambda (Λ.path s)).length ≤ s₀ + 1,
+  { intros s le_s,
+    have C : (S.lambda (Λ.path s)).length ≤ s₀ + 1 ∨ s₀ + 1 < (S.lambda (Λ.path s)).length, from le_or_lt _ _,
+    rcases C, { exact C },
+    { exfalso, have := list.initial_length C,
+      have eqn_s₀ : ((S.Lambda Λ).path s₀).length = s₀ + 1, { simp[eq_Lambda 1, ←eqn₂ s le_s, this] },
+      have le_s₀  : ((S.Lambda Λ).path s₀).length ≤ s₀, { simp[←eqn₁ s₁ (by refl)] },
+      simp[eqn_s₀] at le_s₀, contradiction } },
+  have eq_lam : ∀ s, S.lambda (Λ.path (s₂ + s)) = S.lambda (Λ.path s₂),
+  { intros s, have := eqn₂ s₂ (by refl),
+    have : ∀ s, S.lambda (Λ.path (s₂ + s)) = (S.Lambda Λ).path (s₀ + 1),
+    { intros s, have := list.initial_elim (le_length (s₂ + s) (le_self_add)),
+      simp[←eqn₂ (s₂ + s) (le_self_add), this] },
+    simp[this], exact eq.symm (this 0) },
+  have mem : (S.lambda (Λ.path s₂), 0) ∈ S.antiderivatives (Λ.path s₂), { simp[antiderivatives] },
+  have mem_of_ne : ∀ s,
+    (S.lambda (Λ.path s₂), 0) ≠ S.assignment (Λ.path (s₂ + s)) →
+    (S.lambda (Λ.path s₂), 0) ∈ S.antiderivatives (Λ.path (s₂ + s)) →
+    (S.lambda (Λ.path s₂), 0) ∈ S.antiderivatives (Λ.path (s₂ + s + 1)),
+  { intros s ne mem, simp[antiderivatives], exact or.inl (eq.symm (eq_lam (s + 1))) },
+  have : ∃ s, (S.lambda (Λ.path s₂), 0) = S.assignment (Λ.path (s₂ + s)),
+    from (S.priority (k + 1)).eq_Min_sequence (λ s, S.antiderivatives (Λ.path (s₂ + s)))
+      (by simp[antiderivatives])
+      (λ s t lt, S.nonmem_antiderivatives (thick.is_initial_of_lt (add_lt_add_left lt s₂))) mem mem_of_ne,
+  rcases this with ⟨s₃, eqn_assn⟩,
+  have eq_up: S.lambda (Λ.path (s₂ + s₃)) = S.up (Λ.path (s₂ + s₃)),
+  { have := S.assignment_fst_eq_up (Λ.path (s₂ + s₃)), rw[←eqn_assn, ←eq_lam s₃] at this, exact this },
+  rcases thick.2 (s₂ + s₃) with ⟨ν, eqn_path⟩,
+  have : S.lambda (Λ.path (s₂ + s₃ + 1)) = Λ.path (s₂ + s₃ + 1) :: S.lambda (Λ.path (s₂ + s₃)),
+  { simp[eqn_path, lambda, approx.lambda, ←eq_up] },
+  simp[show S.lambda (Λ.path (s₂ + s₃ + 1)) = S.lambda (Λ.path s₂), from eq_lam (s₃ + 1),
+    eq_lam s₃] at this, contradiction
+end
+
 
 end strategy
