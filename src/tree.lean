@@ -21,6 +21,12 @@ instance : ∀ n, decidable_eq (Tree' n)
 | 0       := bool.decidable_eq
 | (n + 1) := @list.decidable_eq _ (Tree'.decidable_eq n)
 
+instance : ∀ n, primcodable (Tree' n)
+| 0       := primcodable.bool
+| (s + 1) := @primcodable.list (Tree' s) (Tree'.primcodable s)
+
+instance (n) : primcodable (Tree n) := Tree'.primcodable (n + 1)
+
 def ancestor {n} (η : Tree n) := { μ : Tree n // μ ⊂ᵢ η }
 
 instance {n} {η : Tree n} : has_coe (ancestor η) (Tree n) :=

@@ -1,16 +1,19 @@
-import lib tree
+import lib tree reducibility
 
 open encodable denumerable
 
 attribute [simp] set.set_of_app_iff
 
-structure strategy (α : Type) :=
-(rank : ℕ)
+structure strategy (n : ℕ) :=
 (priority (k : ℕ) : omega_ordering (Tree k × ℕ))
-(generator : α → vector ℕ rank → α)
 
 namespace strategy
-variables {α : Type} (S : strategy α)
+
+protected def default (n : ℕ) : strategy n := ⟨λ k, omega_ordering.default _⟩
+
+instance (n) : inhabited (strategy n) := ⟨strategy.default n⟩
+
+variables {n₀ : ℕ} (S : strategy n₀)
 
 namespace approx
 variables {k : ℕ}
@@ -895,5 +898,28 @@ begin
     eq_lam s₃] at this, contradiction
 end
 
-
 end strategy
+
+
+
+def str : strategy 1 := default _
+
+def generator : ℕ → (Tree 0 × (list ℕ × list ℕ))
+| 0       := ([], [], [])
+| (s + 1) :=
+    let μ₀ : Tree 0 := (generator s).1, 
+        A₀ : list ℕ := (generator s).2.1,
+        B₀ : list ℕ := (generator s).2.2,
+
+        η₁ : Tree 1 := str.up μ₀,
+        d₁ : bool   := ⟦η₁.length⟧ᵪ^A₀.rnth [μ₀.weight] η₁.weight = some ff,
+        A₁ : list ℕ := A₀,
+        B₁ : list ℕ := if d₁ then η₁.weight :: B₀ else B₀,
+        μ₁ : Tree 0 := if d₁ then (tt :: μ₀) else (ff :: μ₀),
+
+        η₂ : Tree 1 := str.up μ₁,
+        d₂ : bool   := ⟦η₂.length⟧ᵪ^B₁.rnth [μ₁.weight] η₂.weight = some ff,
+        A₂ : list ℕ := if d₂ then η₂.weight :: B₁ else B₁,
+        B₂ : list ℕ := B₁,
+        μ₂ : Tree 0 := if d₂ then (tt :: μ₁) else (ff :: μ₁) in
+(μ₂, (A₂, B₂))
