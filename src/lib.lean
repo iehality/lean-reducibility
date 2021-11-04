@@ -26,6 +26,8 @@ def coe_opt_ropt {α σ} (f : α → option σ) : α →. σ := λ x, part.of_op
 
 prefix `↑ʳ`:max := coe_opt_ropt
 
+lemma coe_opt_ropt_eq {α σ} (f : α → option σ) : ↑ʳ f = (λ x, ↑(f x)) := rfl
+
 @[simp] theorem coe_opt_ropt_app {α σ} (f : α → option σ) (a : α) : ↑ʳf a = f a := rfl
 
 def coe_ropt_opt {α σ} (f : α →. σ) [D : decidable_pred f.dom] : α → option σ := λ x, 

@@ -1,8 +1,8 @@
 [package]
 name = "reduce"
 version = "0.1"
-lean_version = "leanprover-community/lean:3.33.0"
+lean_version = "leanprover-community/lean:3.35.0"
 path = "src"
 
 [dependencies]
-mathlib = {git = "https://github.com/leanprover-community/mathlib", rev = "54a4c17abf29c170307586802a2a57c7479f944a"}
+mathlib = {git = "https://github.com/leanprover-community/mathlib", rev = "8d52be4a5a2d8b68ef1c28d9dadb5506bd399517"}

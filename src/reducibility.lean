@@ -448,7 +448,7 @@ theorem re_many_one_reducible_to_0' {A : set ℕ} : r.e. A ↔ A ≤₁ ∅′ :
 lemma dom_rre (f : α →. σ) : {x | (f x).dom} re_in f :=
 begin
   let g := (λ a, (f a).map (λ x, ())),
-  have := rpartrec.refl.map ((computable.const ()).comp computable.snd).to_rcomp,
+  have := rpartrec.refl.map ((computable.const ()).comp computable.snd).to_rcomp.to₂,
   exact (this.of_eq $ λ x, by { rw set.set_of_app_iff, simp, 
     apply part.ext, intros a, simp [dom_iff_mem] })
 end
@@ -479,7 +479,7 @@ begin
   have eqn : {x | ∃ y, p x y} = {x | (p' x).dom},
   { apply set.ext, simp [lmm] },
   have : p' partrec_in! g,
-  { apply rpartrec.rfind', simp,
+  { apply rpartrec.rfind,
     refine primrec.option_is_some.to_rcomp.comp
       (rcomputable.univn_tot _ _ 
         (primrec.const _).to_rcomp

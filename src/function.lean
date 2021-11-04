@@ -27,8 +27,8 @@ begin
   let f' : α →. σ := (λ a, (encode2 f (encode a)).bind (λ x, decode σ x)),
   have c₀ : (λ a, encode2 f (encode a) : α →. ℕ) partrec_in encode2 f :=
   rpartrec.refl.comp (partrec.to_rpart computable.encode),
-  have c₁ : partrec (λ x, ↑(decode σ x.2) : α × ℕ →. σ) := computable.decode.of_option.comp computable.snd,
-  exact ((c₀.bind (c₁.to_rpart)).of_eq $ λ a, by simp[encode2])
+  have c₁ : partrec₂ (λ x y, ↑(decode σ y) : α → ℕ →. σ) := computable.decode.of_option.comp computable.snd,
+  exact ((c₀.bind c₁.to_rpart).of_eq $ λ a, by simp[encode2])
 end
 
 def graph {α β} [decidable_eq β] (f : α → β) : α × β → bool :=
@@ -232,8 +232,7 @@ begin
     .to_rpart),
   have c₁ : computable (λ x, (decode β x.2).get_or_else (default β) : α × ℕ → β) :=
   (computable.decode.comp computable.snd).option_get_or_else (computable.const (default β)),
-  have c₂ : (λ a, nat.rfind $ λ x, p (a, (decode β x).get_or_else (default β))) partrec_in p :=
-  rpartrec.rfind.trans c₀,
+  have c₂ : (λ a, nat.rfind $ λ x, p (a, (decode β x).get_or_else (default β))) partrec_in p, from rfind c₀,
   exact c₂.map c₁.to_rpart
 end
 
@@ -246,8 +245,7 @@ begin
     .to_rpart),
   have c₁ : computable (λ x, (decode β x.2).get_or_else (default β) : α × ℕ → β) :=
   (computable.decode.comp computable.snd).option_get_or_else (computable.const (default β)),
-  have c₂ : (λ a, nat.rfind $ λ x, p a ((decode β x).get_or_else (default β))) partrec_in prod.unpaired p :=
-  rpartrec.rfind.trans c₀,
+  have c₂ : (λ a, nat.rfind $ λ x, p a ((decode β x).get_or_else (default β))) partrec_in prod.unpaired p, from rfind c₀,
   exact c₂.map c₁.to_rpart
 end
 
@@ -284,7 +282,7 @@ begin
   { refine rcomputable.nat_elim'
       rcomputable.id
       (rcomputable.const _) _, simp,
-    refine rcomputable.option_cases'
+    refine rcomputable.option_cases
       (hf.comp ((primrec.of_nat _).to_rcomp.comp $ fst.comp snd))
       (snd.comp snd) _, 
     refine (primrec.list_cons.comp (((primrec.of_nat _).comp $ primrec.fst.comp $
@@ -518,7 +516,7 @@ theorem rpartrec.eval_w {f : ℕ → option ℕ} {c : α → code} {n : α → �
 begin
   let p := (λ x, nat.rfind_opt (λ s, code.evaln s f (c x) (n x))),
   have : p partrec_in o,
-  { apply rpartrec.rfind_opt', simp,
+  { apply rpartrec.rfind_opt, 
     refine (rcomputable.evaln_w rcomputable.snd hf
       (hc.comp rcomputable.fst) (hn.comp rcomputable.fst)) },
   exact (this.of_eq $ λ a, by simp [p, eval_eq_rfind])
@@ -535,11 +533,11 @@ theorem rcomputable.univn_w (α σ) [primcodable α] [primcodable σ]
   (λ x, ⟦i x⟧*p [s x] (n x) : γ → option σ) computable_in o :=
 begin
   simp [univn],
-  refine rcomputable.option_bind' (rcomputable.evaln_w hs
-    (rcomputable.option_bind' primrec.decode.to_rcomp _)
+  refine rcomputable.option_bind (rcomputable.evaln_w hs
+    (rcomputable.option_bind primrec.decode.to_rcomp _)
     ((primrec.of_nat _).to_rcomp.comp hi)
     (primrec.encode.to_rcomp.comp hn)) _,
-  { refine rcomputable.option_map' _ _,
+  { refine rcomputable.option_map _ _,
     { exact hp.comp rcomputable.snd },
     { exact (primrec.encode.comp snd).to_rcomp } },
   { exact (primrec.decode.comp snd).to_rcomp }
@@ -551,11 +549,11 @@ theorem rpartrec.univ_w (α σ) [primcodable α] [primcodable σ]
   (λ x, ⟦i x⟧*p (n x) : γ →. σ) partrec_in o :=
 begin
   simp [univ],
-  refine rpartrec.bind' (rpartrec.eval_w
-    (rcomputable.option_bind' primrec.decode.to_rcomp _)
+  refine rpartrec.bind (rpartrec.eval_w
+    (rcomputable.option_bind primrec.decode.to_rcomp _)
     ((primrec.of_nat _).to_rcomp.comp hi)
     (primrec.encode.to_rcomp.comp hn)) _,
-  { refine rcomputable.option_map' (hp.comp rcomputable.snd) _,
+  { refine rcomputable.option_map (hp.comp rcomputable.snd) _,
     refine (primrec.encode.comp snd).to_rcomp },
   { refine (primrec.decode.comp snd).to_comp.of_option.to_rpart }
 end
@@ -620,7 +618,7 @@ theorem recursion (α σ) [primcodable α] [primcodable σ] (f : β → τ) :
 begin
   have : ∃ j, (⟦j⟧^f : ℕ × α →. σ) = λ a, (⟦a.1⟧^f a.1).bind (λ n : ℕ, ⟦n⟧^f a.2),
   { have this := (rpartrec.univ_tot ℕ ℕ rcomputable.fst rcomputable.refl rcomputable.fst).bind
-      ((rpartrec.univ_tot α σ rcomputable.snd rcomputable.refl (snd.comp fst).to_rcomp)),
+      ((rpartrec.univ_tot α σ rcomputable.snd rcomputable.refl (snd.comp fst).to_rcomp)).to₂,
     exact exists_index.mp this },
   rcases this with ⟨j, lmm_j⟩,
   have : ∃ k, ⟦k⟧^f = λ (a : ℕ × ℕ), ⟦a.1⟧^f (curry j a.2),
@@ -691,7 +689,7 @@ begin
   from (this.of_eq $ λ n, by simp [use]),
   refine rpartrec.cond _ _ _,
   { refine primrec.option_is_some.to_rcomp.comp (rcomputable.univn_tot _ _ hi hf hs ha) },
-  { refine (rpartrec.rfind' _).map' _,
+  { refine (rpartrec.rfind _).map _,
     { refine primrec.option_is_some.to_rcomp.comp
       (rcomputable.univn_tot _ _ (hi.comp rcomputable.fst) hf rcomputable.snd (ha.comp rcomputable.fst)) },
     { refine (primrec.succ.comp snd).to_rcomp } },

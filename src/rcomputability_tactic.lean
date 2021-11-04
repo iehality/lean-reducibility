@@ -4,18 +4,23 @@ import tactic.with_local_reducibility
 import tactic.show_term
 import rpartrec
 
-namespace rcomputable
+section
 variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
 variables [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ] [primcodable μ]
 
 #check option.get_or_else
 
-lemma option_get_or_else {f : α → option β} {g : α → β} {o : σ →. τ}
+lemma rcomputable.option_get_or_else {f : α → option β} {g : α → β} {o : σ →. τ}
   (hf : f computable_in o) (hg : g computable_in o) : (λ x, option.get_or_else (f x) (g x)) computable_in o :=
 rcomputable₂.comp (computable.option_get_or_else computable.fst computable.snd).to_rcomp hf hg
 
+lemma rcomputable.option_some {o : σ →. τ} : (option.some : α → option α) computable_in o :=
+computable.option_some.to_rcomp
 
-end rcomputable
+lemma rcomputable.option_is_some {o : σ →. τ} : (option.is_some : option α → bool) computable_in o :=
+primrec.option_is_some.to_rcomp
+
+end
 
 @[user_attribute]
 meta def rcomputability : user_attribute :=
@@ -33,19 +38,23 @@ attribute [rcomputability]
   rcomputable.decode
   rcomputable.refl
   rcomputable.cond
-  rcomputable.nat_cases'
-  rcomputable.option_cases'
-  rcomputable.option_bind'
-  rcomputable.option_map'
+  rcomputable.nat_cases
+  rcomputable.option_cases
+  rcomputable.option_bind
+  rcomputable.option_map
+  rcomputable.option_some
+  rcomputable.option_is_some
   rcomputable.option_get_or_else
   rcomputable₂.pair
   rpartrec.refl
   rpartrec.of_option
-  rpartrec.of_option_refl
-  rpartrec.bind'
-  rpartrec.map'
-  rpartrec.rfind'
-  rpartrec.rfind_opt'
+  rpartrec.of_option'
+  rpartrec.coe
+  rpartrec.some
+  rpartrec.bind
+  rpartrec.map
+  rpartrec.rfind
+  rpartrec.rfind_opt
 
 open tactic.interactive («have»)
 open tactic (get_local infer_type)
@@ -90,13 +99,22 @@ meta def rcomputability_tactics (md : transparency := semireducible) : list (tac
   `[refine rcomputable.to_unary₂ _]  >> pure "refine rcomputable.to_unary₂ _",
   `[refine rpartrec.to_unary₁ _]     >> pure "refine rpartrec.to_unary₁ _",
   `[refine rpartrec.to_unary₂ _]     >> pure "refine rpartrec.to_unary₂ _",
-  goal_is_rcomputable₂ >> `[refine rcomputable₂.comp₂ _ _ _; fail_if_success { exact rcomputable.id }] >> pure "refine rcomputable₂.comp₂ _ _ _",
-  goal_is_rcomputable  >> `[refine rcomputable₂.comp _ _ _; fail_if_success { exact rcomputable.id }]  >> pure "refine rcomputable₂.comp _ _ _",  
-  goal_is_rpartrec₂    >> `[refine rpartrec₂.comp₂ _ _ _; fail_if_success { exact rcomputable.id }]    >> pure "refine rpartrec₂.comp₂ _ _ _",
-  goal_is_rpartrec     >> `[refine rpartrec₂.comp _ _ _; fail_if_success { exact rcomputable.id }]     >> pure "refine rpartrec₂.comp _ _ _",
-  goal_is_rcomputable₂ >> `[refine rcomputable.comp₂ _ _ _; fail_if_success { exact rcomputable.id }]  >> pure "refine rcomputable.comp₂ _ _ _",  
-  goal_is_rcomputable  >> `[refine rcomputable.comp _ _ _; fail_if_success { exact rcomputable.id }]   >> pure "refine rcomputable.comp _ _ _",  
-  goal_is_rpartrec     >> `[refine rpartrec.comp _ _ _; fail_if_success { exact rcomputable.id }]      >> pure "refine rpartrec.comp _ _ _" ]
+  goal_is_rcomputable₂ >> `[refine rcomputable₂.comp₂ _ _ _; try { exact rpartrec.some };
+    fail_if_success { exact rcomputable.id }] >> pure "refine rcomputable₂.comp₂ _ _ _",
+  goal_is_rcomputable  >> `[refine rcomputable₂.comp _ _ _; try { exact rpartrec.some };  
+    fail_if_success { exact rcomputable.id }] >> pure "refine rcomputable₂.comp _ _ _",  
+  goal_is_rpartrec₂    >> `[refine rpartrec₂.comp₂ _ _ _; try { exact rpartrec.some };    
+    fail_if_success { exact rcomputable.id }] >> pure "refine rpartrec₂.comp₂ _ _ _",
+  goal_is_rpartrec     >> `[refine rpartrec₂.comp _ _ _; try { exact rpartrec.some };     
+    fail_if_success { exact rcomputable.id }] >> pure "refine rpartrec₂.comp _ _ _",
+  goal_is_rcomputable₂ >> `[refine rcomputable.comp₂ _ _; try { exact rpartrec.some };    
+    fail_if_success { exact rcomputable.id }] >> pure "refine rcomputable.comp₂ _ _",  
+  goal_is_rcomputable  >> `[refine rcomputable.comp _ _; try { exact rpartrec.some };     
+    fail_if_success { exact rcomputable.id }] >> pure "refine rcomputable.comp _ _",  
+  goal_is_rpartrec     >> `[refine rpartrec.comp _ _; try { exact rpartrec.some };        
+    fail_if_success { exact rcomputable.id }] >> pure "refine rpartrec.comp _ _",
+  goal_is_rpartrec₂    >> `[refine rpartrec.comp₂ _ _; try { exact rpartrec.some };       
+    fail_if_success { exact rcomputable.id }] >> pure "refine rpartrec.comp₂ _ _" ]
 
 meta def rcomputability
   (bang : parse $ optional (tk "!")) (trace : parse $ optional (tk "?")) (cfg : tidy.cfg := {}) :
@@ -111,11 +129,16 @@ end tactic
 
 open encodable
 
-variables {β : Type*} [primcodable β] [inhabited β] {α : Type*} [primcodable α]
+variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*}
+  [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ]
 
 example (f : ℕ →. ℕ) (p : ℕ → ℕ →. bool) (h : p partrec₂_in f) :
   (λ x : ℕ, (nat.rfind (p x)).map (λ y, (y, (y, 0, x)))) partrec_in f :=
-by { exact (rpartrec.rfind' h).map'
-  (rcomputable.id'.to_unary₂.pair
-     (rcomputable.id'.to_unary₂.pair ((rcomputable.const 0).to_unary₁.pair rcomputable.id'.to_unary₁)))}
+by { rcomputability }
 
+example {f : α → ℕ → option σ} {g : β →. τ}(hf : f computable₂_in g) :
+  (λ (a : α), ↑(λ (n : ℕ), (f a n).is_some) : α → ℕ →. bool) partrec₂_in g :=
+by { unfold_coes, simp[pfun.lift],
+     rcomputability }
+
+#check @rcomputable.id
