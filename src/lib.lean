@@ -46,8 +46,6 @@ by { revert ex, contrapose, simp, intros h, exact nat.strong_rec' h }
 lemma least_number' {p : ℕ → Prop} {n} (ex : p n) : ∃ n, (∀ m, m < n → ¬ p m) ∧ p n :=
 nat.least_number ⟨n, ex⟩
 
-#check set.infinite.exists_nat_lt
-
 lemma range_infinity_of_injective {f : ℕ → ℕ} (hf : function.injective f) : 
   ∀ n, ∃ m, n < f m := λ n,
 begin
@@ -221,18 +219,11 @@ begin
   { have : ∀ k, k - (k - m) - n + (k - m) = k - n,
     { intros k,
       have eqn := le_or_lt m k, cases eqn,
-      { simp [sub_sub_assoc (show k ≤ k, by refl) eqn], omega },
+      { omega },
       { have : k - m = 0, from nat.sub_eq_zero_of_le (le_of_lt eqn),
         simp[this] } },
     exact this _ },
-  { have : ∀ k, k - (k - m) - n = 0,
-    { intros k, 
-      have eqn := le_or_lt m k, cases eqn,
-      { simp [sub_sub_assoc (show k ≤ k, by refl) eqn], exact nat.sub_eq_zero_of_le C },
-      { have eqn1 : k - m = 0, from nat.sub_eq_zero_of_le (le_of_lt eqn),
-        have eqn2 : k - n = 0, from nat.sub_eq_zero_of_le (le_of_lt $ gt_of_ge_of_gt C eqn),
-        simp[eqn1, eqn2] } },
-    exact this _ }
+  omega
 end
 
 lemma initial_rnth_some_iff  {α} {l : list α} {n m : ℕ} {a} :
@@ -487,9 +478,8 @@ begin
   simp[initial],
   cases C : (take (l.length - n) l).reverse with a l',
   { exfalso,
-    have : l.length - n = 0,
+    have : l.length ≤ n,
     { have := congr_arg list.length C, simp at this, exact this },
-    have : l.length ≤ n, exact sub_eq_zero_iff_le.mp this, 
     exact nat.lt_le_antisymm h this },
   { have : take (l.length - n) l = l'.reverse ++ [a],
     { have := congr_arg list.reverse C, simp at this, exact this },

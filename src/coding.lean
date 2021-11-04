@@ -3,6 +3,7 @@ import computability.partrec_code
 import data.pfun
 import tactic
 import rpartrec
+import rcomputability_tactic
 
 open encodable denumerable part
 

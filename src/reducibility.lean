@@ -592,7 +592,7 @@ begin
   let f := (λ x : (ℕ × ℕ) × ℕ × ℕ, to_bool (x.fst.snd ≤ x.snd.snd) &&
     (⟦x.fst.fst⟧ₙ^(chr A) [x.snd.fst] x.snd.snd).is_some),
   have : f computable_in! chr A,
-  { refine (primrec.dom_bool₂ (&&)).to_rcomp.comp₂
+  { refine (primrec.dom_bool₂ (&&)).to_rcomp.comp₂'
       (primrec₂.comp primrec.nat_le (snd.comp fst) (snd.comp snd)).to_rcomp
       (primrec.option_is_some.to_rcomp.comp (rcomputable.univn_tot _ _
         (fst.comp fst).to_rcomp rcomputable.refl (fst.comp snd).to_rcomp (snd.comp snd).to_rcomp)) },

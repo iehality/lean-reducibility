@@ -90,8 +90,8 @@ end rpartrec
 
 end nat
 
-variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
-variables [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ] [primcodable μ]
+variables {α : Type*} {β : Type*} {γ : Type*} {δ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
+variables [primcodable α] [primcodable β] [primcodable γ] [primcodable δ] [primcodable σ] [primcodable τ] [primcodable μ]
 
 def rpartrec (f : α →. σ) (g : β →. τ) := nat.rpartrec.reducible
 (λ n, part.bind (decode α n) (λ a, (f a).map encode))
@@ -103,6 +103,14 @@ def rpartrec_tot (f : α →. σ) (g : β → τ) := f partrec_in ↑ᵣg
 
 infix ` partrec_in! `:80 := rpartrec_tot
 
+def rpartrec₂ (f : α → β →. σ) (g : γ →. τ) := (λ x : α × β, f x.1 x.2) partrec_in g
+
+infix ` partrec₂_in `:80 := rpartrec₂
+
+def rpartrec₂_tot (f : α → β →. σ) (g : γ → τ) := f partrec₂_in ↑ᵣg
+
+infix ` partrec₂_in! `:80 := rpartrec₂_tot
+
 def rcomputable (f : α → σ) (g : β →. τ) := ↑ᵣf partrec_in g
 
 infix ` computable_in `:80 := rcomputable
@@ -110,6 +118,14 @@ infix ` computable_in `:80 := rcomputable
 def rcomputable_tot (f : α → σ) (g : β → τ) := f computable_in ↑ᵣg
 
 infix ` computable_in! `:80 := rcomputable_tot
+
+def rcomputable₂ (f : α → β → σ) (g : γ →. τ) := (λ x : α × β, f x.1 x.2) computable_in g
+
+infix ` computable₂_in `:80 := rcomputable₂
+
+def rcomputable₂_tot (f : α → β → σ) (g : γ → τ) := f computable₂_in ↑ᵣg
+
+infix ` computable₂_in! `:80 := rcomputable₂_tot
 
 theorem partrec.to_rpart {f : α →. σ} {g : β →. τ} (h : partrec f) : f partrec_in g :=
 nat.rpartrec.of_partrec _ h
@@ -173,7 +189,7 @@ theorem bind {f : α →. β} {g : α × β →. σ} {h : γ →. τ}
   simp [e, encodek]
 
 theorem bind' {f : α →. β} {g : α → β →. σ} {h : γ →. τ}
-  (hf : f partrec_in h) (hg : prod.unpaired g partrec_in h) : (λ a, (f a).bind (g a)) partrec_in h :=
+  (hf : f partrec_in h) (hg : g partrec₂_in h) : (λ a, (f a).bind (g a)) partrec_in h :=
 (nat.rpartrec.comp hg (nat.rpartrec.some.pair hf)).of_eq $
 λ n, by simp[(<*>)]; cases e : decode α n with a;
   simp [e, encodek]
@@ -184,7 +200,7 @@ by simpa [bind_some_eq_map]
   using @rpartrec.bind _ _ _ _ _ _ _ _ _ _ _ (λ x, part.some (g x)) _ hf hg
 
 theorem map' {f : α →. β} {g : α → β → σ} {h : γ →. τ}
-  (hf : f partrec_in h) (hg : prod.unpaired g computable_in h) :
+  (hf : f partrec_in h) (hg : g computable₂_in h) :
   (λ a, (f a).map (g a)) partrec_in h :=
 by simpa [bind_some_eq_map] 
   using @rpartrec.bind' _ _ _ _ _ _ _ _ _ _ _ (λ x y, part.some (g x y)) _ hf hg
@@ -201,7 +217,7 @@ theorem rfind {p : α × ℕ →. bool} : (λ a, nat.rfind (λ x, p (a, x))) par
   apply map_id' (λ b, _),
   cases b; refl })
 
-theorem rfind' {p : α → ℕ →. bool} {f : β →. σ} (hp : prod.unpaired p partrec_in f) :
+theorem rfind' {p : α → ℕ →. bool} {f : β →. σ} (hp : p partrec₂_in f) :
   (λ a, nat.rfind (p a)) partrec_in f :=
   have c₀ : (λ x, (p x.1 x.2).map (λ b, cond b 0 1) : α × ℕ →. ℕ) partrec_in f :=
     hp.map ((
@@ -242,7 +258,7 @@ theorem rfind_opt {f : α × ℕ → option σ} {g : β →. τ} (hf : f computa
 .bind (hf.of_option)
 
 theorem rfind_opt' {f : α → ℕ → option σ} {g : β →. τ}
-  (hf : prod.unpaired f computable_in g) :
+  (hf : f computable₂_in g) :
   (λ a, nat.rfind_opt (f a)) partrec_in g :=
 (rfind.trans (primrec.option_is_some.to_comp.to_rcomp.comp hf))
 .bind (hf.of_option)
@@ -277,6 +293,8 @@ theorem nat_elim'
 λ a, by { simp, induction f a with m, simp, simp[ih] }
 
 theorem id {f : β →. σ} : (@id α) computable_in f := computable.id.to_rcomp
+
+theorem id' {f : β →. σ} : (λ x : α, x) computable_in f := computable.id.to_rcomp
 
 theorem fst {f : γ →. σ} : (@prod.fst α β) computable_in f := computable.fst.to_rcomp
 
@@ -321,13 +339,26 @@ theorem option_some_iff {f : α → σ} {g : β →. τ} : (λ a, some (f a)) co
 
 end rcomputable
 
+namespace rpartrec₂
+
+theorem of_eq {f g : α → β →. σ} {h : β →. τ} (hf : f partrec₂_in h) (H : ∀ n m, f n m = g n m) : g partrec₂_in h :=
+(funext (λ n, funext (H n)) : f = g) ▸ hf
+
+theorem unpaired {f : α → β →. σ} {o : τ →. μ} : (prod.unpaired f) partrec_in o ↔ f partrec₂_in o :=
+by simp[rpartrec₂]
+
+theorem comp  {f : β → γ →. σ} {g : α → β} {h : α → γ} {o : τ →. μ} 
+  (hf : f partrec₂_in o) (hg : g computable_in o) (hh : h computable_in o) :
+  (λ x, f (g x) (h x)) partrec_in o := rpartrec.comp hf (hg.pair hh)
+
+theorem comp₂ {f : γ → δ →. σ} {g : α → β → γ} {h : α → β → δ} {o : τ →. μ} 
+  (hf : f partrec₂_in o) (hg : g computable₂_in o) (hh : h computable₂_in o) :
+  (λ a b, f (g a b) (h a b)) partrec₂_in o := hf.comp hg hh
+
+end rpartrec₂
+
 namespace rpartrec
 open rcomputable
-
-theorem comp₂ {f : β × γ →. σ} {g : α → β} {h : α → γ} {o : τ →. μ} 
-  (hf : f partrec_in o) (hg : g computable_in o) (hh : h computable_in o) :
-  (λ a, f (g a, h a)) partrec_in o :=
-hf.comp (hg.pair hh)
 
 theorem nat_cases_right
   {f : α → ℕ} {g : α → σ} {h : α × ℕ →. σ} {o : γ →. τ}
@@ -344,12 +375,22 @@ theorem nat_cases_right
     exact ⟨⟨this n, H.fst⟩, H.snd⟩ }
 end
 
+theorem to_unary₁ {f : α →. γ} {o : τ →. μ}
+  (hf : f partrec_in o) : (λ (x : α) (y : β), f x) partrec₂_in o := hf.comp rcomputable.fst
+
+theorem to_unary₂ {f : β →. γ} {o : τ →. μ}
+  (hf : f partrec_in o) : (λ (x : α) (y : β), f y) partrec₂_in o := hf.comp rcomputable.snd
+
 end rpartrec
 
 namespace rcomputable
 open rpartrec
 
-theorem comp₂ {f : β × γ → σ} {g : α → β} {h : α → γ} {o : τ →. μ} 
+theorem comp₂ {f : γ → σ} {g : α → β → γ} {h : α → γ} {o : τ →. μ} 
+  (hf : f computable_in o) (hg : g computable₂_in o) (hh : h computable_in o) :
+  (λ a b, f (g a b)) computable₂_in o := hf.comp hg
+
+theorem comp₂' {f : β × γ → σ} {g : α → β} {h : α → γ} {o : τ →. μ} 
   (hf : f computable_in o) (hg : g computable_in o) (hh : h computable_in o) :
   (λ a, f (g a, h a)) computable_in o :=
 hf.comp (hg.pair hh)
@@ -358,6 +399,11 @@ theorem nat_cases {f : α → ℕ} {g : α → σ} {h : α × ℕ → σ} {o : �
   (hf : f computable_in o) (hg : g computable_in o) (hh : h computable_in o) :
   (λ a, (f a).cases (g a) (λ x, h (a, x))) computable_in o :=
 nat_elim hf hg (hh.comp $ fst.pair $ fst.comp snd)
+
+theorem nat_cases' {f : α → ℕ} {g : α → σ} {h : α → ℕ → σ} {o : β →. τ}
+  (hf : f computable_in o) (hg : g computable_in o) (hh : h computable₂_in o) :
+  (λ a, (f a).cases (g a) (h a)) computable_in o :=
+nat_cases hf hg hh
 
 theorem bind_decode_iff {f : α × β → option σ} {h : γ →. τ} : 
   (λ x : α × ℕ, (decode β x.2).bind (λ y, f (x.1, y))) computable_in h ↔ f computable_in h :=
@@ -392,7 +438,7 @@ option_some_iff.1 $
 λ a, by cases o a; simp [encodek]; refl
 
 theorem option_cases' {o : α → option β} {f : α → σ} {g : α → β → σ} {h : γ →. τ}
-  (ho : o computable_in h) (hf : f computable_in h) (hg : prod.unpaired g computable_in h) :
+  (ho : o computable_in h) (hf : f computable_in h) (hg : g computable₂_in h) :
   @rcomputable _ _ σ _ _ _ _ _ (λ a, option.cases_on (o a) (f a) (g a)) h :=
 option_some_iff.1 $
 (nat_cases (encode_iff.2 ho) (option_some_iff.2 hf)
@@ -406,7 +452,7 @@ theorem option_bind {f : α → option β} {g : α × β → option σ} {h : γ 
 λ a, by cases f a; refl
 
 theorem option_bind' {f : α → option β} {g : α → β → option σ} {h : γ →. τ}
-  (hf : f computable_in h) (hg : prod.unpaired g computable_in h) :
+  (hf : f computable_in h) (hg : g computable₂_in h) :
   (λ a, (f a).bind (g a)) computable_in h :=
 (option_cases hf (const option.none) hg).of_eq $
 λ a, by cases f a; refl
@@ -417,14 +463,37 @@ theorem option_map {f : α → option β} {g : α × β → σ} {h : γ →. τ}
 option_bind hf (primrec.option_some.to_comp.to_rcomp.comp hg)
 
 theorem option_map' {f : α → option β} {g : α → β → σ} {h : γ →. τ}
-  (hf : f computable_in h) (hg : prod.unpaired g computable_in h) :
+  (hf : f computable_in h) (hg : g computable₂_in h) :
   (λ a, (f a).map (g a)) computable_in h :=
 option_bind hf (primrec.option_some.to_comp.to_rcomp.comp hg)
 
 theorem total_computable {f : α →. σ} (h : ∀ a, (f a).dom) :
   (λ a, (f a).get (h a)) computable_in f := (rpartrec.refl.of_eq $ by simp)
 
+theorem to_unary₁ {f : α → γ} {o : τ →. μ}
+  (hf : f computable_in o) : (λ (x : α) (y : β), f x) computable₂_in o := hf.comp rcomputable.fst
+
+theorem to_unary₂ {f : β → γ} {o : τ →. μ}
+  (hf : f computable_in o) : (λ (x : α) (y : β), f y) computable₂_in o := hf.comp rcomputable.snd
+
 end rcomputable
+
+namespace rcomputable₂
+open rcomputable
+
+theorem comp {f : γ → δ → σ} {g : α → γ} {h : α → δ} {o : τ →. μ} 
+  (hf : f computable₂_in o) (hg : g computable_in o) (hh : h computable_in o) :
+  (λ a, f (g a) (h a)) computable_in o := hf.comp (hg.pair hh)
+
+theorem comp₂ {f : γ → δ → σ} {g : α → β → γ} {h : α → β → δ} {o : τ →. μ} 
+  (hf : f computable₂_in o) (hg : g computable₂_in o) (hh : h computable₂_in o) :
+  (λ a b, f (g a b) (h a b)) computable₂_in o := rcomputable.comp hf (hg.pair hh)
+
+theorem pair {f : α → β → γ} {g : α → β → δ} {o : τ →. μ}
+  (hf : f computable₂_in o) (hg : g computable₂_in o) :
+  (λ x y, (f x y, g x y)) computable₂_in o := rcomputable.pair hf hg
+
+end rcomputable₂
 
 lemma rfind_dom_total {p : ℕ → bool} :
   (∃ n, p n = tt) → (nat.rfind p).dom :=

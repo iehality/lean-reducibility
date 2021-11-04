@@ -150,7 +150,7 @@ begin
   intros i, 
   induction i with i0 ih,
   { intros m n, simp [nat.rfind_fin0], intros c c0, exfalso, exact nat.lt_le_antisymm c0 c },
-  { intros m n i0e, simp[nat.rfind_fin0, -sub_le_iff_right],
+  { intros m n i0e, simp[nat.rfind_fin0],
     cases ep : p (m - i0.succ), simp,
     { rw ih m n (show i0 ≤ m, by omega), split, 
       { rintros ⟨e0, e1, e2, h0⟩,
@@ -165,13 +165,15 @@ begin
           { exact l0 } },
         { have l0 : ∀ (l : ℕ), m - i0 ≤ l → l < n → p l = ff := λ _ _ el1, h0 _ (by omega) el1,
           exact ⟨e1, e2, l0⟩ } } },
-    { simp[-sub_le_iff_right], split,
-      { assume e, rw e at ep, simp[e, -sub_le_iff_right],
-        exact ⟨by omega, ep, by { intros m l0 l1, exfalso, exact nat.lt_le_antisymm l1 l0 }⟩ },
+    { simp, split,
+      { assume e, rcases e with rfl,
+        exact ⟨by omega, by omega, ep,
+        by { intros k l0 l1, exfalso, 
+             have : m < m, from lt_of_le_of_lt l0 (lt_tsub_iff_right.mp l1), exact nat.lt_asymm this this }⟩ },
       { rintros ⟨e0, e1, e2, h0⟩,
         have l0 : m - i0.succ < n ∨ m - i0.succ = n, omega,
         cases l0,
-        { exfalso, have c : p (m - i0.succ) = ff , exact h0 _ (by refl) l0,
+        { exfalso, have c : p (m - i0.succ) = ff , exact h0 _ (by simp[nat.sub_add_cancel i0e]) l0,
           exact bool_iff_false.mpr c ep },
         { exact l0 } } } }
 end
@@ -284,7 +286,7 @@ begin
       (rcomputable.const _) _, simp,
     refine rcomputable.option_cases'
       (hf.comp ((primrec.of_nat _).to_rcomp.comp $ fst.comp snd))
-      (snd.comp snd) _, simp,
+      (snd.comp snd) _, 
     refine (primrec.list_cons.comp (((primrec.of_nat _).comp $ primrec.fst.comp $
       primrec.snd.comp primrec.fst).pair primrec.snd) $ primrec.snd.comp $
       primrec.snd.comp primrec.fst).to_rcomp },
@@ -537,10 +539,10 @@ begin
     (rcomputable.option_bind' primrec.decode.to_rcomp _)
     ((primrec.of_nat _).to_rcomp.comp hi)
     (primrec.encode.to_rcomp.comp hn)) _,
-  { simp, refine rcomputable.option_map' _ _,
+  { refine rcomputable.option_map' _ _,
     { exact hp.comp rcomputable.snd },
-    { simp, exact (primrec.encode.comp snd).to_rcomp } },
-  { simp, exact (primrec.decode.comp snd).to_rcomp }
+    { exact (primrec.encode.comp snd).to_rcomp } },
+  { exact (primrec.decode.comp snd).to_rcomp }
 end
 
 theorem rpartrec.univ_w (α σ) [primcodable α] [primcodable σ]
@@ -553,9 +555,9 @@ begin
     (rcomputable.option_bind' primrec.decode.to_rcomp _)
     ((primrec.of_nat _).to_rcomp.comp hi)
     (primrec.encode.to_rcomp.comp hn)) _,
-  { simp, refine rcomputable.option_map' (hp.comp rcomputable.snd) _,
-    simp, refine (primrec.encode.comp snd).to_rcomp },
-  { simp, refine (primrec.decode.comp snd).to_comp.of_option.to_rpart }
+  { refine rcomputable.option_map' (hp.comp rcomputable.snd) _,
+    refine (primrec.encode.comp snd).to_rcomp },
+  { refine (primrec.decode.comp snd).to_comp.of_option.to_rpart }
 end
 
 theorem rcomputable.univn_tot (α σ) [primcodable α] [primcodable σ]
@@ -689,7 +691,7 @@ begin
   from (this.of_eq $ λ n, by simp [use]),
   refine rpartrec.cond _ _ _,
   { refine primrec.option_is_some.to_rcomp.comp (rcomputable.univn_tot _ _ hi hf hs ha) },
-  { refine (rpartrec.rfind' _).map' _; simp,
+  { refine (rpartrec.rfind' _).map' _,
     { refine primrec.option_is_some.to_rcomp.comp
       (rcomputable.univn_tot _ _ (hi.comp rcomputable.fst) hf rcomputable.snd (ha.comp rcomputable.fst)) },
     { refine (primrec.succ.comp snd).to_rcomp } },
