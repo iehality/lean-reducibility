@@ -6,7 +6,8 @@ import rpartrec
 
 section
 variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
-variables [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ] [primcodable μ]
+  [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ] [primcodable μ]
+  {o : σ →. τ}
 
 #check option.get_or_else
 
@@ -14,11 +15,19 @@ lemma rcomputable.option_get_or_else {f : α → option β} {g : α → β} {o :
   (hf : f computable_in o) (hg : g computable_in o) : (λ x, option.get_or_else (f x) (g x)) computable_in o :=
 rcomputable₂.comp (computable.option_get_or_else computable.fst computable.snd).to_rcomp hf hg
 
-lemma rcomputable.option_some {o : σ →. τ} : (option.some : α → option α) computable_in o :=
+lemma rcomputable.option_some : (option.some : α → option α) computable_in o :=
 computable.option_some.to_rcomp
 
-lemma rcomputable.option_is_some {o : σ →. τ} : (option.is_some : option α → bool) computable_in o :=
+lemma rcomputable.option_is_some : (option.is_some : option α → bool) computable_in o :=
 primrec.option_is_some.to_rcomp
+
+lemma rcomputable₂.list_rnth : (@list.rnth α) computable₂_in o := 
+(primrec.list_nth.comp (primrec.list_reverse.comp primrec.fst) primrec.snd).to_rcomp
+
+lemma rcomputable.option_or_else {f : α → option β} {g : α → option β} {o : σ →. τ}
+  (hf : f computable_in o) (hg : g computable_in o) :
+  ((<|>) : option β → option β → option β) computable₂_in o :=
+by {  }
 
 end
 
@@ -46,6 +55,7 @@ attribute [rcomputability]
   rcomputable.option_is_some
   rcomputable.option_get_or_else
   rcomputable₂.pair
+  rcomputable₂.list_rnth
   rpartrec.refl
   rpartrec.of_option
   rpartrec.of_option'

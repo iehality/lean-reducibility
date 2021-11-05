@@ -567,7 +567,7 @@ begin
   have c₂ : (λ (x : (ℕ × ℕ) × ℕ), f (x.1.1.mkpair (x.2 + x.1.2))) partrec_in f :=
   rpartrec.refl.comp (primrec₂.mkpair.comp (primrec.fst.comp primrec.fst) $
     primrec.nat_add.comp primrec.snd (primrec.snd.comp primrec.fst)).to_comp.to_rpart,
-  have := (rpartrec.rfind.trans (c₂.map c₁.to_rcomp)).map c₀.to_rcomp,
+  have := (rpartrec.rfind (c₂.map c₁.to_rcomp.to₂).to₂).map c₀.to_rcomp.to₂,
   simp at this,
   exact this.comp primrec.unpair.to_rcomp
 end

@@ -16,6 +16,8 @@ prefix `↑ᵣ`:max := coe_ropt
 
 @[simp] theorem coe_ropt_app {α σ} (f : α → σ) (a : α) : ↑ᵣf a = some (f a) := rfl
 
+@[simp] theorem coe_ropt_dom {α σ} (f : α → σ) : (↑ᵣf).dom = set.univ := rfl
+
 def coe_opt {α σ} (f : α → σ) : α → option σ := λ x, option.some (f x)
 
 prefix `↑ₒ`:max := coe_opt
@@ -341,20 +343,20 @@ get_elem_iff_none
 
 theorem get_elem_r_eq_none_iff_mem {α} {p : α → Prop} [decidable_pred p] {l : list α} :
   l.get_elem_r p = none ↔ ∀ x, x ∈ l → ¬p x :=
-by {  simp[list.mem_iff_rnth, get_elem_r_eq_none_iff_rnth], exact forall_swap }
+by { simp[list.mem_iff_rnth, get_elem_r_eq_none_iff_rnth], exact forall_swap }
 
-def fdecode {α σ} [decidable_eq α] (c : list (α × σ)) (a : α) : option σ :=
+def to_fn {α σ} [decidable_eq α] (c : list (α × σ)) (a : α) : option σ :=
 (c.get_elem (λ x : α × σ, x.fst = a)).map prod.snd
--- fdecode c a = ε b. ⟨a, b⟩ ∈ c
+-- to_fn c a = ε b. ⟨a, b⟩ ∈ c
 
-def sdecode {α} [decidable_eq α] (a : α) (c : list (α × bool)) : Prop := c.fdecode a = some tt
--- sdecode c a ↔ ⟨a, tt⟩ ∈ c
+def to_set {α} [decidable_eq α] (a : α) (c : list (α × bool)) : bool := c.to_fn a = some tt
+-- to_set c a ↔ ⟨a, tt⟩ ∈ c
 
-@[simp] theorem fdecode_iff {α σ} [decidable_eq α] (c : list (α × σ)) {x y} :
-  c.fdecode x = some y ↔
+@[simp] theorem to_fn_iff {α σ} [decidable_eq α] (c : list (α × σ)) {x y} :
+  c.to_fn x = some y ↔
   ∃ n, c.nth n = some (x, y) ∧ ∀ m z, m < n → c.nth m ≠ some (x, z) :=
 begin
-  simp [list.fdecode, list.get_elem_eq_some_iff], split,
+  simp [list.to_fn, list.get_elem_eq_some_iff], split,
   { rintros ⟨a, n, eqn_n, eqn_a, hyp⟩,
     refine ⟨n, (by simp [←eqn_a]; exact eqn_n), λ m z eqn_m eqn_m1, _⟩,
     have := hyp m (x, z) eqn_m eqn_m1, simp at this, contradiction },
@@ -364,22 +366,37 @@ begin
     contradiction }
 end
 
-@[simp] theorem fdecode_iff_none {α σ} [decidable_eq α] (c : list (α × σ)) {x} :
-  c.fdecode x = none ↔ ∀ n y, c.nth n ≠ some (x, y) :=
+@[simp] theorem to_fn_iff_none {α σ} [decidable_eq α] (c : list (α × σ)) {x} :
+  c.to_fn x = none ↔ ∀ n y, c.nth n ≠ some (x, y) :=
 begin
-  simp [list.fdecode, list.get_elem_iff_none], split,
+  simp [list.to_fn, list.get_elem_iff_none], split,
   { intros hyp n y eqn_xy, have := hyp n (x, y) eqn_xy, simp at this, contradiction },
   { intros hyp n z eqn_z eqn_z1, have := hyp n z.snd, rw ←eqn_z1 at this, simp at this,
     contradiction }
 end
 
-@[simp] theorem fdecode_cons {α σ} [decidable_eq α] (x y) (c : list (α × σ)) :
-  ((x, y) :: c).fdecode x = some y :=
+@[simp] theorem to_fn_cons {α σ} [decidable_eq α] (x y) (c : list (α × σ)) :
+  ((x, y) :: c).to_fn x = some y :=
 by simp; refine ⟨0, rfl, λ m z, by simp⟩
 
 @[simp] def of_fn' (f : ℕ → α) : ℕ → list α
 | 0     := []
 | (n+1) := f n :: of_fn' n
+
+def chr {α} [decidable_eq α] (l : list α) (a : α) : bool := a ∈ l
+
+@[simp] lemma chr_tt_iff {α} [decidable_eq α] (l : list α) (a : α) : l.chr a = tt ↔ a ∈ l := by simp[chr]
+
+@[simp] lemma chr_ff_iff {α} [decidable_eq α] (l : list α) (a : α) : l.chr a = ff ↔ a ∉ l := by simp[chr]
+
+lemma chr_get_elem {α} [decidable_eq α] (l : list α) : l.chr = (λ a, (l.get_elem (λ x, x = a)).is_some) :=
+begin
+  ext a, cases C : l.get_elem (λ x, x = a); simp,
+  { simp[get_elem_iff_none, list.mem_iff_nth] at C ⊢, intros x eqn,
+    have := C x a eqn, contradiction },
+  { simp[get_elem_eq_some_iff] at C, rcases C with ⟨s, eqn, rfl, _⟩,
+    exact nth_mem eqn }
+end
 
 @[simp] lemma append_cons_neq (a : α) (l₁ l₂ : list α) : l₁ ++ a :: l₂ ≠ l₂ := λ h,
 begin
@@ -879,6 +896,20 @@ funext (λ i, by { rcases i with ⟨i, i_p⟩, cases i; simp[cons], cases i, { s
   exfalso, simp[←nat.add_one] at i_p, exact i_p })
 
 end finitary
+
+namespace pfun
+
+def res_lt {α} (f : ℕ → α) (n : ℕ) : ℕ →. α := pfun.res f {x | x < n}
+
+#check res_lt _ _ _
+
+notation f ` ⌈` :80 n :80 := res_lt f n
+
+lemma res_lt_ext {α} (f g : ℕ → α) (n : ℕ) (h : ∀ x < n, f x = g x) : f ⌈n = g ⌈n :=
+by { ext x a, simp[res_lt, pfun.mem_res],
+     intros lt, simp[h x lt] }
+
+end pfun
 
 def list.of_list {α : Type*} : ∀ l : list α, (fin (l.length) → α)
 | []        := finitary.nil

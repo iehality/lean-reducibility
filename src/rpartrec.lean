@@ -133,16 +133,34 @@ nat.rpartrec.of_partrec _ h
 theorem partrec.to_rpart_in {f : α →. σ} (g : β →. τ) (h : partrec f) : f partrec_in g :=
 nat.rpartrec.of_partrec _ h
 
+theorem partrec₂.to_rpart {f : α → β →. σ} {g : γ →. τ} (h : partrec₂ f) : f partrec₂_in g :=
+nat.rpartrec.of_partrec _ h
+
+theorem partrec₂.to_rpart_in {f : α → β →. σ} (g : γ →. τ) (h : partrec₂ f) : f partrec₂_in g :=
+nat.rpartrec.of_partrec _ h
+
 theorem computable.to_rcomp {f : α → σ} {g : β →. τ} (h : computable f) : f computable_in g :=
 nat.rpartrec.of_partrec _ h
 
 theorem computable.to_rcomp_in {f : α → σ} (g : β →. τ) (h : computable f) : f computable_in g :=
 nat.rpartrec.of_partrec _ h
 
+theorem computable₂.to_rcomp {f : α → β → σ} {g : γ →. τ} (h : computable₂ f) : f computable₂_in g :=
+nat.rpartrec.of_partrec _ h
+
+theorem computable₂.to_rcomp_in {f : α → β → σ} (g : γ →. τ) (h : computable₂ f) : f computable₂_in g :=
+nat.rpartrec.of_partrec _ h
+
 theorem primrec.to_rcomp {f : α → σ} {g : β →. τ} (h : primrec f) : f computable_in g :=
 h.to_comp.to_rcomp
 
 theorem primrec.to_rcomp_in {f : α → σ} (g : β →. τ) (h : primrec f) : f computable_in g :=
+h.to_comp.to_rcomp
+
+theorem primrec₂.to_rcomp {f : α → β → σ} {g : γ →. τ} (h : primrec₂ f) : f computable₂_in g :=
+h.to_comp.to_rcomp
+
+theorem primrec₂.to_rcomp_in {f : α → β → σ} (g : γ →. τ) (h : primrec₂ f) : f computable₂_in g :=
 h.to_comp.to_rcomp
 
 namespace rpartrec

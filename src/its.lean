@@ -29,24 +29,24 @@ def initial_derivative
   (η : Tree (k + 1)) {μ : Tree k} (υ : ancestor μ → Tree (k + 1)) : option (ancestor μ) :=
 (derivative η υ).nth 0
 
-def pie_derivative
+def pi_derivative
   (η : Tree (k + 1)) {μ : Tree k} (υ : ancestor μ → Tree (k + 1)) : list (ancestor μ) :=
-(derivative η υ).filter (λ μ₀, (out μ₀).is_pie)
+(derivative η υ).filter (λ μ₀, (out μ₀).is_pi)
 
 def principal_derivative
   (η : Tree (k + 1)) {μ : Tree k} (υ : ancestor μ → Tree (k + 1)) : option (ancestor μ) :=
-((pie_derivative η υ).nth 0).cases_on' (initial_derivative η υ) some
+((pi_derivative η υ).nth 0).cases_on' (initial_derivative η υ) some
 
 def lambda : ∀ {μ : Tree k} (υ : ancestor μ → Tree (k + 1)), Tree (k + 1)
 | []       _ := []
 | (x :: μ) υ := let ih := lambda (ancestor.extend_fn υ μ (by simp)) in 
     if υ ⟨μ, by simp⟩ = ih ∨
-    (x.is_pie ∧ pie_derivative (υ ⟨μ, by simp⟩) (ancestor.extend_fn υ μ (by simp)) = [])
+    (x.is_pi ∧ pi_derivative (υ ⟨μ, by simp⟩) (ancestor.extend_fn υ μ (by simp)) = [])
     then (x :: μ) :: (υ ⟨μ, by simp⟩) else ih
 
 def assignment {μ : Tree k} (υ : ancestor μ → Tree (k + 1)) : Tree (k + 1) × ℕ :=
 (S.priority (k + 1)).Min_le
-  ((lambda υ, 0) :: ((lambda υ).ancestors.filter (λ η, (out η).is_pie)).map (λ η, (η.val, (derivative η.val υ).length))) (by simp)
+  ((lambda υ, 0) :: ((lambda υ).ancestors.filter (λ η, (out η).is_pi)).map (λ η, (η.val, (derivative η.val υ).length))) (by simp)
 
 def up {μ : Tree k} (υ : ancestor μ → Tree (k + 1)) : Tree (k + 1) :=
 (assignment S υ).1
@@ -84,10 +84,10 @@ lemma derivative_cons (η : Tree (k + 1)) (ν) (μ : Tree k) :
     (S.derivative η μ).map (ancestor.extend (by simp)) :=
 by { simp[derivative, approx.derivative, list.filter, list.map_filter, function.comp], congr }
 
-def pie_derivative (η : Tree (k + 1)) (μ : Tree k) : list (ancestor μ) := approx.pie_derivative η (S.up' μ)
+def pi_derivative (η : Tree (k + 1)) (μ : Tree k) : list (ancestor μ) := approx.pi_derivative η (S.up' μ)
 
 def is_link_free (η : Tree (k + 1)) (μ : Tree k) (μ₀ : ancestor μ) : bool :=
-((S.derivative η μ).filter (λ ν, ν ≤ μ₀) = []) || ((S.pie_derivative η μ).filter (λ ν, μ₀ ≤ ν) = [])
+((S.derivative η μ).filter (λ ν, ν ≤ μ₀) = []) || ((S.pi_derivative η μ).filter (λ ν, μ₀ ≤ ν) = [])
 
 def lambda (η : Tree k) : Tree (k + 1) := approx.lambda (S.up' η)
 
@@ -104,24 +104,24 @@ by { simp[ancestor.extend_fn, lambda], congr, funext x, simp}
 lemma assignment_fst_eq_up (μ : Tree k) : (S.assignment μ).1 = up[S] μ :=
 by simp[assignment, up, approx.up]
 
-lemma up_eq_lambda_or_pie (μ : Tree k) : up[S] μ = λ[S] μ ∨ ∃ η : ancestor (λ[S] μ), (out η).is_pie ∧ up[S] μ = η :=
+lemma up_eq_lambda_or_pi (μ : Tree k) : up[S] μ = λ[S] μ ∨ ∃ η : ancestor (λ[S] μ), (out η).is_pi ∧ up[S] μ = η :=
 by { have : S.assignment μ ∈ _, from omega_ordering.Min_le_mem _ _, simp at this,
      cases this,
      { left, simp[←assignment_fst_eq_up, this], refl },
-     { right, rcases this with ⟨η, pie, eqn⟩, refine ⟨η, pie, _⟩, simp[←assignment_fst_eq_up, ←eqn] } }
+     { right, rcases this with ⟨η, pi, eqn⟩, refine ⟨η, pi, _⟩, simp[←assignment_fst_eq_up, ←eqn] } }
 
-lemma up_eq_or_lt (μ : Tree k) : up[S] μ = λ[S] μ ∨ ∃ lt : up[S] μ ⊂ᵢ λ[S] μ, (out ⟨up[S] μ, lt⟩).is_pie :=
+lemma up_eq_or_lt (μ : Tree k) : up[S] μ = λ[S] μ ∨ ∃ lt : up[S] μ ⊂ᵢ λ[S] μ, (out ⟨up[S] μ, lt⟩).is_pi :=
 by { have : S.assignment μ ∈ _, from omega_ordering.Min_le_mem _ _, simp at this,
      cases this,
      { left, simp[←assignment_fst_eq_up, this], refl },
-     { right, rcases this with ⟨η, pie, eqn⟩, simp[←assignment_fst_eq_up, ←eqn], exact ⟨η.property, pie⟩ } }
+     { right, rcases this with ⟨η, pi, eqn⟩, simp[←assignment_fst_eq_up, ←eqn], exact ⟨η.property, pi⟩ } }
 
 @[simp] lemma lambda_nil_eq : λ[S] ([] : Tree k) = [] :=
 by simp[lambda, approx.lambda]
 
 lemma lambda_cons_eq (x) (μ : Tree k) : λ[S] (x :: μ) = (x :: μ) :: up[S] μ ∨ λ[S] (x :: μ) = λ[S] μ :=
 by { unfold lambda, simp[approx.lambda],
-     by_cases C : up[S] μ = approx.lambda (S.up' μ) ∨ ↥(x.is_pie) ∧ approx.pie_derivative (up[S] μ) (S.up' μ) = [];
+     by_cases C : up[S] μ = approx.lambda (S.up' μ) ∨ ↥(x.is_pi) ∧ approx.pi_derivative (up[S] μ) (S.up' μ) = [];
      simp[C] }
 
 @[simp] lemma up_nil_eq : up[S] ([] : Tree k) = [] :=
@@ -135,19 +135,19 @@ by { rcases S.up_eq_or_lt μ with (eqn | ⟨lt, eqn⟩), { simp[eqn] }, { exact 
 lemma eq_lambda_of_le_lambda {μ : Tree k} {η : Tree (k + 1)} (le : η <:+ λ[S] μ) :
   η = [] ∨ ∃ μ₀ : ancestor μ, η = λ[S] ((out μ₀) :: μ₀.val) ∧ 
   (up[S] μ₀.val = λ[S] μ₀.val ∨
-    (out μ₀).is_pie ∧ (∀ (a : ancestor μ₀.val), a ∈ S.derivative (up[S] μ₀.val) μ₀.val → (out a).is_sigma)) ∧
+    (out μ₀).is_pi ∧ (∀ (a : ancestor μ₀.val), a ∈ S.derivative (up[S] μ₀.val) μ₀.val → (out a).is_sigma)) ∧
     η = ((out μ₀) :: μ₀.val) :: up[S] μ₀ :=
 begin
   induction μ with x μ IH,
   { left, simp[lambda, approx.lambda] at le, exact le },
   { by_cases C :
-      up[S] μ = λ[S] μ ∨ x.is_pie ∧ approx.pie_derivative (up[S] μ) (S.up' μ) = list.nil,
+      up[S] μ = λ[S] μ ∨ x.is_pi ∧ approx.pi_derivative (up[S] μ) (S.up' μ) = list.nil,
     { have eqn : λ[S] (x :: μ) = (x :: μ) :: up[S] μ, { unfold lambda at*, simp[approx.lambda, C] },
       have C₂ : η = (x :: μ) :: up[S] μ ∨ η <:+ up[S] μ,
       { simp [eqn] at le, exact list.suffix_cons_iff.mp le },
       rcases C₂ with (rfl | C₂),
       { refine or.inr ⟨⟨μ, by simp⟩, _⟩, simp[eqn, C],
-        simp[approx.pie_derivative, list.filter_eq_nil] at C, exact C },
+        simp[approx.pi_derivative, list.filter_eq_nil] at C, exact C },
       { have := IH (C₂.trans (S.up_le_lambda μ)),
         rcases this with (rfl | ⟨μ₀, rfl, eqn⟩), { simp },
         { refine or.inr ⟨μ₀.extend (by simp), _⟩, simp, exact eqn } } },
@@ -161,7 +161,7 @@ end
 lemma eq_lambda_of_lt_lambda {μ : Tree k} (η : ancestor (λ[S] μ)) :
   ∃ μ₀ : ancestor μ, out η :: η.val = λ[S] ((out μ₀) :: μ₀.val) ∧
   ( up[S] μ₀.val = λ[S] μ₀ ∨
-    (out μ₀).is_pie ∧ ∀ (ν : ancestor μ₀.val), ν ∈ S.derivative (up[S] ↑μ₀) μ₀.val → (out ν).is_sigma ) ∧
+    (out μ₀).is_pi ∧ ∀ (ν : ancestor μ₀.val), ν ∈ S.derivative (up[S] ↑μ₀) μ₀.val → (out ν).is_sigma ) ∧
   out η = (out μ₀) :: μ₀.val ∧ η.val = up[S] μ₀ :=
 by { have := S.eq_lambda_of_le_lambda (suffix_out_cons η), simp at this,
      rcases this with ⟨μ₀, eqn₁, h, eqn₂⟩,
@@ -215,7 +215,7 @@ begin
   induction l with x ν IH,
   { simp },
   { by_cases C : up[S] (ν ++ μ₁) = approx.lambda (S.up' (ν ++ μ₁)) ∨
-      (x.is_pie) ∧ approx.pie_derivative (up[S] (ν ++ μ₁)) (S.up' (ν ++ μ₁)) = [],
+      (x.is_pi) ∧ approx.pi_derivative (up[S] (ν ++ μ₁)) (S.up' (ν ++ μ₁)) = [],
     { intros h,
       have lambda_eqn : λ[S] (x :: (ν ++ μ₁)) = (x :: (ν ++ μ₁)) :: up[S] (ν ++ μ₁),
       { simp[lambda, approx.lambda, C] },
@@ -238,7 +238,7 @@ begin
   induction l with x ν IH,
   { simp[h] },
   { by_cases C : up[S] (ν ++ μ₂) = approx.lambda (S.up' (ν ++ μ₂)) ∨
-      (x.is_pie) ∧ approx.pie_derivative (up[S] (ν ++ μ₂)) (S.up' (ν ++ μ₂)) = list.nil; simp[C],
+      (x.is_pi) ∧ approx.pi_derivative (up[S] (ν ++ μ₂)) (S.up' (ν ++ μ₂)) = list.nil; simp[C],
     { have lambda_eqn : λ[S] (x :: (ν ++ μ₂)) = (x :: (ν ++ μ₂)) :: up[S] (ν ++ μ₂),
       { simp[lambda, approx.lambda, C] },
       refine list.incomparable_iff_suffix_is_initial.mpr ⟨λ A, _, λ A, _⟩,
@@ -268,7 +268,7 @@ begin
   induction l with x ν IH,
   { simp, exact suffix_out_cons η },
   { by_cases C : up[S] (ν ++ μ₁) = approx.lambda (S.up' (ν ++ μ₁)) ∨
-      (x.is_pie) ∧ approx.pie_derivative (up[S] (ν ++ μ₁)) (S.up' (ν ++ μ₁)) = [],
+      (x.is_pi) ∧ approx.pi_derivative (up[S] (ν ++ μ₁)) (S.up' (ν ++ μ₁)) = [],
     { have lambda_eqn : λ[S] (x :: (ν ++ μ₁)) = (x :: (ν ++ μ₁)) :: up[S] (ν ++ μ₁),
       { simp[lambda, approx.lambda, C] },
       have le : η.val <:+ up[S] (ν ++ μ₁), { simp[lambda_eqn] at lt, exact list.is_initial_cons_iff_suffix.mp lt },      
@@ -284,12 +284,12 @@ begin
         { have := list.suffix_of_suffix_length_le IH' (eqn.trans (S.up_le_lambda _)) (by simp),
           simp at this, exact this },
         simp[lambda_eqn, this], exact eqn.trans (by simp) },
-      { have C₃ := S.up_eq_or_lt (ν ++ μ₁), rcases C₃ with (eqn | ⟨lt_up, pie⟩),
+      { have C₃ := S.up_eq_or_lt (ν ++ μ₁), rcases C₃ with (eqn | ⟨lt_up, pi⟩),
         { exfalso, simp[eqn] at C₂, simp[C₂] at lt, contradiction },
         { exfalso,
           have : out ⟨η.val, lt⟩ = out η, from out_eq_iff.mpr IH',
           have : out ⟨up[S] (ν ++ μ₁), lt_up⟩ = out η, rw←this, from suffix_out_eq (by simp[C₂]) (by refl),
-          simp[this] at pie, exact neg_is_pie_iff.mpr sigma pie } } },
+          simp[this] at pi, exact neg_is_pi_iff.mpr sigma pi } } },
     { have lambda_eqn : λ[S] (x :: (ν ++ μ₁)) = λ[S] (ν ++ μ₁),
       { simp[lambda, approx.lambda, C] },
       simp[lambda_eqn] at lt ⊢, exact IH lt } }
@@ -304,22 +304,22 @@ begin
   have := list.suffix_of_suffix_length_le lmm₁ lmm₂ (by simp), simp at this, exact this
 end
 
-lemma up_eq_lambda_of_pie {μ : Tree k} {η : ancestor (λ[S] μ)} (pie : (out η).is_pie) :
+lemma up_eq_lambda_of_pi {μ : Tree k} {η : ancestor (λ[S] μ)} (pi : (out η).is_pi) :
   ∃ ν : ancestor μ, out η = out ν :: ν.val ∧ λ[S] ν.val = η ∧ λ[S] (out ν :: ν.val) = out η :: η.val :=
 begin
-  rcases S.eq_lambda_of_lt_lambda η with ⟨ν, eqn_lam, (eqn_up₁ | ⟨pie', _⟩), eqn_out, eqn_up₂⟩,
+  rcases S.eq_lambda_of_lt_lambda η with ⟨ν, eqn_lam, (eqn_up₁ | ⟨pi', _⟩), eqn_out, eqn_up₂⟩,
   { refine ⟨ν, eqn_out, by simp[←eqn_up₁, ←eqn_up₂], _⟩, rw [eqn_lam] },
-  { exfalso, simp[eqn_out] at pie, exact not_pie_sigma pie' pie }
+  { exfalso, simp[eqn_out] at pi, exact not_pi_sigma pi' pi }
 end
 
-lemma eq_out_of_pie {μ₁ μ₂ : Tree k} (le : μ₁ <:+ μ₂) {η : Tree (k + 1)}
-  (lt₁ : η ⊂ᵢ λ[S] μ₁) (lt₂ : η ⊂ᵢ λ[S] μ₂) (pie : (out ⟨η, lt₂⟩).is_pie) :
+lemma eq_out_of_pi {μ₁ μ₂ : Tree k} (le : μ₁ <:+ μ₂) {η : Tree (k + 1)}
+  (lt₁ : η ⊂ᵢ λ[S] μ₁) (lt₂ : η ⊂ᵢ λ[S] μ₂) (pi : (out ⟨η, lt₂⟩).is_pi) :
   out ⟨η, lt₁⟩ = out ⟨η, lt₂⟩ :=
 begin
-  have C₁ : (out ⟨η, lt₁⟩).is_pie ∨ (out ⟨η, lt₁⟩).is_sigma, from pie_or_sigma (out ⟨η, lt₁⟩),
+  have C₁ : (out ⟨η, lt₁⟩).is_pi ∨ (out ⟨η, lt₁⟩).is_sigma, from pi_or_sigma (out ⟨η, lt₁⟩),
   cases C₁,
-  { rcases S.up_eq_lambda_of_pie pie with ⟨⟨ν₁, lt_ν₁⟩, eqn_out₁, eqn_lam₁, eqn_lam₁'⟩, simp at eqn_lam₁ eqn_out₁ eqn_lam₁',
-    rcases S.up_eq_lambda_of_pie C₁ with ⟨⟨ν₂, lt_ν₂⟩, eqn_out₂, eqn_lam₂, eqn_lam₂'⟩, simp at eqn_lam₂ eqn_out₂ eqn_lam₂',
+  { rcases S.up_eq_lambda_of_pi pi with ⟨⟨ν₁, lt_ν₁⟩, eqn_out₁, eqn_lam₁, eqn_lam₁'⟩, simp at eqn_lam₁ eqn_out₁ eqn_lam₁',
+    rcases S.up_eq_lambda_of_pi C₁ with ⟨⟨ν₂, lt_ν₂⟩, eqn_out₂, eqn_lam₂, eqn_lam₂'⟩, simp at eqn_lam₂ eqn_out₂ eqn_lam₂',
     have lt_ν₂' : ν₂ ⊂ᵢ μ₂, from list.is_initial.is_initial_of_suffix lt_ν₂ le,
     have eqn_out_out : out ⟨ν₂, lt_ν₂'⟩ = out ⟨ν₂, lt_ν₂⟩, from suffix_out_eq (by simp) le,
     suffices : ν₁ = ν₂,
@@ -360,7 +360,7 @@ end
 private lemma sigma_outcome_of_eq_up (μ) {μ₁ μ₂ : Tree k} (lt₁ : μ₁ ⊂ᵢ μ₂) (lt₂ : μ₂ ⊂ᵢ μ)
   (eqn : up[S] μ₁ = up[S] μ₂) (up_lt : up[S] μ₂ ⊂ᵢ λ[S] μ₂) : (out ⟨μ₁, lt₁⟩).is_sigma :=
 begin
-  suffices : ¬(out ⟨μ₁, lt₁⟩).is_pie,
+  suffices : ¬(out ⟨μ₁, lt₁⟩).is_pi,
   { simp[Tree'.is_sigma, this] },
   intros A,
   induction μ with x μ IH generalizing μ₁ μ₂,
@@ -372,9 +372,9 @@ begin
     { have eqn_lam₁ : λ[S] (out ⟨μ₁, lt₁⟩ :: μ₁) = (out ⟨μ₁, lt₁⟩ :: μ₁) :: up[S] μ₁,
       { have C₂ : up[S] μ₁ ⊂ᵢ λ[S] μ₁ ∨ up[S] μ₁ = λ[S] μ₁, from list.suffix_iff_is_initial.mp (S.up_le_lambda μ₁),
         cases C₂,
-        { have : approx.pie_derivative (up[S] μ₁) (S.up' μ₁) = [],
-          { simp[approx.pie_derivative, approx.derivative, list.filter_eq_nil],
-            rintros ⟨ν, lt_ν⟩ pie_ν eqn_ν, exact IH lt_ν lt₁ eqn_ν C₂ pie_ν },
+        { have : approx.pi_derivative (up[S] μ₁) (S.up' μ₁) = [],
+          { simp[approx.pi_derivative, approx.derivative, list.filter_eq_nil],
+            rintros ⟨ν, lt_ν⟩ pi_ν eqn_ν, exact IH lt_ν lt₁ eqn_ν C₂ pi_ν },
           unfold lambda, simp[approx.lambda, A, this] },
         { unfold lambda at C₂ ⊢, simp[approx.lambda, C₂] } },
       have out_eq : out (⟨up[S] μ₁, by simp[eqn_lam₁]⟩ : ancestor (λ[S] (out ⟨μ₁, lt₁⟩ :: μ₁))) = out ⟨μ₁, lt₁⟩ :: μ₁,
@@ -384,9 +384,9 @@ begin
         (up[S] μ₁) (by simp[eqn_lam₁]) up_lt₁ (by simp[out_eq, Tree'.is_sigma, A]),
       have sigma : (out ⟨up[S] μ₁, up_lt₁⟩).is_sigma,
       { simp[←this, out_eq, Tree'.is_sigma, A] },
-      have C₂ := S.up_eq_or_lt μ₂, rcases C₂ with (eqn | ⟨lt', pie⟩),
+      have C₂ := S.up_eq_or_lt μ₂, rcases C₂ with (eqn | ⟨lt', pi⟩),
       { simp[eqn] at up_lt, contradiction },
-      { simp[←eqn] at pie lt', exact neg_is_pie_iff.mpr sigma pie } } }
+      { simp[←eqn] at pi lt', exact neg_is_pi_iff.mpr sigma pi } } }
 end
 
 -- Consistency 2
@@ -395,18 +395,18 @@ lemma sigma_outcome_of_eq_up {μ₁ μ₂ : Tree k} (lt : μ₁ ⊂ᵢ μ₂)
   (eqn : up[S] μ₁ = up[S] μ₂) (up_lt : up[S] μ₂ ⊂ᵢ λ[S] μ₂) : (out ⟨μ₁, lt⟩).is_sigma :=
 sigma_outcome_of_eq_up S ((default _) :: μ₂) lt (by simp) eqn up_lt
 
-lemma sigma_outcome_of_pie {μ μ₀ : Tree k} {lt : μ₀ ⊂ᵢ μ} (pie : (out ⟨μ₀, lt⟩).is_pie) :
+lemma sigma_outcome_of_pi {μ μ₀ : Tree k} {lt : μ₀ ⊂ᵢ μ} (pi : (out ⟨μ₀, lt⟩).is_pi) :
   λ[S] (out ⟨μ₀, lt⟩ :: μ₀) = (out ⟨μ₀, lt⟩ :: μ₀) :: up[S] μ₀ :=
 begin
   simp[lambda, approx.lambda],
   have : up[S] μ₀ ⊂ᵢ λ[S] μ₀ ∨ up[S] μ₀ = λ[S] μ₀,
     from list.suffix_iff_is_initial.mp (S.up_le_lambda μ₀),
   rcases this with (lt_up | eq_up),
-  { have : approx.pie_derivative (up[S] μ₀) (S.up' μ₀) = [],
-    { simp[approx.pie_derivative, approx.derivative, list.filter_eq_nil],
-      rintros ⟨μ₁, lt_μ₁⟩ pie' eq_up,
-      have := S.sigma_outcome_of_eq_up lt_μ₁ eq_up lt_up, exact not_pie_sigma pie' this },
-    simp [this, pie] },
+  { have : approx.pi_derivative (up[S] μ₀) (S.up' μ₀) = [],
+    { simp[approx.pi_derivative, approx.derivative, list.filter_eq_nil],
+      rintros ⟨μ₁, lt_μ₁⟩ pi' eq_up,
+      have := S.sigma_outcome_of_eq_up lt_μ₁ eq_up lt_up, exact not_pi_sigma pi' this },
+    simp [this, pi] },
   { simp[eq_up, lambda] }
 end
 
@@ -447,9 +447,9 @@ begin
       have rnth_eqn : ∀ s (le : s₁ ≤ s), (λ[S] (Λ s)).rnth n = some (out ⟨λ[S] (Λ s₁)↾*n, lt' s le⟩),
       { intros s le, refine list.rnth_eq_iff_suffix_cons_initial.mpr _, have := suffix_out_cons ⟨_, lt' s le⟩,
         simp[IH' s le], exact this },
-      by_cases C₂ : ∀ (s : ℕ) (le : s₁ ≤ s), (out ⟨λ[S] (Λ s₁)↾*n, lt' s le⟩).is_pie,
+      by_cases C₂ : ∀ (s : ℕ) (le : s₁ ≤ s), (out ⟨λ[S] (Λ s₁)↾*n, lt' s le⟩).is_pi,
       { refine ⟨s₁, eqn_s₁, λ s eqn_s, _⟩, simp[rnth_eqn, rnth_eqn _ eqn_s],
-        refine eq.symm (S.eq_out_of_pie (Λ.mono' eqn_s) _ _ (by simp[C₂])) },
+        refine eq.symm (S.eq_out_of_pi (Λ.mono' eqn_s) _ _ (by simp[C₂])) },
       { have : ∃ s₂ (h : s₁ ≤ s₂), ↥((out ⟨λ[S] (Λ s₁)↾*n, lt' s₂ h⟩).is_sigma),
         { simp at C₂, exact C₂ },
         rcases this with ⟨s₂, eqn_s₂, C₂⟩,
@@ -536,8 +536,8 @@ begin
   refine ⟨s₁, rfl, this⟩
 end
 
-lemma eq_lt_lambda_of_lt_Lambda_of_pie {Λ : Path k} (thick : Λ.thick)
-  {η : Tree (k + 1)} {s₀} (lt : η ⊂ᵢ (Λ[S] Λ) s₀) (pie : (out ⟨η, lt⟩).is_pie) :
+lemma eq_lt_lambda_of_lt_Lambda_of_pi {Λ : Path k} (thick : Λ.thick)
+  {η : Tree (k + 1)} {s₀} (lt : η ⊂ᵢ (Λ[S] Λ) s₀) (pi : (out ⟨η, lt⟩).is_pi) :
   lim s, ⟨η, lt⟩ =< λ[S] (Λ s) :=
 begin
   rcases S.le_Lambda_of_thick thick (suffix_out_cons ⟨η, lt⟩) with ⟨s₁, eqn₁, le₁⟩, simp at eqn₁ le₁,
@@ -570,7 +570,7 @@ begin
       have lt₂ : λ[S] (Λ s₂) ⊂ᵢ λ[S] (Λ s₁), from list.suffix_cons_iff_is_initial.mp ⟨_, le₁ s₁ (by refl)⟩,
       have eqn₁ : out ⟨λ[S] (Λ s₂), lt₂⟩ = out ⟨λ[S] (Λ s₂), lt⟩, { simp[out_eq_iff], exact le₁ s₁ (by refl) },      
       have eqn₂ : out ⟨λ[S] (Λ s₂), lt₁⟩ = out ⟨λ[S] (Λ s₂), lt₂⟩, 
-        from S.eq_out_of_pie (Λ.mono' (nat.succ_le_iff.mpr C)) lt₁ lt₂ (by simp[eqn₁]; exact pie),
+        from S.eq_out_of_pi (Λ.mono' (nat.succ_le_iff.mpr C)) lt₁ lt₂ (by simp[eqn₁]; exact pi),
       simp[←eqn₁, ←eqn₂], exact suffix_out_cons ⟨λ[S] (Λ s₂), lt₁⟩ } },
   refine ⟨s₃, eq_lam_s₂, this⟩  
 end
@@ -652,15 +652,15 @@ begin
     { exact ne (eq.symm C₁)} }
 end
 
-lemma Lambda_pie_outcome
-  {η : Tree (k + 1)} {s₀} (lt : η ⊂ᵢ (Λ[S] Λ) s₀) (pie : (out ⟨η, lt⟩).is_pie)
+lemma Lambda_pi_outcome
+  {η : Tree (k + 1)} {s₀} (lt : η ⊂ᵢ (Λ[S] Λ) s₀) (pi : (out ⟨η, lt⟩).is_pi)
   {μ : Tree k} {t₀} (lt' : μ ⊂ᵢ Λ t₀) (up_eq : up[S] μ = η) : (out ⟨μ, lt'⟩).is_sigma :=
 begin
   rcases up_eq with rfl,
   rcases S.le_lamvda_of_lt_Lambda' lt with ⟨s₁, le⟩,
   by_contradiction A, simp at A,
   have eq_lam : λ[S] (out ⟨μ, lt'⟩ :: μ) = (out ⟨μ, lt'⟩ :: μ) :: up[S] μ, 
-    from S.sigma_outcome_of_pie A,
+    from S.sigma_outcome_of_pi A,
   have : out ⟨up[S] μ, lt⟩ = out ⟨μ, lt'⟩ :: μ,
   { have lt₁ : up[S] μ ⊂ᵢ λ[S] (out ⟨μ, lt'⟩ :: μ), { simp[eq_lam] },
     have lt₂ : up[S] μ ⊂ᵢ λ[S] (Λ (max s₁ t₀)),
@@ -671,28 +671,28 @@ begin
     have : out ⟨up[S] μ, lt₂⟩ = out ⟨up[S] μ, lt⟩,
     { simp[out_eq_iff], exact le (max s₁ t₀) (le_max_left s₁ t₀) },
     rw[←eq_out₁, eq_out₂, this] },
-  simp[this] at pie, exact not_pie_sigma A pie
+  simp[this] at pi, exact not_pi_sigma A pi
 end
 
 lemma Lambda_sigma_outcome
   {η : Tree (k + 1)} {s₀} (lt : η ⊂ᵢ (Λ[S] Λ) s₀) (sigma : (out ⟨η, lt⟩).is_sigma) :
-  ∃ {μ : Tree k} {t₀} (lt' : μ ⊂ᵢ Λ t₀) (up_eq : up[S] μ = η), (out ⟨μ, lt'⟩).is_pie :=
+  ∃ {μ : Tree k} {t₀} (lt' : μ ⊂ᵢ Λ t₀) (up_eq : up[S] μ = η), (out ⟨μ, lt'⟩).is_pi :=
 begin
   rcases S.le_lamvda_of_lt_Lambda' lt with ⟨s₁, le⟩,
   have lt' : η ⊂ᵢ λ[S] (Λ s₁), from list.suffix_cons_iff_is_initial.mp ⟨_, le s₁ (by refl)⟩,
   rcases S.out_eq_out ⟨η, lt'⟩ with ⟨⟨μ, lt_μ⟩, eqn_μ⟩,
   have eq_out : out ⟨η, lt'⟩ = out ⟨η, lt⟩, { simp[out_eq_iff], exact le s₁ (by refl) },
-  have pie : (out ⟨μ, lt_μ⟩).is_pie, { simp[←eq_out, eqn_μ] at sigma, exact sigma },
+  have pi : (out ⟨μ, lt_μ⟩).is_pi, { simp[←eq_out, eqn_μ] at sigma, exact sigma },
   have : up[S] μ = η,
   { rcases S.eq_lambda_of_lt_lambda ⟨η, lt'⟩ with ⟨⟨μ₀, lt_μ₀⟩, _, _, eqn_μ₀, eq_up₀⟩, 
     have : μ = μ₀, { simp[eqn_μ] at eqn_μ₀, exact list.tail_eq_of_cons_eq eqn_μ₀ },
     rcases this with rfl, exact eq.symm eq_up₀ },
-  exact ⟨μ, s₁, lt_μ, this, pie⟩
+  exact ⟨μ, s₁, lt_μ, this, pi⟩
 end
 
 -- derivatives の候補
 def antiderivatives (μ : Tree k) : list (Tree (k + 1) × ℕ) :=
-(λ[S] μ, 0) :: ((λ[S] μ).ancestors.filter (λ η, (out η).is_pie)).map (λ η, (η, (S.derivative ↑η μ).length))
+(λ[S] μ, 0) :: ((λ[S] μ).ancestors.filter (λ η, (out η).is_pi)).map (λ η, (η, (S.derivative ↑η μ).length))
 
 lemma Min_antiderivative_eq_assignment (μ : Tree k) :
   (S.priority (k + 1)).Min_le (S.antiderivatives μ) (by simp[antiderivatives]) = S.assignment μ :=
@@ -707,7 +707,7 @@ begin
     (λ[S] (out ⟨μ₁, lt⟩ :: μ₁) = λ[S] μ₁ ∧ up[S] μ₁ ⊂ᵢ λ[S] μ₁),
   { simp[lambda, approx.lambda],
     by_cases C :
-      up[S] μ₁ = approx.lambda (S.up' μ₁) ∨ (out ⟨μ₁, lt⟩).is_pie ∧ approx.pie_derivative (up[S] μ₁) (S.up' μ₁) = []; simp[C],
+      up[S] μ₁ = approx.lambda (S.up' μ₁) ∨ (out ⟨μ₁, lt⟩).is_pi ∧ approx.pi_derivative (up[S] μ₁) (S.up' μ₁) = []; simp[C],
     { simp[not_or_distrib] at C, right, refine list.is_initial_iff_suffix.mpr ⟨up_le_lambda S μ₁, C.1⟩ } },
   rcases C with (C | ⟨C, lt'⟩),
   { have le_out : out ⟨μ₁, lt⟩ :: μ₁ <:+ μ₂, from suffix_out_cons ⟨μ₁, lt⟩,
@@ -720,7 +720,7 @@ lemma le_of_mem_antiderivatives {μ : Tree k} {η : Tree (k + 1)} {n : ℕ} (mem
   η <:+ λ[S] μ ∧ n = (S.derivative η μ).length :=
 begin
   simp[antiderivatives] at mem,
-  rcases mem with (⟨rfl, rfl⟩ | ⟨⟨μ₁, lt⟩, pie, rfl, rfl⟩),
+  rcases mem with (⟨rfl, rfl⟩ | ⟨⟨μ₁, lt⟩, pi, rfl, rfl⟩),
   { have : S.derivative (λ[S] μ) μ = [],
     { simp[derivative, approx.derivative, list.filter_eq_nil], rintros ⟨μ₁, lt⟩ eqn,
       have := S.nonsuffix_of_scons _ _ lt (by simp[←eqn]), contradiction },
@@ -730,7 +730,7 @@ end
 
 lemma assignment_snd_eq (μ : Tree k) : (S.assignment μ).2 = (S.derivative (up[S] μ) μ).length :=
 begin
-  have : S.assignment μ ∈ _, from omega_ordering.Min_le_mem _ _, simp at this, rcases this with (eqn| ⟨η, pie, eqn⟩),
+  have : S.assignment μ ∈ _, from omega_ordering.Min_le_mem _ _, simp at this, rcases this with (eqn| ⟨η, pi, eqn⟩),
   { have eqn_lam : up[S] μ = λ[S] μ, from congr_arg prod.fst eqn,
     have : S.derivative (up[S] μ) μ = [],
     { simp[derivative, approx.derivative, list.filter_eq_nil],
@@ -753,7 +753,7 @@ by { have : ∀ μ, (S.derivative η μ).map subtype.val = ((μ.ancestors.map su
 
 lemma nonmem_antiderivatives {μ₁ μ₂ : Tree k} (lt : μ₁ ⊂ᵢ μ₂) : S.assignment μ₁ ∉ S.antiderivatives μ₂ := λ A,
 begin
-  simp [antiderivatives] at A, rcases A with (A | ⟨⟨η, lt_η⟩, pie, A⟩),
+  simp [antiderivatives] at A, rcases A with (A | ⟨⟨η, lt_η⟩, pi, A⟩),
   { have : up[S] μ₁ = λ[S] μ₂, from congr_arg prod.fst A,
     exact nonsuffix_of_scons S μ₁ μ₂ lt (by simp[this]) },
   { have : η = up[S] μ₁, { have := S.assignment_fst_eq_up μ₁, simp [←A] at this, exact this }, rcases this with rfl,
@@ -774,15 +774,15 @@ begin
 end
 
 lemma case_mem_antiderivative {μ : Tree k} {ν : Tree' k} (η : Tree (k + 1)) (n : ℕ) (lt : η ⊂ᵢ λ[S] (ν :: μ))
-  (pie : (out ⟨η, lt⟩).is_pie)
+  (pi : (out ⟨η, lt⟩).is_pi)
   (mem : (η, n) ∈ S.antiderivatives μ) :
   (η, n) = S.assignment μ ∧ (η, n + 1) ∈ S.antiderivatives (ν :: μ) ∨ 
   (η, n) ≠ S.assignment μ ∧ (η, n) ∈ S.antiderivatives (ν :: μ) :=
 begin
   have der : n = (S.derivative η μ).length, from (S.le_of_mem_antiderivatives mem).2,
-  simp[antiderivatives] at mem ⊢, rcases mem with (⟨rfl, rfl⟩ | ⟨⟨η₁, lt'⟩, pie, rfl, rfl⟩),
+  simp[antiderivatives] at mem ⊢, rcases mem with (⟨rfl, rfl⟩ | ⟨⟨η₁, lt'⟩, pi, rfl, rfl⟩),
   { by_cases C :
-      up[S] μ = λ[S] μ ∨ ν.is_pie ∧ approx.pie_derivative (up[S] μ) (S.up' μ) = list.nil,
+      up[S] μ = λ[S] μ ∨ ν.is_pi ∧ approx.pi_derivative (up[S] μ) (S.up' μ) = list.nil,
     { have eqn : λ[S] (ν :: μ) = (ν :: μ) :: up[S] μ, { unfold lambda at*, simp[approx.lambda, C] },
       cases C,
       { left, simp[assignment_eq, C, der],
@@ -790,29 +790,29 @@ begin
         refine ⟨⟨λ[S] μ, lt⟩, _⟩, simp,
         have eqn_der : S.derivative (λ[S] μ) (ν :: μ) = [⟨μ, by simp⟩],
         { simp[derivative_cons, C], exact list.length_eq_zero.mp (eq.symm der) },
-        simp[eqn_der, pie, ←der] },
+        simp[eqn_der, pi, ←der] },
       { exfalso,
         have :  λ[S] μ ⊂ᵢ (ν :: μ) :: up[S] μ, simp[←eqn, lt],
         have : λ[S] μ = up[S] μ,
         { have C₁ := list.is_initial_cons_iff.mp this, 
           cases C₁, { exact C₁ }, { exfalso, exact list.is_initial_suffix_antisymm C₁ (S.up_le_lambda _) } },
         have : out ⟨λ[S] μ, lt⟩ = ν :: μ, { simp[out_eq_iff, this, eqn] },
-        simp[this] at pie, exact not_pie_sigma C.1 pie } },
+        simp[this] at pi, exact not_pi_sigma C.1 pi } },
     { have eqn : λ[S] (ν :: μ) = λ[S] μ, { unfold lambda at*, simp[approx.lambda, C] },
       have ne_up : ¬up[S] μ = λ[S] μ, { simp[not_or_distrib] at C, exact C.1 },
       right,
       simp[assignment_eq, eqn], intros h, have := eq.symm h, contradiction } },
   { by_cases C : up[S] μ = η₁,
-    { left, simp[assignment_eq, C], refine ⟨⟨η₁, lt⟩, pie, rfl, by simp[derivative_cons, C]⟩ },
+    { left, simp[assignment_eq, C], refine ⟨⟨η₁, lt⟩, pi, rfl, by simp[derivative_cons, C]⟩ },
     { right, simp[assignment_eq, C],
-      exact ⟨λ h, by exfalso; exact C (eq.symm h), or.inr ⟨⟨η₁, lt⟩, pie, rfl, by simp[derivative_cons, C]⟩⟩ } }
+      exact ⟨λ h, by exfalso; exact C (eq.symm h), or.inr ⟨⟨η₁, lt⟩, pi, rfl, by simp[derivative_cons, C]⟩⟩ } }
 end
 
-lemma infinite_substrategy_of_pie
-  (thick : Λ.thick) {η : Tree (k + 1)} (s₀) (lt : η ⊂ᵢ (Λ[S] Λ) s₀) (pie : (out ⟨η, lt⟩).is_pie) (n) :
+lemma infinite_substrategy_of_pi
+  (thick : Λ.thick) {η : Tree (k + 1)} (s₀) (lt : η ⊂ᵢ (Λ[S] Λ) s₀) (pi : (out ⟨η, lt⟩).is_pi) (n) :
   ∃ s, (η, n) = S.assignment (Λ s) :=
 begin
-  rcases S.eq_lt_lambda_of_lt_Lambda_of_pie thick lt pie with ⟨s₁, eqn_η, le⟩, simp at eqn_η,
+  rcases S.eq_lt_lambda_of_lt_Lambda_of_pi thick lt pi with ⟨s₁, eqn_η, le⟩, simp at eqn_η,
   suffices : ∃ s, s₁ ≤ s ∧ (η, n) = S.assignment (Λ s), { rcases this with ⟨s, _, eqn⟩, exact ⟨s, eqn⟩ },
   induction n with n IH,
   { have mem : (η, 0) ∈ S.antiderivatives (Λ s₁), { simp[antiderivatives, eqn_η], },
@@ -825,7 +825,7 @@ begin
       have lt' : η ⊂ᵢ λ[S] (ν :: Λ (s₁ + s)),
       { simp[←eqn_path], exact list.suffix_cons_iff_is_initial.mp ⟨_, le (s₁ + s) (le_self_add)⟩ },
       have : out ⟨η, lt'⟩ = out ⟨η, lt⟩, { simp[out_eq_iff, ←eqn_path], exact le (s₁ + s) (le_self_add) },
-      have := S.case_mem_antiderivative η 0 lt' (by simp[this]; exact pie) mem,
+      have := S.case_mem_antiderivative η 0 lt' (by simp[this]; exact pi) mem,
       simp[neq, ←eqn_path] at this, exact this },
     have : ∃ s, (η, 0) = S.assignment (Λ (s₁ + s)),
       from (S.priority (k + 1)).eq_Min_sequence (λ s, S.antiderivatives (Λ (s₁ + s))) (by simp[antiderivatives])
@@ -839,7 +839,7 @@ begin
       have : out ⟨η, lt'⟩ = out ⟨η, lt⟩, { simp[out_eq_iff, ←eqn_path], exact le s₂ le_s₂ },
       have : (η, n) = S.assignment (Λ s₂) ∧ (η, n + 1) ∈ S.antiderivatives (ν :: Λ s₂) ∨
              (η, n) ≠ S.assignment (Λ s₂) ∧ (η, n)     ∈ S.antiderivatives (ν :: Λ s₂),
-        from S.case_mem_antiderivative η n lt' (by simp[this]; exact pie) (by simp[eqn_IH]),
+        from S.case_mem_antiderivative η n lt' (by simp[this]; exact pi) (by simp[eqn_IH]),
       simp[eqn_IH, ←eqn_path] at this, exact this },
     have mem_of_ne : ∀ s, 
       (η, n + 1) ≠ S.assignment (Λ (s₂ + 1 + s)) →
@@ -851,7 +851,7 @@ begin
       { simp[←eqn_path], exact list.suffix_cons_iff_is_initial.mp ⟨_, le (s₂ + 1 + s) (by simp[add_assoc]; exact le_add_right le_s₂)⟩ },
       have : out ⟨η, lt'⟩ = out ⟨η, lt⟩,
       { simp[out_eq_iff, ←eqn_path], exact le (s₂ + 1 + s) (by simp[add_assoc]; exact le_add_right le_s₂) },
-      have := S.case_mem_antiderivative η (n + 1) lt' (by simp[this]; exact pie) mem,
+      have := S.case_mem_antiderivative η (n + 1) lt' (by simp[this]; exact pi) mem,
       simp[ne, ←eqn_path] at this, exact this },    
     have : ∃ s, (η, n + 1) = S.assignment (Λ (s₂ + 1 + s)),
       from (S.priority (k + 1)).eq_Min_sequence (λ s, S.antiderivatives (Λ (s₂ + 1 + s))) (by simp[antiderivatives])
@@ -906,26 +906,55 @@ end
 
 end strategy
 
-
+namespace friedberg_muchnik
 
 def str : strategy 1 := default _
 
 def generator : ℕ → (Tree 0 × (list ℕ × list ℕ))
 | 0       := ([], [], [])
 | (s + 1) :=
-    let μ₀ : Tree 0 := (generator s).1, 
-        A₀ : list ℕ := (generator s).2.1,
-        B₀ : list ℕ := (generator s).2.2,
+    let μ  : Tree 0 := (generator s).1, 
+        I₀ : list ℕ := (generator s).2.1,
+        I₁ : list ℕ := (generator s).2.2,
+        η  : Tree 1 := str.up μ in
+    match s.bodd with
+    | ff := if ⟦η.length⟧ᵪ^I₀.chr [μ.weight] η.weight = some ff then (∞ :: μ, (I₀, η.weight :: I₁)) else (𝟘 :: μ, (I₀, I₁))
+    | tt := if ⟦η.length⟧ᵪ^I₁.chr [μ.weight] η.weight = some ff then (∞ :: μ, (η.weight :: I₀, I₁)) else (𝟘 :: μ, (I₀, I₁))
+    end
 
-        η₁ : Tree 1 := str.up μ₀,
-        d₁ : bool   := ⟦η₁.length⟧ᵪ^A₀.rnth [μ₀.weight] η₁.weight = some ff,
-        A₁ : list ℕ := A₀,
-        B₁ : list ℕ := if d₁ then η₁.weight :: B₀ else B₀,
-        μ₁ : Tree 0 := if d₁ then (tt :: μ₀) else (ff :: μ₀),
+def Λ₀ : Path 0 := ⟨λ s, (generator s).fst, λ s,
+  by { cases C : s.bodd; simp[generator, C],
+       { by_cases C₁ : ⟦(up[str] (generator s).fst).length⟧ᵪ^((generator s).2.1.chr) [(generator s).1.weight]
+         (up[str] (generator s).1).weight = some ff; simp[C₁] },
+       { by_cases C₁ : ⟦(up[str] (generator s).fst).length⟧ᵪ^((generator s).2.2.chr) [(generator s).1.weight]
+         (up[str] (generator s).1).weight = some ff; simp[C₁] } }⟩
 
-        η₂ : Tree 1 := str.up μ₁,
-        d₂ : bool   := ⟦η₂.length⟧ᵪ^B₁.rnth [μ₁.weight] η₂.weight = some ff,
-        A₂ : list ℕ := if d₂ then η₂.weight :: B₁ else B₁,
-        B₂ : list ℕ := B₁,
-        μ₂ : Tree 0 := if d₂ then (tt :: μ₁) else (ff :: μ₁) in
-(μ₂, (A₂, B₂))
+lemma Λ₀_thick : Λ₀.thick :=
+⟨by simp[Λ₀, generator], λ s, by { cases C : s.bodd; simp[Λ₀, generator, C],
+  { by_cases C₁ : ⟦(up[str] (generator s).fst).length⟧ᵪ^((generator s).2.1.chr) [(generator s).1.weight]
+      (up[str] (generator s).1).weight = some ff; simp[C₁], { refine ⟨_, rfl⟩ }, { refine ⟨_, rfl⟩ } },
+  { by_cases C₁ : ⟦(up[str] (generator s).fst).length⟧ᵪ^((generator s).2.2.chr) [(generator s).1.weight]
+      (up[str] (generator s).1).weight = some ff; simp[C₁], { refine ⟨_, rfl⟩ }, { refine ⟨_, rfl⟩ } } }⟩
+
+lemma Λ₀_app_eq (s : ℕ) : Λ₀ s = (generator s).1 := rfl
+
+def I₀ (s : ℕ) : list ℕ := (generator s).2.1
+
+def I₁ (s : ℕ) : list ℕ := (generator s).2.2
+
+def I₀_inf : set ℕ := {n | ∃ s, n ∈ I₀ s}
+
+def I₁_inf : set ℕ := {n | ∃ s, n ∈ I₁ s}
+
+lemma pi_outcome_even {s₀} (μ : Tree 0) (h : μ ⊂ᵢ Λ₀ s₀) (pi : (out ⟨μ, h⟩).is_pi) (even : μ.length.bodd = ff) :
+  ⟦(up[str] μ).length⟧ᵪ^(I₀ μ.length).chr [μ.weight] (up[str] μ).weight = ff ∧ (up[str] μ).weight ∈ I₀ (μ.length + 1):=
+begin
+  rcases Λ₀_thick.ssubset.mp ⟨_, h.suffix⟩ with ⟨s₁, rfl⟩,
+  simp [Λ₀_thick.length] at even, simp at pi,
+  have : generator (s₁ + 1) = (∞ :: Λ₀ s₁, (I₀ s₁, (up[str] (Λ₀ s₁)).weight :: (I₁ s₁))),
+  { have : Λ₀ (s₁ + 1) = ∞ :: Λ₀ s₁, {  }  }
+end
+
+
+
+end friedberg_muchnik

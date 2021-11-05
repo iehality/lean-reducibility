@@ -311,8 +311,6 @@ lemma thick.is_initial_of_lt {Λ : Path k} (h : Λ.thick) {s t : ℕ} (lt : s < 
 by { have : Λ s ⊂ᵢ Λ (s + 1), { rcases h.2 s with ⟨ν, eqn⟩, simp[eqn] },
      exact list.is_initial.is_initial_of_suffix this (Λ.mono' (nat.succ_le_iff.mpr lt)) }
 
-
-
 lemma thick.length {Λ : Path k} (h : Λ.thick) (s : ℕ) : (Λ s).length = s :=
 by { induction s with s IH, { simp[h.1] }, { rcases h.2 s with ⟨ν, eqn⟩, simp[eqn, IH] } }
 
@@ -322,6 +320,9 @@ lemma thick.ssubset {Λ : Path k} (h : Λ.thick) {μ} : μ ⊆' Λ ↔ ∃ s, μ
      { have := eqn.le_length, simp[h.length] at this, exact this },
      have := list.suffix_of_suffix_length_le eqn (Λ.mono' this) (by simp[h.length]),
      exact list.eq_of_suffix_of_length_eq this (by simp[h.length]) }, λ ⟨s, eqn⟩, ⟨s, by simp[eqn]⟩⟩
+
+lemma thick.eq_length_of_le {Λ : Path k} (h : Λ.thick) (μ : Tree k) (le : μ ⊆' Λ) : (Λ μ.length) = μ :=
+by { rcases h.ssubset.mp le with ⟨s, rfl⟩, simp[h.length] }
 
 lemma thick.lt_mono_iff {Λ : Path k} (h : Λ.thick) {s t : ℕ} : Λ s ⊂ᵢ Λ t ↔ s < t :=
 by { have : s < t ∨ t ≤ s, from lt_or_ge s t, rcases this with (lt | le),
@@ -385,13 +386,13 @@ def eventually_include_s {k} {μ₀ : Tree k} (μ : ancestor μ₀) (η : ℕ �
 notation `lim` binders `, ` μ ` =< ` r:(scoped η, eventually_include_s μ η) := r
 
 
-@[simp] def Tree'.is_pie : Π {k} (η : Tree' k), bool
+@[simp] def Tree'.is_pi : Π {k} (η : Tree' k), bool
 | 0       ff       := ff
 | 0       tt       := tt
-| (k + 1) (η :: _) := !Tree'.is_pie η
+| (k + 1) (η :: _) := !Tree'.is_pi η
 | (k + 1) []       := ff
 
-def Tree'.is_sigma {k} (η : Tree' k) : bool := !η.is_pie
+def Tree'.is_sigma {k} (η : Tree' k) : bool := !η.is_pi
 
 @[simp] def Tree'.is_validated : Π {k} (η : Tree' k), bool
 | 0       ff       := ff
@@ -399,31 +400,41 @@ def Tree'.is_sigma {k} (η : Tree' k) : bool := !η.is_pie
 | (k + 1) (η :: _) := Tree'.is_validated η
 | (k + 1) []       := ff
 
-@[simp] lemma is_pie_neg {k} {η : Tree k} : !η.is_pie ↔ η.is_sigma := by simp[Tree'.is_sigma]
+notation `∞` := tt
 
-lemma neg_is_pie_iff {k} {η : Tree k} : ¬η.is_pie ↔ η.is_sigma :=
-by { unfold Tree'.is_sigma, cases Tree'.is_pie η; simp }
+notation `𝟘` := ff
 
-@[simp] lemma is_pie_eq_ff {k} {η : Tree' k} : η.is_pie = ff ↔ η.is_sigma :=
-by { unfold Tree'.is_sigma, cases Tree'.is_pie η; simp }
+@[simp] lemma is_pi_neg {k} {η : Tree k} : !η.is_pi ↔ η.is_sigma := by simp[Tree'.is_sigma]
 
-@[simp] lemma is_sigma_eq_ff {k} {η : Tree' k} : η.is_sigma = ff ↔ η.is_pie :=
-by { unfold Tree'.is_sigma, cases Tree'.is_pie η; simp }
+lemma neg_is_pi_iff {k} {η : Tree k} : ¬η.is_pi ↔ η.is_sigma :=
+by { unfold Tree'.is_sigma, cases Tree'.is_pi η; simp }
 
-lemma pie_or_sigma {k} (η : Tree' k) : η.is_pie ∨ η.is_sigma :=
-by { unfold Tree'.is_sigma, cases η.is_pie; simp }
+@[simp] lemma is_pi_eq_ff {k} {η : Tree' k} : η.is_pi = ff ↔ η.is_sigma :=
+by { unfold Tree'.is_sigma, cases Tree'.is_pi η; simp }
 
-lemma not_pie_sigma {k} {η : Tree' k} (pie : η.is_pie) (sigma : η.is_sigma) : false :=
-by { simp only [Tree'.is_sigma] at sigma, cases η.is_pie, { exact bool.not_ff pie }, { exact bool.not_ff sigma } }
+@[simp] lemma is_sigma_eq_ff {k} {η : Tree' k} : η.is_sigma = ff ↔ η.is_pi :=
+by { unfold Tree'.is_sigma, cases Tree'.is_pi η; simp }
 
-@[simp] lemma pie_cons_iff_sigma {k} {μ : Tree' k} {η : Tree k} : @Tree'.is_pie (k + 1) (μ :: η) = μ.is_sigma :=
+lemma pi_or_sigma {k} (η : Tree' k) : η.is_pi ∨ η.is_sigma :=
+by { unfold Tree'.is_sigma, cases η.is_pi; simp }
+
+lemma not_pi_sigma {k} {η : Tree' k} (pi : η.is_pi) (sigma : η.is_sigma) : false :=
+by { simp only [Tree'.is_sigma] at sigma, cases η.is_pi, { exact bool.not_ff pi }, { exact bool.not_ff sigma } }
+
+@[simp] lemma pi_cons_iff_sigma {k} {μ : Tree' k} {η : Tree k} : @Tree'.is_pi (k + 1) (μ :: η) = μ.is_sigma :=
 by simp[Tree'.is_sigma]
 
-@[simp] lemma sigma_cons_iff_pie {k} {μ : Tree' k} {η : Tree k} : @Tree'.is_sigma (k + 1) (μ :: η) = μ.is_pie :=
+@[simp] lemma sigma_cons_iff_pi {k} {μ : Tree' k} {η : Tree k} : @Tree'.is_sigma (k + 1) (μ :: η) = μ.is_pi :=
 by simp[Tree'.is_sigma]
 
-def ancestor.pie_outcome {k} {η : Tree k} (μ : ancestor η) : bool := (out μ).is_sigma
-def ancestor.sigma_outcome {k} {η : Tree k} (μ : ancestor η) : bool := (out μ).is_pie
+@[simp] lemma is_pi_iff_eq_infinity (μ : Tree' 0) : μ.is_pi ↔ μ = ∞ :=
+by cases μ; simp
+
+@[simp] lemma is_sigma_iff_eq_zero (μ : Tree' 0) : μ.is_sigma ↔ μ = 𝟘 :=
+by cases μ; simp[Tree'.is_sigma]
+
+def ancestor.pi_outcome {k} {η : Tree k} (μ : ancestor η) : bool := (out μ).is_sigma
+def ancestor.sigma_outcome {k} {η : Tree k} (μ : ancestor η) : bool := (out μ).is_pi
 
 lemma lt_or_le_of_le_of_le {k} {μ₁ μ₂ η : Tree k} (le₁ : μ₁ <:+ η) (le₂ : μ₂ <:+ η) : μ₁ ⊂ᵢ μ₂ ∨ μ₂ <:+ μ₁ :=
 begin
