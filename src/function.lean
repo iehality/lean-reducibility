@@ -306,7 +306,7 @@ begin
   intros l, rw (show l = l.reverse.reverse, by simp), exact l0 _
 end
 
-theorem foldr [inhabited α] (f : α × β → β) :
+theorem foldr' [inhabited α] (f : α × β → β) :
   (λ x, list.foldr (λ y z, f (y, z)) x.1 x.2 : β × list α → β) computable_in (f : α × β →. β) :=
   let foldr' := (λ x, nat.elim x.1 
     (λ y IH, f ((x.2.reverse.nth y).get_or_else (default α), IH))
@@ -344,7 +344,18 @@ theorem foldr [inhabited α] (f : α × β → β) :
 
 theorem foldr0 [inhabited α] (f : α × β → β) (b : β) :
   (λ x, list.foldr (λ y z, f (y, z)) b x : list α → β) computable_in (f : α × β →. β) := 
-(foldr f).comp (pair (const b) id)
+(foldr' f).comp (pair (const b) id)
+
+@[rcomputability]
+theorem foldr [inhabited α] {f : α → β → β} {o : σ →. τ} (hf : f computable₂_in o) :
+  list.foldr f computable₂_in o :=
+rcomputable₂.trans₂ (foldr' (prod.unpaired f)).to₂ hf
+
+theorem filter [inhabited β] {p : α → β → Prop} [∀ x y, decidable (p x y)] {f : α → list β} {o : σ →. τ}
+  (hp : (λ x y, to_bool (p x y)) computable₂_in o) (hf : f computable_in o) :
+  (λ a, list.filter (p a) (f a)) computable_in o :=
+by { simp[list.filter_eq_foldr],
+     sorry }
 
 @[rcomputability]
 theorem graph_rcomp [decidable_eq β] (f : α → β)  : graph f computable_in (f : α →. β) :=

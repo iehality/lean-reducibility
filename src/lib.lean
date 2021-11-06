@@ -610,6 +610,9 @@ begin
   refine ⟨map f l'', _⟩, simp[←h]
 end
 
+lemma mem_of_suffix {l₁ l₂ : list α} (h : l₁ <:+ l₂) {a : α} (mem : a ∈ l₁) : a ∈ l₂ :=
+by { rcases h with ⟨l, rfl⟩, simp[mem] }
+
 def incomparable (l₁ l₂ : list α) : Prop := ¬l₁ <:+ l₂ ∧ ¬l₂ <:+ l₁
 
 infix ` ∥ ` :50 := incomparable
@@ -628,10 +631,39 @@ lemma incomparable.symm {l₁ l₂ : list α} :
 lemma incomparable.symm_iff {l₁ l₂ : list α} :
   l₁ ∥ l₂ ↔ l₂ ∥ l₁ := ⟨incomparable.symm, incomparable.symm⟩
 
-  lemma incomparable_iff_is_initial_suffix {l₁ l₂ : list α} :
+lemma incomparable_iff_is_initial_suffix {l₁ l₂ : list α} :
   l₁ ∥ l₂ ↔ ¬l₁ <:+ l₂ ∧ ¬l₂ ⊂ᵢ l₁ :=
 ⟨λ h, by simp[incomparable_iff_suffix_is_initial.mp h.symm], λ h,
   incomparable.symm (incomparable_iff_suffix_is_initial.mpr (by simp[h]))⟩
+
+lemma incomparable_trichotomy (l₁ l₂ : list α) : l₁ <:+ l₂ ∨ l₂ ⊂ᵢ l₁ ∨ l₁ ∥ l₂ :=
+by { simp[incomparable_iff_is_initial_suffix], by_cases C₁ : l₁ <:+ l₂; simp[C₁], by_cases C₂ : l₂ ⊂ᵢ l₁; simp[C₂] }
+
+lemma incomparable_of_le_of_le {l₁ l₂ k₁ k₂ : list α} (h : l₁ ∥ l₂) (le₁ : l₁ <:+ k₁) (le₂ : l₂ <:+ k₂) :
+  k₁ ∥ k₂ :=
+begin
+  simp[incomparable], rcases h with ⟨i₁, i₂⟩,
+  rcases le₁ with ⟨m₁, rfl⟩, rcases le₂ with ⟨m₂, rfl⟩,
+  by_contradiction, 
+  have C : m₁ ++ l₁ <:+ m₂ ++ l₂ ∨ m₂ ++ l₂ <:+ m₁ ++ l₁, from or_iff_not_and_not.mpr h,
+  cases C,
+  { have : l₁ <:+ l₂ ∨ l₂ <:+ l₁,
+      from list.suffix_or_suffix_of_suffix ((list.suffix_append m₁ l₁).trans C) (list.suffix_append m₂ l₂),
+    cases this; contradiction },
+  { have : l₂ <:+ l₁ ∨ l₁ <:+ l₂,
+      from list.suffix_or_suffix_of_suffix ((list.suffix_append m₂ l₂).trans C) (list.suffix_append m₁ l₁),
+    cases this; contradiction }
+end
+
+lemma incomparable_of_lt {l₁ l₂ : list α} (lt : l₁ ⊂ᵢ l₂) {a : α} (h : a ∉ l₂)  : a :: l₁ ∥ l₂ :=
+begin
+  simp[incomparable], by_contradiction A,
+  have : a :: l₁ <:+ l₂ ∨ l₂ <:+ a :: l₁, from or_iff_not_and_not.mpr A,
+  cases this,
+  { rcases this with ⟨l, rfl⟩, simp at h, contradiction },
+  { rcases list.suffix_cons_iff.mp this with (rfl | hh), {simp at h, contradiction },
+    { exact is_initial_suffix_antisymm lt hh } }
+end
 
 def ordered (r : α → α → Prop) : list α → Prop
 | []       := true
@@ -901,8 +933,6 @@ namespace pfun
 
 def res_lt {α} (f : ℕ → α) (n : ℕ) : ℕ →. α := pfun.res f {x | x < n}
 
-#check res_lt _ _ _
-
 notation f ` ⌈` :80 n :80 := res_lt f n
 
 lemma res_lt_ext {α} (f g : ℕ → α) (n : ℕ) (h : ∀ x < n, f x = g x) : f ⌈n = g ⌈n :=
@@ -911,9 +941,19 @@ by { ext x a, simp[res_lt, pfun.mem_res],
 
 end pfun
 
+lemma part.opt_exists {α} (p : part α) : ∃ o : option α, (o : part α) = p :=
+by { by_cases p.dom, refine ⟨p.get h, by { unfold_coes, simp [part.of_option]}⟩,
+     exact ⟨none, by { unfold_coes, simp [part.of_option, part.eq_none_iff'.mpr h] }⟩ }
+
+noncomputable def part.to_opt {α} (p : part α) : option α := classical.some (part.opt_exists p)
+
+@[simp] lemma part.to_opt_eq {α} (p : part α) : (p.to_opt : part α) = p := classical.some_spec p.opt_exists
+
 def list.of_list {α : Type*} : ∀ l : list α, (fin (l.length) → α)
 | []        := finitary.nil
 | (a :: as) := as.of_list ::ᶠ a
+
+
 
 namespace function
 

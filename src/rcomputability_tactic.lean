@@ -24,10 +24,47 @@ primrec.option_is_some.to_rcomp
 lemma rcomputable₂.list_rnth : (@list.rnth α) computable₂_in o := 
 (primrec.list_nth.comp (primrec.list_reverse.comp primrec.fst) primrec.snd).to_rcomp
 
-lemma rcomputable.option_or_else {f : α → option β} {g : α → option β} {o : σ →. τ}
-  (hf : f computable_in o) (hg : g computable_in o) :
+lemma rcomputable.option_or_else :
   ((<|>) : option β → option β → option β) computable₂_in o :=
-by {  }
+primrec.option_orelse.to_rcomp
+
+lemma rcomputable₂.to_bool_eq [decidable_eq α] : (λ x y : α, to_bool (x = y)) computable₂_in o := primrec.eq.to_rcomp
+
+lemma rcomputable₂.to_bool_nat_lt : (λ m n : ℕ, to_bool (m < n)) computable₂_in o := primrec.nat_lt.to_rcomp
+
+lemma rcomputable₂.to_bool_nat_le : (λ m n : ℕ, to_bool (m ≤ n)) computable₂_in o := primrec.nat_le.to_rcomp
+
+lemma rcomputable₂.nat_add : ((+) : ℕ → ℕ → ℕ) computable₂_in o := primrec.nat_add.to_rcomp
+
+lemma rcomputable₂.nat_sub : (has_sub.sub : ℕ → ℕ → ℕ) computable₂_in o := primrec.nat_sub.to_rcomp
+
+lemma rcomputable₂.nat_mul : ((*) : ℕ → ℕ → ℕ) computable₂_in o := primrec.nat_mul.to_rcomp
+
+lemma rcomputable₂.nat_min : (min : ℕ → ℕ → ℕ) computable₂_in o := primrec.nat_min.to_rcomp
+
+lemma rcomputable₂.nat_max : (max : ℕ → ℕ → ℕ) computable₂_in o := primrec.nat_max.to_rcomp
+
+lemma rcomputable.nat_bodd : nat.bodd computable_in o := primrec.nat_bodd.to_rcomp
+
+lemma rcomputable.dom_fintype [fintype α] (f : α → σ) : f computable_in o := (primrec.dom_fintype f).to_rcomp
+
+lemma rcomputable.ite {c : α → Prop} [decidable_pred c] {f g : α → σ}
+  (hc : (λ x, to_bool (c x)) computable_in o) (hf : f computable_in o) (hg : g computable_in o):
+  (λ a, if c a then f a else g a) computable_in o :=
+(rcomputable.cond hc hf hg).of_eq (λ x, by by_cases C : c x; simp[C])
+
+lemma rcomputable₂.list_cons : (list.cons : α → list α → list α) computable₂_in o := primrec.list_cons.to_rcomp
+
+lemma rcomputable₂.list_nth : (list.nth : list α → ℕ → option α) computable₂_in o := primrec.list_nth.to_rcomp
+
+lemma rcomputable₂.list_append : ((++) : list α → list α → list α) computable₂_in o := primrec.list_append.to_rcomp
+
+lemma rcomputable₂.list_length : (list.length : list α → ℕ) computable_in o := primrec.list_length.to_rcomp
+
+
+
+
+
 
 end
 
@@ -47,6 +84,7 @@ attribute [rcomputability]
   rcomputable.decode
   rcomputable.refl
   rcomputable.cond
+  rcomputable.ite
   rcomputable.nat_cases
   rcomputable.option_cases
   rcomputable.option_bind
@@ -54,8 +92,21 @@ attribute [rcomputability]
   rcomputable.option_some
   rcomputable.option_is_some
   rcomputable.option_get_or_else
+  rcomputable.option_or_else
+  rcomputable.nat_bodd
+  rcomputable.dom_fintype
+
+  rcomputable₂.to_bool_eq
+  rcomputable₂.to_bool_nat_lt
+  rcomputable₂.to_bool_nat_le
   rcomputable₂.pair
   rcomputable₂.list_rnth
+  rcomputable₂.nat_add
+  rcomputable₂.nat_sub
+  rcomputable₂.nat_mul
+  rcomputable₂.nat_min
+  rcomputable₂.nat_max
+
   rpartrec.refl
   rpartrec.of_option
   rpartrec.of_option'

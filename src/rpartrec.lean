@@ -199,6 +199,10 @@ theorem refl_in (f : α →. β) : f partrec_in f := nat.rpartrec.refl
 @[trans] theorem trans {f : α →. σ} {g : β →. τ} {h : γ →. μ} : f partrec_in g → g partrec_in h → f partrec_in h :=
 nat.rpartrec.trans
 
+@[trans] theorem trans₂ {f : α →. σ} {g : β → γ →. τ} {h : δ →. μ} :
+ f partrec_in (prod.unpaired g) → g partrec₂_in h → f partrec_in h :=
+nat.rpartrec.trans
+
 theorem nat_iff {f g} : f partrec_in g ↔ nat.rpartrec.reducible f g  :=
 by simp[rpartrec, encodable.encode, map]
 
@@ -283,6 +287,13 @@ theorem comp₂ {f : γ → σ} {g : α → β → γ} {o : τ →. μ}
   (hf : f computable_in o) (hg : g computable₂_in o) :
   (λ a b, f (g a b)) computable₂_in o := hf.comp hg
 
+@[trans] theorem trans {f : α → σ} {g : β → τ} {h : γ → μ} : f computable_in! g → g computable_in! h → f computable_in! h :=
+nat.rpartrec.trans
+
+@[trans] theorem trans₂ {f : α → σ} {g : β → γ → τ} {h : δ →. μ} :
+  f computable_in! (prod.unpaired g) → g computable₂_in h → f computable_in h :=
+nat.rpartrec.trans
+
 theorem nat_elim
   {f : α → ℕ} {g : α → σ} {h : α × ℕ × σ → σ} {o : β →. γ}
   (hf : f computable_in o) (hg : g computable_in o) (hh : h computable_in o) :
@@ -324,9 +335,6 @@ protected theorem decode {f : β →. σ} : (@decode α _) computable_in f := co
 
 @[refl] theorem refl {f : α → β} : f computable_in (f : α →. β) := nat.rpartrec.refl
 theorem refl_in (f : α → β) : f computable_in (f : α →. β) := nat.rpartrec.refl
-
-@[trans] theorem trans {f : α → σ} {g : β → τ} {h : γ →. μ} :
-  f computable_in (g : β →. τ) → g computable_in h → f computable_in h := nat.rpartrec.trans
 
 protected theorem cond {c : α → bool} {f : α → σ} {g : α → σ} {h : β →. τ}
   (hc : c computable_in h) (hf : f computable_in h) (hg : g computable_in h) :
@@ -463,9 +471,14 @@ theorem total_computable {f : α →. σ} (h : ∀ a, (f a).dom) :
   (λ a, (f a).get (h a)) computable_in f := (rpartrec.refl.of_eq $ by simp)
 
 end rcomputable
-
+ 
 namespace rcomputable₂
 open rcomputable
+variables {ν : Type*} [primcodable ν]
+
+@[trans] theorem trans₂ {f : α → β → σ} {g : γ → δ → τ} {h : μ →. ν} :
+  f computable₂_in! (prod.unpaired g) → g computable₂_in h → f computable₂_in h :=
+nat.rpartrec.trans
 
 theorem comp {f : γ → δ → σ} {g : α → γ} {h : α → δ} {o : τ →. μ} 
   (hf : f computable₂_in o) (hg : g computable_in o) (hh : h computable_in o) :

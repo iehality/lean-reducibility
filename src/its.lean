@@ -1,4 +1,4 @@
-import lib tree reducibility
+import lib tree
 
 open encodable denumerable
 
@@ -395,19 +395,33 @@ lemma sigma_outcome_of_eq_up {μ₁ μ₂ : Tree k} (lt : μ₁ ⊂ᵢ μ₂)
   (eqn : up[S] μ₁ = up[S] μ₂) (up_lt : up[S] μ₂ ⊂ᵢ λ[S] μ₂) : (out ⟨μ₁, lt⟩).is_sigma :=
 sigma_outcome_of_eq_up S ((default _) :: μ₂) lt (by simp) eqn up_lt
 
-lemma sigma_outcome_of_pi {μ μ₀ : Tree k} {lt : μ₀ ⊂ᵢ μ} (pi : (out ⟨μ₀, lt⟩).is_pi) :
-  λ[S] (out ⟨μ₀, lt⟩ :: μ₀) = (out ⟨μ₀, lt⟩ :: μ₀) :: up[S] μ₀ :=
+lemma sigma_outcome_of_pi {μ : Tree k} {μ₀ : ancestor μ} (pi : (out μ₀).is_pi) :
+  λ[S] (out μ₀ :: μ₀.val) = (out μ₀ :: μ₀.val) :: up[S] μ₀ :=
 begin
   simp[lambda, approx.lambda],
-  have : up[S] μ₀ ⊂ᵢ λ[S] μ₀ ∨ up[S] μ₀ = λ[S] μ₀,
-    from list.suffix_iff_is_initial.mp (S.up_le_lambda μ₀),
+  have : up[S] ↑μ₀ ⊂ᵢ λ[S] ↑μ₀ ∨ up[S] ↑μ₀ = λ[S] ↑μ₀, from list.suffix_iff_is_initial.mp (S.up_le_lambda μ₀.val),
   rcases this with (lt_up | eq_up),
-  { have : approx.pi_derivative (up[S] μ₀) (S.up' μ₀) = [],
+  { have : approx.pi_derivative (up[S] ↑μ₀) (S.up' ↑μ₀) = [],
     { simp[approx.pi_derivative, approx.derivative, list.filter_eq_nil],
       rintros ⟨μ₁, lt_μ₁⟩ pi' eq_up,
       have := S.sigma_outcome_of_eq_up lt_μ₁ eq_up lt_up, exact not_pi_sigma pi' this },
     simp [this, pi] },
   { simp[eq_up, lambda] }
+end
+
+lemma sigma_outcome_of_eq_up' {μ₁ μ₂ : Tree k} (lt : μ₁ ⊂ᵢ μ₂)
+  (eqn : up[S] μ₁ = up[S] μ₂) : (out ⟨μ₁, lt⟩).is_sigma :=
+begin
+  have C : (out ⟨μ₁, lt⟩).is_pi ∨ (out ⟨μ₁, lt⟩).is_sigma, from pi_or_sigma (out ⟨μ₁, lt⟩),
+  cases C,  
+  have C₂ : up[S] μ₂ ⊂ᵢ λ[S] μ₂ ∨ up[S] μ₂ = λ[S] μ₂, from list.suffix_iff_is_initial.mp (S.up_le_lambda μ₂),
+  cases C₂,
+  { exact S.sigma_outcome_of_eq_up lt eqn C₂ },
+  { have : λ[S] (out ⟨μ₁, lt⟩ :: μ₁) = (out ⟨μ₁, lt⟩ :: μ₁) :: up[S] μ₁, from S.sigma_outcome_of_pi C,
+    have : λ[S] μ₂ ⊂ᵢ λ[S] (out ⟨μ₁, lt⟩ :: μ₁), { simp[this, eqn, C₂] },
+    have : ¬λ[S] μ₂ ⊂ᵢ λ[S] (out ⟨μ₁, lt⟩ :: μ₁), from S.noninitial_of_suffix (suffix_out_cons ⟨μ₁, lt⟩),
+    contradiction },
+  exact C
 end
 
 variables (Λ : Path k)
@@ -536,6 +550,24 @@ begin
   refine ⟨s₁, rfl, this⟩
 end
 
+lemma le_Lambda_of_thick' {Λ : Path k} (thick : Λ.thick)
+  {η : Tree (k + 1)} (le : η ⊆' Λ[S] Λ) : lim s, η =≤ λ[S] (Λ s) :=
+by { rcases le with ⟨s₁, le⟩, exact S.le_Lambda_of_thick thick le }
+
+lemma up_eq_lambda_of_thick {Λ : Path k} (thick : Λ.thick) {s}
+  {η : Tree (k + 1)} (le : up[S] (Λ s) ⊆' Λ[S] Λ) : ∃ s₀ ≤ s, up[S] (Λ s) = λ[S] (Λ s₀) :=
+begin
+  have C : up[S] (Λ s) ⊂ᵢ λ[S] (Λ s) ∨ up[S] (Λ s) = λ[S] (Λ s), from list.suffix_iff_is_initial.mp (S.up_le_lambda (Λ s)),
+  cases C,
+  { rcases S.le_Lambda_of_thick' thick le with ⟨t, up_eq, _⟩, simp[up_eq] at C,
+    have : t ≤ s,
+    { by_contradiction, have : s ≤ t, exact le_of_not_ge h,
+      have : ¬λ[S] (Λ t) ⊂ᵢ λ[S] (Λ s), from S.noninitial_of_suffix (thick.le_mono_iff.mpr (le_of_not_ge h)),
+      contradiction },
+    exact ⟨t, this, up_eq⟩ },
+  exact ⟨s, by refl, C⟩
+end
+
 lemma eq_lt_lambda_of_lt_Lambda_of_pi {Λ : Path k} (thick : Λ.thick)
   {η : Tree (k + 1)} {s₀} (lt : η ⊂ᵢ (Λ[S] Λ) s₀) (pi : (out ⟨η, lt⟩).is_pi) :
   lim s, ⟨η, lt⟩ =< λ[S] (Λ s) :=
@@ -652,6 +684,10 @@ begin
     { exact ne (eq.symm C₁)} }
 end
 
+lemma lt_weight_lambda_of_incomparable {μ₁ μ₂ : Tree k} (lt : μ₁ ⊂ᵢ μ₂) (ne : λ[S] μ₁ ∥ λ[S] μ₂) :
+  (λ[S] μ₁).weight < (λ[S] μ₂).weight :=
+S.weight_lambda_mono lt (λ eq, by { simp [eq] at ne, contradiction })
+
 lemma Lambda_pi_outcome
   {η : Tree (k + 1)} {s₀} (lt : η ⊂ᵢ (Λ[S] Λ) s₀) (pi : (out ⟨η, lt⟩).is_pi)
   {μ : Tree k} {t₀} (lt' : μ ⊂ᵢ Λ t₀) (up_eq : up[S] μ = η) : (out ⟨μ, lt'⟩).is_sigma :=
@@ -676,7 +712,7 @@ end
 
 lemma Lambda_sigma_outcome
   {η : Tree (k + 1)} {s₀} (lt : η ⊂ᵢ (Λ[S] Λ) s₀) (sigma : (out ⟨η, lt⟩).is_sigma) :
-  ∃ {μ : Tree k} {t₀} (lt' : μ ⊂ᵢ Λ t₀) (up_eq : up[S] μ = η), (out ⟨μ, lt'⟩).is_pi :=
+  ∃ {μ : Tree k} {t₀} (lt' : μ ⊂ᵢ Λ t₀) (up_eq : up[S] μ = η), out ⟨η, lt⟩ = out ⟨μ, lt'⟩ :: μ ∧ (out ⟨μ, lt'⟩).is_pi :=
 begin
   rcases S.le_lamvda_of_lt_Lambda' lt with ⟨s₁, le⟩,
   have lt' : η ⊂ᵢ λ[S] (Λ s₁), from list.suffix_cons_iff_is_initial.mp ⟨_, le s₁ (by refl)⟩,
@@ -687,7 +723,84 @@ begin
   { rcases S.eq_lambda_of_lt_lambda ⟨η, lt'⟩ with ⟨⟨μ₀, lt_μ₀⟩, _, _, eqn_μ₀, eq_up₀⟩, 
     have : μ = μ₀, { simp[eqn_μ] at eqn_μ₀, exact list.tail_eq_of_cons_eq eqn_μ₀ },
     rcases this with rfl, exact eq.symm eq_up₀ },
-  exact ⟨μ, s₁, lt_μ, this, pi⟩
+  exact ⟨μ, s₁, lt_μ, this, by simp[←eq_out, eqn_μ], pi⟩
+end
+
+lemma up_sigma_semimono (thick : Λ.thick)
+  {s₁ s₂ : ℕ} (le : s₁ ≤ s₂) (pi₂ : (thick.out s₂).is_pi) (le₁ : up[S] (Λ s₁) ⊆' Λ[S] Λ) :
+  up[S] (Λ s₁) <:+ up[S] (Λ s₂) :=
+begin
+  rcases S.le_Lambda_of_thick' thick le₁ with ⟨t₁, eq_up, le_up⟩, simp at eq_up le_up,
+  have C : up[S] (Λ s₁) <:+ up[S] (Λ s₂) ∨ up[S] (Λ s₂) ⊂ᵢ up[S] (Λ s₁) ∨ up[S] (Λ s₁) ∥ up[S] (Λ s₂),
+    from list.incomparable_trichotomy (up[S] (Λ s₁)) (up[S] (Λ s₂)),
+  cases C,
+  { exact C },
+  exfalso,
+  { have C₂ : up[S] (Λ s₁) ⊂ᵢ λ[S] (Λ s₁) ∨ up[S] (Λ s₁) = λ[S] (Λ s₁), from list.suffix_iff_is_initial.mp (S.up_le_lambda (Λ s₁)), 
+    cases C₂,
+    { have le_t₁ : t₁ ≤ s₁,
+      { by_contradiction nle,
+        have : ¬up[S] (Λ s₁) ⊂ᵢ λ[S] (Λ s₁),simp[eq_up], from S.noninitial_of_suffix (thick.le_mono_iff.mpr (le_of_not_ge nle)),
+        contradiction },
+      cases C,
+      { have : λ[S] (Λ (s₂ + 1)) = Λ (s₂ + 1) :: up[S] (Λ s₂), simp[thick.succ_eq], from S.sigma_outcome_of_pi pi₂,
+        have : λ[S] (Λ (s₂ + 1)) ∥ up[S] (Λ s₁), simp[this],
+          from list.incomparable_of_lt C (λ A, by { have : Λ (s₂ + 1) <:+ Λ s₁, from S.suffix_of_mem_lambda (list.mem_of_suffix (S.up_le_lambda (Λ s₁)) A),
+          exact nat.lt_le_antisymm (nat.succ_le_iff.mp (thick.le_mono_iff.mp this)) le }),
+        have : ¬up[S] (Λ s₁) <:+ λ[S] (Λ (s₂ + 1)), from this.2,
+        have : up[S] (Λ s₁) <:+ λ[S] (Λ (s₂ + 1)), from le_up (s₂ + 1) (le_t₁.trans (le.trans (nat.le_succ s₂))),
+        contradiction },
+      { have : up[S] (Λ s₁) <:+ λ[S] (Λ s₂), from le_up s₂ (le_t₁.trans le),
+        have : ¬up[S] (Λ s₁) <:+ λ[S] (Λ s₂), from (list.incomparable_of_le_of_le C (by refl) (S.up_le_lambda _)).1,
+        contradiction } },
+    { cases C,
+      { have : λ[S] (Λ (s₂ + 1)) = Λ (s₂ + 1) :: up[S] (Λ s₂), simp[thick.succ_eq], from S.sigma_outcome_of_pi pi₂,
+        have : λ[S] (Λ (s₂ + 1)) ∥ λ[S] (Λ s₁), simp[this, ←C₂],
+          from list.incomparable_of_lt C (λ A, by { have : Λ (s₂ + 1) <:+ Λ s₁, from S.suffix_of_mem_lambda (list.mem_of_suffix (S.up_le_lambda (Λ s₁)) A),
+          exact nat.lt_le_antisymm (nat.succ_le_iff.mp (thick.le_mono_iff.mp this)) le }),
+        have : ¬λ[S] (Λ s₁) <:+ λ[S] (Λ (max (s₂ + 1) t₁)),
+          from (S.incomparable_of_incomparable (thick.le_mono_iff.mpr (le.trans (nat.le_succ s₂)))
+          (thick.le_mono_iff.mpr (le_max_left (s₂ + 1) t₁)) this.symm).1,
+        have : λ[S] (Λ s₁) <:+ λ[S] (Λ (max (s₂ + 1) t₁)), simp[←C₂], from le_up (max (s₂ + 1) t₁) (le_max_right (s₂ + 1) t₁),
+        contradiction },
+      { have : λ[S] (Λ s₁) ∥ λ[S] (Λ s₂), from list.incomparable_of_le_of_le C (by simp[C₂]) (S.up_le_lambda _),
+        have : ¬λ[S] (Λ s₁) <:+ λ[S] (Λ (max s₂ t₁)),
+          from (S.incomparable_of_incomparable (thick.le_mono_iff.mpr le) (thick.le_mono_iff.mpr (le_max_left s₂ t₁)) this).1,
+        have : λ[S] (Λ s₁) <:+ λ[S] (Λ (max s₂ t₁)), simp[←C₂], from le_up (max s₂ t₁) (le_max_right s₂ t₁),
+        contradiction } } }
+end
+
+lemma lt_weight_lambda_up (thick : Λ.thick) (proper : Λ.proper)
+  {s₁ s₂ : ℕ} (lt : s₁ < s₂) (pi₁ : (thick.out s₁).is_pi) (pi₂ : (thick.out s₂).is_pi) (lt₁ : up[S] (Λ s₁) ⊆' Λ[S] Λ) :
+  (λ[S] (Λ s₁)).weight < (up[S] (Λ s₂)).weight :=
+begin
+  have eq_lam₁ : λ[S] (Λ (s₁ + 1)) = Λ (s₁ + 1) :: up[S] (Λ s₁), simp[thick.succ_eq], from S.sigma_outcome_of_pi pi₁,
+  have eq_lam₂ : λ[S] (Λ (s₂ + 1)) = Λ (s₂ + 1) :: up[S] (Λ s₂), simp[thick.succ_eq], from S.sigma_outcome_of_pi pi₂,
+  have lt_weight : (λ[S] (Λ s₁)).weight < (λ[S] (Λ (s₁ + 1))).weight,
+  { have C : up[S] (Λ s₁) ⊂ᵢ λ[S] (Λ s₁) ∨ up[S] (Λ s₁) = λ[S] (Λ s₁), from list.suffix_iff_is_initial.mp (S.up_le_lambda (Λ s₁)),
+    cases C,
+    { have : λ[S] (Λ (s₁ + 1)) ∥ λ[S] (Λ s₁), simp[eq_lam₁],
+        from list.incomparable_of_lt C (λ h, nat.not_succ_le_self s₁ (thick.le_mono_iff.mp (S.suffix_of_mem_lambda h))),
+      exact S.lt_weight_lambda_of_incomparable (thick.lt_mono_iff.mpr (lt_add_one s₁)) this.symm },
+    { exact lt_weight_of_lt (S.lambda_proper (proper (s₁ + 1))) (by simp[←C, eq_lam₁]) } },
+  have : λ[S] (Λ (s₁ + 1)) <:+ up[S] (Λ s₂),
+  { have C : up[S] (Λ s₁) ⊂ᵢ up[S] (Λ s₂) ∨ up[S] (Λ s₁) = up[S] (Λ s₂),
+    from list.suffix_iff_is_initial.mp (S.up_sigma_semimono Λ thick (le_of_lt lt) pi₂ lt₁),
+    cases C,
+    { simp[eq_lam₁],
+      have lt₁ : up[S] (Λ s₁) ⊂ᵢ λ[S] (Λ (s₁ + 1)), { simp[eq_lam₁] },
+      have lt₂ : up[S] (Λ s₁) ⊂ᵢ λ[S] (Λ (s₂ + 1)), { refine C.trans (by simp[eq_lam₂]) },
+      have eq_out₁ : out ⟨up[S] (Λ s₁), lt₁⟩ = Λ (s₁ + 1), { simp[out_eq_iff, eq_lam₁] },
+      have : Λ (s₁ + 1) = out ⟨up[S] (Λ s₁), lt₂⟩, rw ←eq_out₁,
+        from S.eq_out_of_sigma (thick.lt_mono_iff.mpr (nat.succ_lt_succ lt)).suffix lt₁ lt₂
+        (by simp[eq_out₁, thick.out_sigma, pi₁]), 
+      have : Λ (s₁ + 1) = out ⟨up[S] (Λ s₁), C⟩, simp[this], from suffix_out_eq rfl (by simp[eq_lam₂]),
+      exact out_eq_iff.mp (eq.symm this) },
+    { exfalso,
+      have : (out ⟨Λ s₁, _⟩).is_sigma, from S.sigma_outcome_of_eq_up' (thick.lt_mono_iff.mpr lt) C, simp[thick.out_eq_out] at this,
+      exact not_pi_sigma pi₁ this } },
+  have : (λ[S] (Λ (s₁ + 1))).weight ≤ (up[S] (Λ s₂)).weight, from le_weight_of_le (S.up_proper (proper s₂)) this,
+  exact lt_of_lt_of_le lt_weight this,
 end
 
 -- derivatives の候補
@@ -905,56 +1018,3 @@ begin
 end
 
 end strategy
-
-namespace friedberg_muchnik
-
-def str : strategy 1 := default _
-
-def generator : ℕ → (Tree 0 × (list ℕ × list ℕ))
-| 0       := ([], [], [])
-| (s + 1) :=
-    let μ  : Tree 0 := (generator s).1, 
-        I₀ : list ℕ := (generator s).2.1,
-        I₁ : list ℕ := (generator s).2.2,
-        η  : Tree 1 := str.up μ in
-    match s.bodd with
-    | ff := if ⟦η.length⟧ᵪ^I₀.chr [μ.weight] η.weight = some ff then (∞ :: μ, (I₀, η.weight :: I₁)) else (𝟘 :: μ, (I₀, I₁))
-    | tt := if ⟦η.length⟧ᵪ^I₁.chr [μ.weight] η.weight = some ff then (∞ :: μ, (η.weight :: I₀, I₁)) else (𝟘 :: μ, (I₀, I₁))
-    end
-
-def Λ₀ : Path 0 := ⟨λ s, (generator s).fst, λ s,
-  by { cases C : s.bodd; simp[generator, C],
-       { by_cases C₁ : ⟦(up[str] (generator s).fst).length⟧ᵪ^((generator s).2.1.chr) [(generator s).1.weight]
-         (up[str] (generator s).1).weight = some ff; simp[C₁] },
-       { by_cases C₁ : ⟦(up[str] (generator s).fst).length⟧ᵪ^((generator s).2.2.chr) [(generator s).1.weight]
-         (up[str] (generator s).1).weight = some ff; simp[C₁] } }⟩
-
-lemma Λ₀_thick : Λ₀.thick :=
-⟨by simp[Λ₀, generator], λ s, by { cases C : s.bodd; simp[Λ₀, generator, C],
-  { by_cases C₁ : ⟦(up[str] (generator s).fst).length⟧ᵪ^((generator s).2.1.chr) [(generator s).1.weight]
-      (up[str] (generator s).1).weight = some ff; simp[C₁], { refine ⟨_, rfl⟩ }, { refine ⟨_, rfl⟩ } },
-  { by_cases C₁ : ⟦(up[str] (generator s).fst).length⟧ᵪ^((generator s).2.2.chr) [(generator s).1.weight]
-      (up[str] (generator s).1).weight = some ff; simp[C₁], { refine ⟨_, rfl⟩ }, { refine ⟨_, rfl⟩ } } }⟩
-
-lemma Λ₀_app_eq (s : ℕ) : Λ₀ s = (generator s).1 := rfl
-
-def I₀ (s : ℕ) : list ℕ := (generator s).2.1
-
-def I₁ (s : ℕ) : list ℕ := (generator s).2.2
-
-def I₀_inf : set ℕ := {n | ∃ s, n ∈ I₀ s}
-
-def I₁_inf : set ℕ := {n | ∃ s, n ∈ I₁ s}
-
-lemma pi_outcome_even {s₀} (μ : Tree 0) (h : μ ⊂ᵢ Λ₀ s₀) (pi : (out ⟨μ, h⟩).is_pi) (even : μ.length.bodd = ff) :
-  ⟦(up[str] μ).length⟧ᵪ^(I₀ μ.length).chr [μ.weight] (up[str] μ).weight = ff ∧ (up[str] μ).weight ∈ I₀ (μ.length + 1):=
-begin
-  rcases Λ₀_thick.ssubset.mp ⟨_, h.suffix⟩ with ⟨s₁, rfl⟩,
-  simp [Λ₀_thick.length] at even, simp at pi,
-  have : generator (s₁ + 1) = (∞ :: Λ₀ s₁, (I₀ s₁, (up[str] (Λ₀ s₁)).weight :: (I₁ s₁))),
-  { have : Λ₀ (s₁ + 1) = ∞ :: Λ₀ s₁, {  }  }
-end
-
-
-
-end friedberg_muchnik
