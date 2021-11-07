@@ -389,6 +389,8 @@ def chr {α} [decidable_eq α] (l : list α) (a : α) : bool := a ∈ l
 
 @[simp] lemma chr_ff_iff {α} [decidable_eq α] (l : list α) (a : α) : l.chr a = ff ↔ a ∉ l := by simp[chr]
 
+@[simp] lemma chr_app_iff {α} [decidable_eq α] (l : list α) (a : α) : l.chr a ↔ a ∈ l := by simp[chr]
+
 lemma chr_get_elem {α} [decidable_eq α] (l : list α) : l.chr = (λ a, (l.get_elem (λ x, x = a)).is_some) :=
 begin
   ext a, cases C : l.get_elem (λ x, x = a); simp,
@@ -929,17 +931,9 @@ funext (λ i, by { rcases i with ⟨i, i_p⟩, cases i; simp[cons], cases i, { s
 
 end finitary
 
-namespace pfun
+def eq_under {α : Sort*} (n : ℕ) (f g : ℕ → α) : Prop := ∀ x < n, f x = g x
 
-def res_lt {α} (f : ℕ → α) (n : ℕ) : ℕ →. α := pfun.res f {x | x < n}
-
-notation f ` ⌈` :80 n :80 := res_lt f n
-
-lemma res_lt_ext {α} (f g : ℕ → α) (n : ℕ) (h : ∀ x < n, f x = g x) : f ⌈n = g ⌈n :=
-by { ext x a, simp[res_lt, pfun.mem_res],
-     intros lt, simp[h x lt] }
-
-end pfun
+notation f ` =[<` n `]` g := eq_under n f g
 
 lemma part.opt_exists {α} (p : part α) : ∃ o : option α, (o : part α) = p :=
 by { by_cases p.dom, refine ⟨p.get h, by { unfold_coes, simp [part.of_option]}⟩,

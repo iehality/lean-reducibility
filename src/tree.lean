@@ -224,6 +224,10 @@ begin
     simp[eqn₁, eqn₂] }
 end
 
+lemma suffix_out_eq' {n} {η₁ η₂: Tree n} {μ₁ : ancestor η₁} {μ₂ : ancestor η₂}
+  (h₁ : μ₁.val = μ₂.val) (h₂ : η₁ <:+ η₂ ∨ η₂ <:+ η₁) : out μ₁ = out μ₂ :=
+by { cases h₂, { exact eq.symm (suffix_out_eq (eq.symm h₁) h₂) }, { exact suffix_out_eq h₁ h₂ } }
+
 @[simp] lemma out_extend_eq {k} {η₁ η₂ : Tree k} {h : η₁ <:+ η₂} {μ₁ : ancestor η₁} :
   out (ancestor.extend h μ₁) = out μ₁ :=
 suffix_out_eq (by simp) h
@@ -273,6 +277,17 @@ infix ` ⊂' `:50   := Path.ssubset
 infix ` ⊆' `:50   := Path.subset
 
 def infinite (Λ : Path k) : Prop := ∀ n, ∃ m, Λ n ⊂ᵢ Λ (n + m)
+
+noncomputable def infinite.succ {Λ : Path k} (h : Λ.infinite) (n : ℕ) : ℕ := classical.some (h n)
+
+@[simp] lemma infinite.succ_spec {Λ : Path k} (h : Λ.infinite) (n : ℕ) : Λ n ⊂ᵢ Λ (n + h.succ n) :=
+classical.some_spec (h n)
+
+noncomputable def infinite.out {Λ : Path k} (h : Λ.infinite) (s : ℕ) : Tree' k := out ⟨Λ s, h.succ_spec s⟩
+
+lemma infinite.out_eq_out {Λ : Path k} (h : Λ.infinite) {s t : ℕ} (lt : Λ s ⊂ᵢ Λ t) : out ⟨Λ s, lt⟩ = h.out s :=
+by { have C : s + h.succ s ≤ t ∨ t ≤ s + h.succ s, from le_total (s + infinite.succ h s) t,
+     refine suffix_out_eq' rfl (by cases C; simp[Λ.mono' C])}
 
 def thick (Λ : Path k) : Prop := Λ 0 = [] ∧ ∀ n, ∃ ν, Λ (n + 1) = ν :: Λ n
 
@@ -355,6 +370,9 @@ by { rcases h.2 s with ⟨ν, eqn⟩,
      { simp[h.succ_eq s] at eqn, exact list.head_eq_of_cons_eq eqn },
      simp[eq₁, eq₂] }
 
+lemma thick.infinite_out_eq_out {Λ : Path k} (h : Λ.thick) (inf : Λ.infinite) {s : ℕ} : inf.out s = h.out s :=
+by simp[infinite.out, h.out_eq_out]
+
 lemma infinite.thick_exists {Λ : Path k} (h : Λ.infinite) :
   ∃ Λ' : Path k, Λ' ≃ₚ Λ ∧ Λ'.thick :=
 begin
@@ -415,9 +433,11 @@ def Tree'.is_sigma {k} (η : Tree' k) : bool := !η.is_pi
 | (k + 1) (η :: _) := Tree'.is_validated η
 | (k + 1) []       := ff
 
-notation `∞` := tt
+def infinity : Tree' 0 := tt
+notation `∞` := infinity
 
-notation `𝟘` := ff
+def zero : Tree' 0 := ff
+notation `𝟘` := zero
 
 @[simp] lemma is_pi_neg {k} {η : Tree k} : !η.is_pi ↔ η.is_sigma := by simp[Tree'.is_sigma]
 
@@ -436,17 +456,17 @@ by { unfold Tree'.is_sigma, cases η.is_pi; simp }
 lemma not_pi_sigma {k} {η : Tree' k} (pi : η.is_pi) (sigma : η.is_sigma) : false :=
 by { simp only [Tree'.is_sigma] at sigma, cases η.is_pi, { exact bool.not_ff pi }, { exact bool.not_ff sigma } }
 
-@[simp] lemma pi_cons_iff_sigma {k} {μ : Tree' k} {η : Tree k} : @Tree'.is_pi (k + 1) (μ :: η) = μ.is_sigma :=
+@[simp] lemma pi_cons_iff_sigma {k} (μ : Tree' k) (η : Tree k) : @Tree'.is_pi (k + 1) (μ :: η) = μ.is_sigma :=
 by simp[Tree'.is_sigma]
 
-@[simp] lemma sigma_cons_iff_pi {k} {μ : Tree' k} {η : Tree k} : @Tree'.is_sigma (k + 1) (μ :: η) = μ.is_pi :=
+@[simp] lemma sigma_cons_iff_pi {k} (μ : Tree' k) (η : Tree k) : @Tree'.is_sigma (k + 1) (μ :: η) = μ.is_pi :=
 by simp[Tree'.is_sigma]
 
 @[simp] lemma is_pi_iff_eq_infinity (μ : Tree' 0) : μ.is_pi ↔ μ = ∞ :=
-by cases μ; simp
+by simp[infinity]; cases μ; simp
 
 @[simp] lemma is_sigma_iff_eq_zero (μ : Tree' 0) : μ.is_sigma ↔ μ = 𝟘 :=
-by cases μ; simp[Tree'.is_sigma]
+by simp[zero]; cases μ; simp[Tree'.is_sigma]
 
 lemma Path.thick.out_sigma {k} {Λ : Path k} (h : Λ.thick) {s : ℕ} : (Λ (s + 1)).is_sigma ↔ (h.out s).is_pi :=
 by simp [h.succ_eq]
@@ -508,8 +528,8 @@ by { cases k; simp[Tree'.proper],
 end Tree'.proper
 
 def Tree'.weight_aux : ∀ {k}, Tree' k → ℕ
-| 0       ∞ := 0
-| 0       𝟘  := 1
+| 0       tt := 0
+| 0       ff := 1
 | (k + 1) μ  := list.weight_of (@Tree'.weight_aux k) μ
 
 variables {k : ℕ}

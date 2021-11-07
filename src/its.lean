@@ -607,25 +607,13 @@ begin
   refine ⟨s₃, eq_lam_s₂, this⟩  
 end
 
-lemma equiv_lambda {Λ₁ Λ₂ : Path k} (equiv : Λ₁ ≃ₚ Λ₂) :
+lemma equiv_lambda {Λ₁ Λ₂ : Path k} (equiv : Λ₁ ≃ₚ Λ₂) (thick : Λ₂.thick):
   Λ[S] Λ₁ = Λ[S] Λ₂ :=
 Path.ext (λ s, begin
   rcases S.Lambda_spec Λ₁ s with ⟨t₁, eqn₁⟩,
-  have : ∃ μ₁, μ₁ <:+ Λ₁ t₁ ∧ (Λ[S] Λ₁) s = λ[S] μ₁,
-    simp [←eqn₁ t₁ (by refl)], from S.eq_lambda_of_le_lambda' (list.suffix_initial _ _),
-  rcases this with ⟨μ₁, le₁, eqn_lam₁⟩,    
-  rcases equiv.1 t₁ with ⟨s₂, le₂⟩,
-  rcases equiv.2 s₂ with ⟨s₃, le₃⟩,
-  have le₃' : Λ₂ s₂ <:+ Λ₁ (max t₁ s₃), from le₃.trans (Λ₁.mono' (le_max_right t₁ s₃)),
-  have : λ[S] μ₁ <:+ λ[S] (Λ₁ (max t₁ s₃)),
-  { simp[←eqn_lam₁, ←eqn₁ (max t₁ s₃) (le_max_left t₁ s₃)], exact list.suffix_initial _ _ },  
-  have : λ[S] μ₁ <:+ λ[S] (Λ₂ s₂), from S.suffix_of_suffix (le₁.trans le₂) le₃' this,
-  have : λ[S] (Λ₂ s₂) = (Λ[S] Λ₂) (λ[S] μ₁).length,
-  { rcases S.Lambda_spec Λ₂ (λ[S] μ₁).length with ⟨t₂, eqn₂⟩,
-    rw ← eqn₂ (max t₂ s₂) (le_max_left t₂ s₂), sorry  },
-  rcases S.Lambda_spec Λ₂ s with ⟨t₂, eqn₂⟩,  
+  rcases S.Lambda_spec Λ₂ s with ⟨t₂, eqn₂⟩,
+  rcases equiv with ⟨le₁, le₂⟩,
   sorry
-  
 end)
 
 @[simp] def lambda_itr : ∀ (μ : Tree k) (i : ℕ), Tree (k + i)
@@ -726,6 +714,16 @@ begin
   exact ⟨μ, s₁, lt_μ, this, by simp[←eq_out, eqn_μ], pi⟩
 end
 
+lemma Lambda_sigma_outcome_of_thick (thick : Λ.thick)
+  {η : Tree (k + 1)} {s₀} (lt : η ⊂ᵢ (Λ[S] Λ) s₀) (sigma : (out ⟨η, lt⟩).is_sigma) :
+  ∃ {s : ℕ}, up[S] (Λ s) = η ∧ out ⟨η, lt⟩ = thick.out s :: Λ s ∧ (thick.out s).is_pi :=
+begin
+  rcases S.Lambda_sigma_outcome Λ lt sigma with ⟨μ, t₀, lt_μ, rfl, eq_out, pi⟩,
+  rcases thick.ssubset.mp ⟨t₀, lt_μ.suffix⟩ with ⟨s₁, rfl⟩,
+  simp[thick.out_eq_out] at*,
+  refine ⟨s₁, rfl, eq_out, pi⟩
+end
+
 lemma up_sigma_semimono (thick : Λ.thick)
   {s₁ s₂ : ℕ} (le : s₁ ≤ s₂) (pi₂ : (thick.out s₂).is_pi) (le₁ : up[S] (Λ s₁) ⊆' Λ[S] Λ) :
   up[S] (Λ s₁) <:+ up[S] (Λ s₂) :=
@@ -740,7 +738,7 @@ begin
     cases C₂,
     { have le_t₁ : t₁ ≤ s₁,
       { by_contradiction nle,
-        have : ¬up[S] (Λ s₁) ⊂ᵢ λ[S] (Λ s₁),simp[eq_up], from S.noninitial_of_suffix (thick.le_mono_iff.mpr (le_of_not_ge nle)),
+        have : ¬up[S] (Λ s₁) ⊂ᵢ λ[S] (Λ s₁), simp[eq_up], from S.noninitial_of_suffix (thick.le_mono_iff.mpr (le_of_not_ge nle)),
         contradiction },
       cases C,
       { have : λ[S] (Λ (s₂ + 1)) = Λ (s₂ + 1) :: up[S] (Λ s₂), simp[thick.succ_eq], from S.sigma_outcome_of_pi pi₂,

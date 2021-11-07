@@ -39,6 +39,9 @@ by simp[chr]; cases (classical.dec (A x)); simp[h]
 theorem chr_iff {α} (A : set α) (x : α) (b : bool) : chr A x = b ↔ (A x ↔ b = tt) :=
 by cases b; simp
 
+@[simp] theorem chr_app_iff {α} (A : set α) (x : α) : chr A x ↔ A x :=
+by simp[chr]; cases (classical.dec (A x)); simp[h]
+
 theorem to_bool_chr_eq {α} (A : set α) (x : α) (D : decidable (A x)) :
   to_bool (A x) = chr A x :=
 by { cases (@decidable.em (A x) D) with h,

@@ -765,6 +765,10 @@ begin
   apply code.evaln_use, intros u eqn, congr, exact h _ eqn
 end
 
+theorem univn_tot_use {s e} {f g : ℕ → β}
+  (h : ∀ x, x < s → f x = g x) : (⟦e⟧^f [s] : α → option σ) = ⟦e⟧^g [s] :=
+univn_use (λ x lt, by simp[h x lt])
+
 theorem eval_inclusion {e} {x : α} {y : σ} {p : ℕ → option τ}
   (h : y ∈ (⟦e⟧*p x : part σ)) : ∃ s, ∀ {q : ℕ → option τ},
   (∀ x y, x < s → p x = some y → q x = some y) → y ∈ (⟦e⟧*q x : part σ) := 
