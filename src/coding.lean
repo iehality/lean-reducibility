@@ -769,6 +769,15 @@ theorem univn_tot_use {s e} {f g : ℕ → β}
   (h : ∀ x, x < s → f x = g x) : (⟦e⟧^f [s] : α → option σ) = ⟦e⟧^g [s] :=
 univn_use (λ x lt, by simp[h x lt])
 
+theorem univn_mono_use {e} {p q : ℕ → option τ} {s₀ s₁ : ℕ} {x : α} {y : σ}
+  (h : ∀ x < s₀, p x = q x) (eqn : s₀ ≤ s₁) : ⟦e⟧*p [s₀] x = some y → ⟦e⟧*q [s₁] x = some y := λ eq_y,
+  have (⟦e⟧*p [s₀] x : option σ) = ⟦e⟧*q [s₀] x, from congr_fun (univn_use h) x,  
+univn_mono eqn (by simp[←this, eq_y])
+
+theorem univn_tot_mono_use {e} {f g : ℕ → τ} {s₀ s₁ : ℕ} {x : α} {y : σ}
+  (h : ∀ x < s₀, f x = g x) (eqn : s₀ ≤ s₁) : ⟦e⟧^f [s₀] x = some y → ⟦e⟧^g [s₁] x = some y :=
+univn_mono_use (by simp; exact h) eqn
+
 theorem eval_inclusion {e} {x : α} {y : σ} {p : ℕ → option τ}
   (h : y ∈ (⟦e⟧*p x : part σ)) : ∃ s, ∀ {q : ℕ → option τ},
   (∀ x y, x < s → p x = some y → q x = some y) → y ∈ (⟦e⟧*q x : part σ) := 

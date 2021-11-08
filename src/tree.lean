@@ -319,6 +319,10 @@ begin
     exact gt_of_gt_of_ge (h.lt_length) IH }
 end
 
+lemma infinite.lt_length_eq {Λ : Path k} (h : Λ.infinite) (n : ℕ) : ∃ μ, μ ⊂' Λ ∧ μ.length = n :=
+by rcases h.length n with ⟨m, lt⟩;
+   refine ⟨Λ m↾* n, ⟨_, list.is_initial_initial _ _ lt⟩, list.initial_length lt⟩
+
 lemma thick.infinite {Λ : Path k} (h : Λ.thick) : Λ.infinite :=
 λ s, ⟨1, by { rcases h.2 s with ⟨ν, eqn⟩, simp[eqn] }⟩
 
@@ -525,6 +529,16 @@ by { cases k; simp[Tree'.proper],
      have : μ ∈ η₂, { rcases le with ⟨_, rfl⟩, exact list.mem_append_right _ mem},
      exact proper.2 this }
 
+lemma le_length_of_proper {k} {ν : Tree k} {μ : Tree (k + 1)} (proper : @Tree'.proper (k + 2) (ν :: μ)) :
+  μ.length ≤ ν.length :=
+begin
+  induction μ with σ μ IH generalizing ν; simp,
+  have : @Tree'.proper (k + 2) (σ :: μ), from proper_of_le (by simp) proper,
+  have le : μ.length ≤ σ.length, from IH this,
+  have lt : σ.length < ν.length, exact list.is_initial_length (proper.1.2 σ (by simp)),
+  exact nat.succ_le_iff.mpr (lt_of_le_of_lt le lt)
+end
+
 end Tree'.proper
 
 def Tree'.weight_aux : ∀ {k}, Tree' k → ℕ
@@ -596,4 +610,30 @@ lemma lt_weight_of_mem : ∀ {k} {μ : Tree k} {η : Tree (k + 1)} (proper : η.
 lemma lt_weight_cons_of_lt {μ₁ μ₂ : Tree k} {η₁ η₂ : Tree (k + 1)} (lt : μ₁ ⊂ᵢ μ₂) :
   Tree.weight (μ₁ :: η₁) < Tree.weight (μ₂ :: η₂) :=
 by { simp[Tree.weight], exact lt_weight_aux_of_lt lt}
+
+lemma lt_weight_aux_length {k} (μ : Tree k) : μ.length ≤ μ.weight_aux :=
+by { simp[Tree'.weight_aux], exact list.lt_length_weight }
+
+lemma le_weight_length : ∀ {k} {μ : Tree k} (proper : μ.proper), μ.length ≤ μ.weight
+| 0       μ        _      := by simp[Tree.weight, lt_weight_aux_length]
+| (k + 1) []       _      := by simp
+| (k + 1) (ν :: μ) proper := by { simp[Tree.weight], exact proper.le_length_of_proper.trans (lt_weight_aux_length ν) }
+
+
+lemma weight_restrict_injective : ∀ {k} {μ μ₁ μ₂ : Tree k} (proper : μ.proper) (le₁ : μ₁ <:+ μ) (le₂ : μ₂ <:+ μ),
+  μ₁.weight = μ₂.weight → μ₁ = μ₂
+| 0 _ _ _ _ _ _ eqn := by { simp[Tree.weight] at eqn, exact weight_aux_injective eqn }
+| (k + 1) μ [] [] _ le₁ le₂ eqn := rfl
+| (k + 1) μ [] (ν₂ :: μ₂) _ le₁ le₂ eqn := by { exfalso, simp[Tree.weight] at eqn, exact nat.succ_ne_zero _ (eq.symm eqn) }
+| (k + 1) μ (ν₁ :: μ₁) [] _ le₁ le₂ eqn := by { exfalso, simp[Tree.weight] at eqn, contradiction }
+| (k + 1) μ (ν₁ :: μ₁) (ν₂ :: μ₂) proper le₁ le₂ eqn :=
+    by { have : ν₁ :: μ₁ ⊂ᵢ ν₂ :: μ₂ ∨ ν₁ :: μ₁ = ν₂ :: μ₂ ∨ ν₂ :: μ₂ ⊂ᵢ ν₁ :: μ₁, from trichotomous_of_le_of_le le₁ le₂,
+         rcases this with (lt | eq | lt),
+         { exfalso,
+           have : Tree.weight (ν₁ :: μ₁) < Tree.weight (ν₂ :: μ₂), from lt_weight_of_lt (Tree'.proper.proper_of_le le₂ proper) lt,
+           simp[eqn] at this, contradiction },
+         { exact eq },
+         { exfalso,
+           have : Tree.weight (ν₂ :: μ₂) < Tree.weight (ν₁ :: μ₁), from lt_weight_of_lt (Tree'.proper.proper_of_le le₁ proper) lt,
+           simp[eqn] at this, contradiction } }
 

@@ -172,6 +172,10 @@ begin
     simp[Λ_thick.succ_eq s] at this, simp[this, infinity, zero] }
 end
 
+@[simp] lemma sigma_outcome_iff_of_even {s} (even : (up[str] (Λ s)).length.bodd = ff) :
+  (Λ_thick.out s).is_sigma ↔ ¬directing_sentence₀ s :=
+by { simp[←pi_outcome_iff_of_even even], cases Λ_thick.out s; simp[infinity, zero] }
+
 @[simp] lemma pi_outcome_iff_of_odd {s} (odd : (up[str] (Λ s)).length.bodd = tt) :
   (Λ_thick.out s).is_pi ↔ directing_sentence₁ s :=
 begin
@@ -182,10 +186,14 @@ begin
     simp[Λ_thick.succ_eq s] at this, simp[this, infinity, zero] }
 end
 
+@[simp] lemma sigma_outcome_iff_of_odd {s} (odd : (up[str] (Λ s)).length.bodd = tt) :
+  (Λ_thick.out s).is_sigma ↔ ¬directing_sentence₁ s :=
+by { simp[←pi_outcome_iff_of_odd odd], cases Λ_thick.out s; simp[infinity, zero] }
+
 lemma sigma_preservation_of_pi_of_even
   {s₁ s₂} (even : (up[str] (Λ s₁)).length.bodd = ff) (pi : directing_sentence₀ s₁) 
   (on_truepath : up[str] (Λ s₁) ⊆' Λ[str] Λ) (le : s₁ ≤ s₂) {a : ℕ} (bound : a ≤ (λ[str] (Λ s₁)).weight) :
-  a ∈ I₀ s₂ → a ∈ I₀ s₁:=
+  a ∈ I₀ s₂ → a ∈ I₀ s₁ :=
 begin
   simp only [mem_I₀_iff],
   rintros ⟨s, lt_s, odd, rfl, pi_s⟩,
@@ -194,14 +202,14 @@ begin
   exfalso,
   { rcases lt_s with (rfl | gt_s), { simp [odd] at even, contradiction },
     have : (λ[str] (Λ s₁)).weight < (up[str] (Λ s)).weight,
-      from str.lt_weight_lambda_up Λ Λ_thick (by simp) gt_s (by simp[even, pi]) (by simp[odd, pi_s]) on_truepath,
+      from str.lt_weight_lambda_up Λ_thick (by simp) gt_s (by simp[even, pi]) (by simp[odd, pi_s]) on_truepath,
     exact nat.lt_le_antisymm this bound }
 end
 
 lemma sigma_preservation_of_even_aux
-  {η : Tree 1} {s₀} (lt : η ⊂ᵢ (Λ[str] Λ) s₀) (sigma : (out ⟨η, lt⟩).is_sigma) (even : η.length.bodd = ff) :
+  {η : Tree 1} {s₀} {lt : η ⊂ᵢ (Λ[str] Λ) s₀} (sigma : (out ⟨η, lt⟩).is_sigma) (even : η.length.bodd = ff) :
   ∃ s, directing_sentence₀ s ∧
-    up[str] (Λ s) = η ∧ ⟦η.length.div2⟧ᵪ^(chr I₀_inf) [(λ[str] (Λ s)).weight] (up[str] (Λ s)).weight = ff :=
+    up[str] (Λ s) = η ∧ ⟦η.length.div2⟧ᵪ^(chr I₀_inf) [(λ[str] (Λ s)).weight] η.weight = ff :=
 begin
   rcases str.Lambda_sigma_outcome_of_thick Λ Λ_thick lt sigma with ⟨s, rfl, eq_out, pi⟩,
   have pi : directing_sentence₀ s, from (pi_outcome_iff_of_even even).mp pi,
@@ -218,12 +226,11 @@ begin
 end
 
 lemma sigma_preservation_of_even
-  {η : Tree 1} {s₀} (lt : η ⊂ᵢ (Λ[str] Λ) s₀) (sigma : (out ⟨η, lt⟩).is_sigma) (even : η.length.bodd = ff) :
-  ∃ w, w ∈ I₁_inf ∧ ff ∈ ⟦η.length.div2⟧ᵪ^(chr I₀_inf) w :=
-by { rcases sigma_preservation_of_even_aux lt sigma even with ⟨s, pi, rfl, eqn⟩,
+  {η : Tree 1} {s₀} {lt : η ⊂ᵢ (Λ[str] Λ) s₀} (sigma : (out ⟨η, lt⟩).is_sigma) (even : η.length.bodd = ff) :
+  η.weight ∈ I₁_inf ∧ ff ∈ ⟦η.length.div2⟧ᵪ^(chr I₀_inf) η.weight :=
+by { rcases sigma_preservation_of_even_aux sigma even with ⟨s, pi, rfl, eqn⟩,
      simp[rpartrec.univn_complete],
-     refine ⟨(up[str] (Λ s)).weight, mem_I₁_inf_of_pi_of_even even pi, (λ[str] (Λ s)).weight, eqn⟩}
-
+     refine ⟨mem_I₁_inf_of_pi_of_even even pi, (λ[str] (Λ s)).weight, eqn⟩}
 
 lemma sigma_preservation_of_pi_of_odd
   {s₁ s₂} (odd : (up[str] (Λ s₁)).length.bodd = tt) (pi : directing_sentence₁ s₁) 
@@ -237,14 +244,14 @@ begin
   exfalso,
   { rcases lt_s with (rfl | gt_s), { simp [even] at odd, contradiction },
     have : (λ[str] (Λ s₁)).weight < (up[str] (Λ s)).weight,
-      from str.lt_weight_lambda_up Λ Λ_thick (by simp) gt_s (by simp[odd, pi]) (by simp[even, pi_s]) on_truepath,
+      from str.lt_weight_lambda_up Λ_thick (by simp) gt_s (by simp[odd, pi]) (by simp[even, pi_s]) on_truepath,
     exact nat.lt_le_antisymm this bound }
 end
 
 lemma sigma_preservation_of_odd_aux
-  {η : Tree 1} {s₀} (lt : η ⊂ᵢ (Λ[str] Λ) s₀) (sigma : (out ⟨η, lt⟩).is_sigma) (odd : η.length.bodd = tt) :
+  {η : Tree 1} {s₀} {lt : η ⊂ᵢ (Λ[str] Λ) s₀} (sigma : (out ⟨η, lt⟩).is_sigma) (odd : η.length.bodd = tt) :
   ∃ s, directing_sentence₁ s ∧
-    up[str] (Λ s) = η ∧ ⟦η.length.div2⟧ᵪ^(chr I₁_inf) [(λ[str] (Λ s)).weight] (up[str] (Λ s)).weight = ff :=
+    up[str] (Λ s) = η ∧ ⟦η.length.div2⟧ᵪ^(chr I₁_inf) [(λ[str] (Λ s)).weight] η.weight = ff :=
 begin
   rcases str.Lambda_sigma_outcome_of_thick Λ Λ_thick lt sigma with ⟨s, rfl, eq_out, pi⟩,
   have pi : directing_sentence₁ s, from (pi_outcome_iff_of_odd odd).mp pi,
@@ -261,10 +268,199 @@ begin
 end
 
 lemma sigma_preservation_of_odd
-  {η : Tree 1} {s₀} (lt : η ⊂ᵢ (Λ[str] Λ) s₀) (sigma : (out ⟨η, lt⟩).is_sigma) (odd : η.length.bodd = tt) :
-  ∃ w, w ∈ I₀_inf ∧ ff ∈ ⟦η.length.div2⟧ᵪ^(chr I₁_inf) w :=
-by { rcases sigma_preservation_of_odd_aux lt sigma odd with ⟨s, pi, rfl, eqn⟩,
+  {η : Tree 1} {s₀} {lt : η ⊂ᵢ (Λ[str] Λ) s₀} (sigma : (out ⟨η, lt⟩).is_sigma) (odd : η.length.bodd = tt) :
+  η.weight ∈ I₀_inf ∧ ff ∈ ⟦η.length.div2⟧ᵪ^(chr I₁_inf) η.weight :=
+by { rcases sigma_preservation_of_odd_aux sigma odd with ⟨s, pi, rfl, eqn⟩,
      simp[rpartrec.univn_complete],
-     refine ⟨(up[str] (Λ s)).weight, mem_I₀_inf_of_pi_of_odd odd pi, (λ[str] (Λ s)).weight, eqn⟩ }
+     refine ⟨mem_I₀_inf_of_pi_of_odd odd pi, (λ[str] (Λ s)).weight, eqn⟩ }
+
+lemma nonmem_of_even
+  {η : Tree 1} {t} {lt : η ⊂ᵢ (Λ[str] Λ) t} (pi : (out ⟨η, lt⟩).is_pi) (even : η.length.bodd = ff) :
+  η.weight ∉ I₁_inf := λ mem,
+begin
+  rcases mem with ⟨s₀, mem⟩,
+  rcases (mem_I₁_iff s₀ η.weight).mp mem with ⟨s, lt_s, _, eq_weight, pi⟩,
+  have : η = up[str] (Λ s),
+  { rcases str.le_Lambda_of_thick' Λ_thick ⟨t, lt.suffix⟩ with ⟨s₀, rfl, _⟩, simp at*,
+    rcases str.eq_lambda_of_le_lambda' (str.up_le_lambda (Λ s)) with ⟨μ₀, le_μ₀, eq_up⟩,
+    rcases Λ_thick.ssubset.mp ⟨s, le_μ₀⟩ with ⟨s', rfl⟩,
+    simp[eq_up] at eq_weight ⊢, exact str.weight_lambda_inj_of_thick Λ_thick eq_weight },
+  rcases this with rfl,
+  have : ¬directing_sentence₀ s, from (sigma_outcome_iff_of_even even).mp (str.Lambda_pi_outcome_of_thick Λ_thick pi s rfl),
+  contradiction
+end
+
+lemma nonmem_of_odd
+  {η : Tree 1} {t} {lt : η ⊂ᵢ (Λ[str] Λ) t} (pi : (out ⟨η, lt⟩).is_pi) (odd : η.length.bodd = tt) :
+  η.weight ∉ I₀_inf := λ mem,
+begin
+  rcases mem with ⟨s₀, mem⟩,
+  rcases (mem_I₀_iff s₀ η.weight).mp mem with ⟨s, lt_s, _, eq_weight, pi⟩,
+  have : η = up[str] (Λ s),
+  { rcases str.le_Lambda_of_thick' Λ_thick ⟨t, lt.suffix⟩ with ⟨s₀, rfl, _⟩, simp at*,
+    rcases str.eq_lambda_of_le_lambda' (str.up_le_lambda (Λ s)) with ⟨μ₀, le_μ₀, eq_up⟩,
+    rcases Λ_thick.ssubset.mp ⟨s, le_μ₀⟩ with ⟨s', rfl⟩,
+    simp[eq_up] at eq_weight ⊢, exact str.weight_lambda_inj_of_thick Λ_thick eq_weight },
+  rcases this with rfl,
+  have : ¬directing_sentence₁ s, from (sigma_outcome_iff_of_odd odd).mp (str.Lambda_pi_outcome_of_thick Λ_thick pi s rfl),
+  contradiction
+end
+
+lemma I₀_beq_exists(b : ℕ) :
+  ∃ s, ∀ a < b, a ∈ I₀ s ↔ a ∈ I₀_inf :=
+begin
+  induction b with b IH,
+  { simp },
+  { rcases IH with ⟨s₀, beq⟩,
+    by_cases C : b ∈ I₀_inf,
+    { rcases C with ⟨s_b, mem⟩,
+      refine ⟨max s₀ s_b, λ a bound, _⟩,
+      split, { intros mem, refine ⟨_, mem⟩ },
+      intros mem,
+      have : a < b ∨ a = b, from lt_or_eq_of_le (nat.lt_succ_iff.mp bound),
+      rcases this with (lt | rfl),
+      { have : a ∈ I₀ s₀, from (beq a lt).mpr mem, exact I₀_mono (le_max_left s₀ s_b) this },
+      { exact I₀_mono (le_max_right s₀ s_b) mem } },
+    { refine ⟨s₀, λ a bound, _⟩,
+      have : a < b ∨ a = b, from lt_or_eq_of_le (nat.lt_succ_iff.mp bound),
+      rcases this with (lt | rfl),
+      { exact beq a lt },
+      { simp[C], intros mem, have : a ∈ I₀_inf, from ⟨s₀, mem⟩, contradiction } } }
+end
+
+lemma I₁_beq_exists(b : ℕ) :
+  ∃ s, ∀ a < b, a ∈ I₁ s ↔ a ∈ I₁_inf :=
+begin
+  induction b with b IH,
+  { simp },
+  { rcases IH with ⟨s₀, beq⟩,
+    by_cases C : b ∈ I₁_inf,
+    { rcases C with ⟨s_b, mem⟩,
+      refine ⟨max s₀ s_b, λ a bound, _⟩,
+      split, { intros mem, refine ⟨_, mem⟩ },
+      intros mem,
+      have : a < b ∨ a = b, from lt_or_eq_of_le (nat.lt_succ_iff.mp bound),
+      rcases this with (lt | rfl),
+      { have : a ∈ I₁ s₀, from (beq a lt).mpr mem, exact I₁_mono (le_max_left s₀ s_b) this },
+      { exact I₁_mono (le_max_right s₀ s_b) mem } },
+    { refine ⟨s₀, λ a bound, _⟩,
+      have : a < b ∨ a = b, from lt_or_eq_of_le (nat.lt_succ_iff.mp bound),
+      rcases this with (lt | rfl),
+      { exact beq a lt },
+      { simp[C], intros mem, have : a ∈ I₁_inf, from ⟨s₀, mem⟩, contradiction } } }
+end
+
+lemma pi_substrategies_of_even_aux
+  {η : Tree 1} {t} {lt : η ⊂ᵢ (Λ[str] Λ) t} (pi : (out ⟨η, lt⟩).is_pi) (even : η.length.bodd = ff) :
+  ∀ s₀ : ℕ, ∃ s > s₀, ¬directing_sentence₀ s ∧ up[str] (Λ s) = η := λ s₀,
+begin
+  have : ∃ s > s₀, up[str] (Λ s) = η, from str.infinite_substrategy_of_pi' Λ_thick pi s₀,
+  rcases this with ⟨s, lt_s, rfl⟩,
+  have : ¬directing_sentence₀ s, from (sigma_outcome_iff_of_even even).mp (str.Lambda_pi_outcome_of_thick Λ_thick pi s rfl),  
+  refine ⟨s, lt_s, this, rfl⟩
+end
+
+lemma pi_substrategies_of_even
+  {η : Tree 1} {t} {lt : η ⊂ᵢ (Λ[str] Λ) t} (pi : (out ⟨η, lt⟩).is_pi) (even : η.length.bodd = ff) :
+  ¬ff ∈ ⟦η.length.div2⟧ᵪ^(chr I₀_inf) η.weight := λ A,
+begin
+  have : ∃ s₀, ⟦η.length.div2⟧ᵪ^(chr I₀_inf) [s₀] η.weight = ff, from rpartrec.univn_complete.mp A,
+  rcases this with ⟨s₀, eq_ff⟩,
+  have : ∃ t, ∀ a < s₀, a ∈ I₀ t ↔ a ∈ I₀_inf, from I₀_beq_exists s₀,
+  rcases this with ⟨t₀, beq⟩,
+  have : ∃ s₁, s₀ < (λ[str] (Λ s₁)).weight, from str.lambda_infinitely Λ_thick (by simp) _,
+  rcases this with ⟨s₁, lt_weight⟩,
+  let s₂ := max t₀ s₁,
+  have : ∃ s > max t₀ s₁, ¬⟦(up[str] (Λ s)).length.div2⟧ᵪ^(I₀ s).chr [(λ[str] (Λ s)).weight] (up[str] (Λ s)).weight = ff ∧ 
+    up[str] (Λ s) = η, from pi_substrategies_of_even_aux pi even _,
+  rcases this with ⟨s, lt_s, ne_ff, rfl⟩,
+  have le_s₀ : s₀ ≤ (λ[str] (Λ s)).weight,
+    calc s₀ ≤ (λ[str] (Λ s₁)).weight : le_of_lt lt_weight
+        ... ≤ (λ[str] (Λ s)).weight : str.weight_lambda_le_mono (Λ_thick.le_mono_iff.mpr (le_of_lt (max_lt_iff.mp lt_s).2)),
+  have beq_s : ∀ a < s₀, (a ∈ I₀_inf ↔ a ∈ I₀ s),
+  { intros a bound, split, 
+    { intros mem, have : a ∈ I₀ t₀, from (beq a bound).mpr mem, exact I₀_mono (le_of_lt (max_lt_iff.mp lt_s).1) this },
+    { intros mem, exact ⟨s, mem⟩ } },
+  have : ⟦(up[str] (Λ s)).length.div2⟧ᵪ^(I₀ s).chr [(λ[str] (Λ s)).weight] (up[str] (Λ s)).weight = ff,
+    from rpartrec.univn_tot_mono_use (by { simp[←bool.coe_bool_iff], exact beq_s }) le_s₀ eq_ff,
+  contradiction
+end
+
+lemma pi_substrategies_of_odd_aux
+  {η : Tree 1} {t} {lt : η ⊂ᵢ (Λ[str] Λ) t} (pi : (out ⟨η, lt⟩).is_pi) (odd : η.length.bodd = tt) :
+  ∀ s₀ : ℕ, ∃ s > s₀, ¬directing_sentence₁ s ∧ up[str] (Λ s) = η := λ s₀,
+begin
+  have : ∃ s > s₀, up[str] (Λ s) = η, from str.infinite_substrategy_of_pi' Λ_thick pi s₀,
+  rcases this with ⟨s, lt_s, rfl⟩,
+  have : ¬directing_sentence₁ s, from (sigma_outcome_iff_of_odd odd).mp (str.Lambda_pi_outcome_of_thick Λ_thick pi s rfl),  
+  refine ⟨s, lt_s, this, rfl⟩
+end
+
+lemma pi_substrategies_of_odd
+  {η : Tree 1} {t} {lt : η ⊂ᵢ (Λ[str] Λ) t} (pi : (out ⟨η, lt⟩).is_pi) (odd : η.length.bodd = tt) :
+  ¬ff ∈ ⟦η.length.div2⟧ᵪ^(chr I₁_inf) η.weight := λ A,
+begin
+  have : ∃ s₀, ⟦η.length.div2⟧ᵪ^(chr I₁_inf) [s₀] η.weight = ff, from rpartrec.univn_complete.mp A,
+  rcases this with ⟨s₀, eq_ff⟩,
+  have : ∃ t, ∀ a < s₀, a ∈ I₁ t ↔ a ∈ I₁_inf, from I₁_beq_exists s₀,
+  rcases this with ⟨t₀, beq⟩,
+  have : ∃ s₁, s₀ < (λ[str] (Λ s₁)).weight, from str.lambda_infinitely Λ_thick (by simp) _,
+  rcases this with ⟨s₁, lt_weight⟩,
+  let s₂ := max t₀ s₁,
+  have : ∃ s > max t₀ s₁, ¬⟦(up[str] (Λ s)).length.div2⟧ᵪ^(I₁ s).chr [(λ[str] (Λ s)).weight] (up[str] (Λ s)).weight = ff ∧ 
+    up[str] (Λ s) = η, from pi_substrategies_of_odd_aux pi odd _,
+  rcases this with ⟨s, lt_s, ne_ff, rfl⟩,
+  have le_s₀ : s₀ ≤ (λ[str] (Λ s)).weight,
+    calc s₀ ≤ (λ[str] (Λ s₁)).weight : le_of_lt lt_weight
+        ... ≤ (λ[str] (Λ s)).weight : str.weight_lambda_le_mono (Λ_thick.le_mono_iff.mpr (le_of_lt (max_lt_iff.mp lt_s).2)),
+  have beq_s : ∀ a < s₀, (a ∈ I₁_inf ↔ a ∈ I₁ s),
+  { intros a bound, split, 
+    { intros mem, have : a ∈ I₁ t₀, from (beq a bound).mpr mem, exact I₁_mono (le_of_lt (max_lt_iff.mp lt_s).1) this },
+    { intros mem, exact ⟨s, mem⟩ } },
+  have : ⟦(up[str] (Λ s)).length.div2⟧ᵪ^(I₁ s).chr [(λ[str] (Λ s)).weight] (up[str] (Λ s)).weight = ff,
+    from rpartrec.univn_tot_mono_use (by { simp[←bool.coe_bool_iff], exact beq_s }) le_s₀ eq_ff,
+  contradiction
+end
+
+
+theorem not_I₁_le_I₀ : ¬I₁_inf ≤ₜ I₀_inf := λ hyp,
+begin
+  have : ∃ e, ⟦e⟧ᵪ^(chr I₀_inf) = chr I₁_inf, from rpartrec.exists_index.mp (classical_iff.mp hyp),
+  rcases this with ⟨e, lmm_e⟩,
+  have : ∃ η, η ⊂' Λ[str] Λ ∧ η.length = bit0 e, from (str.Lambda_infinite Λ_thick).lt_length_eq (bit0 e),
+  rcases this with ⟨η, ⟨s₀, lt⟩, eq_len⟩,
+  have even : η.length.bodd = ff, { simp[eq_len] },
+  have eq_e : e = η.length.div2, { simp[eq_len] },  
+  have : (out ⟨η, lt⟩).is_pi ∨ (out ⟨η, lt⟩).is_sigma, from pi_or_sigma (out ⟨η, lt⟩),
+  rcases this with (pi | sigma),
+  { have : η.weight ∉ I₁_inf, from nonmem_of_even pi even,
+    have : ff ∈ ⟦e⟧ᵪ^(chr I₀_inf) η.weight, { simp[lmm_e], exact eq.symm ((chr_ff_iff _ _).mpr this) },
+    have : ff ∉ ⟦e⟧ᵪ^(chr I₀_inf) η.weight, rw eq_e, from pi_substrategies_of_even pi even,
+    contradiction },
+  { have : η.weight ∈ I₁_inf ∧ ff ∈ ⟦e⟧ᵪ^(chr I₀_inf) η.weight, rw eq_e, from sigma_preservation_of_even sigma even,
+    rcases this with ⟨mem, nonmem⟩,
+    have : η.weight ∉ I₁_inf, { simp[lmm_e] at nonmem, exact (chr_ff_iff _ _).mp (eq.symm nonmem) },
+    contradiction }
+end
+
+theorem not_I₀_le_I₁ : ¬I₀_inf ≤ₜ I₁_inf := λ hyp,
+begin
+  have : ∃ e, ⟦e⟧ᵪ^(chr I₁_inf) = chr I₀_inf, from rpartrec.exists_index.mp (classical_iff.mp hyp),
+  rcases this with ⟨e, lmm_e⟩,
+  have : ∃ η, η ⊂' Λ[str] Λ ∧ η.length = bit1 e, from (str.Lambda_infinite Λ_thick).lt_length_eq (bit1 e),
+  rcases this with ⟨η, ⟨s₀, lt⟩, eq_len⟩,
+  have odd : η.length.bodd = tt, { simp[eq_len] },
+  have eq_e : e = η.length.div2, { simp[eq_len] },  
+  have : (out ⟨η, lt⟩).is_pi ∨ (out ⟨η, lt⟩).is_sigma, from pi_or_sigma (out ⟨η, lt⟩),
+  rcases this with (pi | sigma),
+  { have : η.weight ∉ I₀_inf, from nonmem_of_odd pi odd,
+    have : ff ∈ ⟦e⟧ᵪ^(chr I₁_inf) η.weight, { simp[lmm_e], exact eq.symm ((chr_ff_iff _ _).mpr this) },
+    have : ff ∉ ⟦e⟧ᵪ^(chr I₁_inf) η.weight, rw eq_e, from pi_substrategies_of_odd pi odd,
+    contradiction },
+  { have : η.weight ∈ I₀_inf ∧ ff ∈ ⟦e⟧ᵪ^(chr I₁_inf) η.weight, rw eq_e, from sigma_preservation_of_odd sigma odd,
+    rcases this with ⟨mem, nonmem⟩,
+    have : η.weight ∉ I₀_inf, { simp[lmm_e] at nonmem, exact (chr_ff_iff _ _).mp (eq.symm nonmem) },
+    contradiction }
+end
 
 end friedberg_muchnik

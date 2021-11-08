@@ -605,6 +605,9 @@ end
 lemma suffix_initial (l : list α) (n : ℕ) : l↾*n <:+ l :=
 by { simp[initial], exact drop_suffix (length l - n) l }
 
+lemma is_initial_initial (l : list α) (n : ℕ) (lt : n < l.length): l↾*n ⊂ᵢ l :=
+is_suffix.is_initial_of_lt (suffix_initial l n) (by simp[initial_length lt, lt])
+
 lemma map_suffix {α β} {l l' : list α} (f : α → β) (h : l <:+ l') :
   l.map f <:+ l'.map f :=
 begin
@@ -747,6 +750,9 @@ begin
   { exact nat.lt_succ_iff.mpr (nat.right_le_mkpair (wt x) (weight_of wt l₁)) },
   { exact nat.lt_succ_iff.mpr (le_of_lt (gt_of_ge_of_gt (nat.right_le_mkpair (wt y) (weight_of wt (l ++ x :: l₁))) IH)) }
 end
+
+lemma lt_length_weight {wt : α → ℕ} {l : list α} : l.length ≤ l.weight_of wt :=
+by { induction l with a l IH; simp[weight_of], refine IH.trans (nat.right_le_mkpair (wt a) (weight_of wt l)) }
 
 lemma lt_weight_of_mem {wt : α → ℕ} {a : α} {l : list α} (lt : a ∈ l) : wt a < l.weight_of wt :=
 begin
