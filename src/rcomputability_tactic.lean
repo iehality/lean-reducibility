@@ -21,6 +21,9 @@ computable.option_some.to_rcomp
 lemma rcomputable.option_is_some : (option.is_some : option α → bool) computable_in o :=
 primrec.option_is_some.to_rcomp
 
+lemma rcomputable.option_iget [inhabited α] : (option.iget : option α → α) computable_in o :=
+primrec.option_iget.to_rcomp
+
 lemma rcomputable₂.list_rnth : (@list.rnth α) computable₂_in o := 
 (primrec.list_nth.comp (primrec.list_reverse.comp primrec.fst) primrec.snd).to_rcomp
 
@@ -28,11 +31,16 @@ lemma rcomputable.option_or_else :
   ((<|>) : option β → option β → option β) computable₂_in o :=
 primrec.option_orelse.to_rcomp
 
-lemma rcomputable₂.to_bool_eq [decidable_eq α] : (λ x y : α, to_bool (x = y)) computable₂_in o := primrec.eq.to_rcomp
+lemma rcomputable₂.to_bool_eq (α : Type*) [primcodable α] [decidable_eq α] :
+  (λ x y : α, to_bool (x = y)) computable₂_in o := primrec.eq.to_rcomp
 
 lemma rcomputable₂.to_bool_nat_lt : (λ m n : ℕ, to_bool (m < n)) computable₂_in o := primrec.nat_lt.to_rcomp
 
 lemma rcomputable₂.to_bool_nat_le : (λ m n : ℕ, to_bool (m ≤ n)) computable₂_in o := primrec.nat_le.to_rcomp
+
+lemma rcomputable.succ : nat.succ computable_in o := primrec.succ.to_rcomp
+
+lemma rcomputable.pred : nat.pred computable_in o := primrec.pred.to_rcomp
 
 lemma rcomputable₂.nat_add : ((+) : ℕ → ℕ → ℕ) computable₂_in o := primrec.nat_add.to_rcomp
 
@@ -46,12 +54,14 @@ lemma rcomputable₂.nat_max : (max : ℕ → ℕ → ℕ) computable₂_in o :=
 
 lemma rcomputable.nat_bodd : nat.bodd computable_in o := primrec.nat_bodd.to_rcomp
 
-lemma rcomputable.dom_fintype [fintype α] (f : α → σ) : f computable_in o := (primrec.dom_fintype f).to_rcomp
+lemma rcomputable.dom_fintype [fintype α] (f : α → β) : f computable_in o := (primrec.dom_fintype f).to_rcomp
 
-lemma rcomputable.ite {c : α → Prop} [decidable_pred c] {f g : α → σ}
+@[protected]
+lemma rcomputable.ite {c : α → Prop} [decidable_pred c] {f g : α → β}
   (hc : (λ x, to_bool (c x)) computable_in o) (hf : f computable_in o) (hg : g computable_in o):
   (λ a, if c a then f a else g a) computable_in o :=
 (rcomputable.cond hc hf hg).of_eq (λ x, by by_cases C : c x; simp[C])
+
 
 lemma rcomputable₂.list_cons : (list.cons : α → list α → list α) computable₂_in o := primrec.list_cons.to_rcomp
 
@@ -59,11 +69,40 @@ lemma rcomputable₂.list_nth : (list.nth : list α → ℕ → option α) compu
 
 lemma rcomputable₂.list_append : ((++) : list α → list α → list α) computable₂_in o := primrec.list_append.to_rcomp
 
-lemma rcomputable₂.list_length : (list.length : list α → ℕ) computable_in o := primrec.list_length.to_rcomp
+lemma rcomputable.list_length : (list.length : list α → ℕ) computable_in o := primrec.list_length.to_rcomp
 
+protected lemma rcomputable.of_nat (α : Type*) [denumerable α] : (denumerable.of_nat α) computable_in o :=
+(primrec.of_nat α).to_rcomp
 
+lemma rcomputable.option_get {f : α → option β} {h : ∀ a, (f a).is_some}
+  (hf : f computable_in o) : (λ a, option.get (h a)) computable_in o :=
+((rpartrec.nat_iff1.mp rcomputable.pred).comp hf).of_eq (λ n,
+  by { simp,
+       generalize hx : encodable.decode α n = x,
+       cases x; simp,
+       rcases C : f x,
+       { exfalso, have := h x, simp[C] at this, contradiction },
+       { simp[C] } })
 
+lemma rcomputable.list_range_r : list.range_r computable_in o :=
+begin
+  have : (nat.elim [] (λ m IH, m :: IH)) computable_in o,
+  { refine rcomputable.nat_elim' rcomputable.id (rcomputable.const [])
+    (rcomputable₂.list_cons.comp rcomputable.fst.to_unary₂ rcomputable.snd.to_unary₂) },
+  exact this.of_eq (λ n, by { induction n with n IH; simp[list.range_r], exact IH })
+end
 
+theorem rcomputable.option_rec {f : α → option β} {g : α → γ} {h : α → β → γ}
+  (hf : f computable_in o) (hg : g computable_in o) (hh : h computable₂_in o) :
+  @rcomputable _ _ γ _ _ _ _ _ (λ a, option.rec (g a) (h a) (f a)) o :=
+rcomputable.option_cases hf hg hh
+
+lemma rcomputable.computable_of_rcomp {f : α → β} (hf : f computable_in (λ n, none : ℕ →. ℕ)) : 
+  computable f := rpartrec.le_part_part hf partrec.none
+
+lemma rpartrec.partrec_of_rpart {f : α →. β} (hf : f partrec_in (λ n, none : ℕ →. ℕ)) : 
+  partrec f := rpartrec.le_part_part hf partrec.none
+#check nat.elim
 
 
 end
@@ -85,17 +124,27 @@ attribute [rcomputability]
   rcomputable.refl
   rcomputable.cond
   rcomputable.ite
+  rcomputable.succ
+  rcomputable.pred
+  rcomputable.of_nat
   rcomputable.nat_cases
   rcomputable.option_cases
+  rcomputable.option_rec
   rcomputable.option_bind
   rcomputable.option_map
   rcomputable.option_some
   rcomputable.option_is_some
   rcomputable.option_get_or_else
   rcomputable.option_or_else
+  rcomputable.option_get
+  rcomputable.option_iget
   rcomputable.nat_bodd
   rcomputable.dom_fintype
-
+  rcomputable₂.list_cons
+  rcomputable₂.list_nth
+  rcomputable₂.list_append
+  rcomputable.list_length
+  rcomputable.list_range_r
   rcomputable₂.to_bool_eq
   rcomputable₂.to_bool_nat_lt
   rcomputable₂.to_bool_nat_le
@@ -124,6 +173,18 @@ namespace tactic
 namespace interactive
 
 setup_tactic_parser
+
+meta def goal_is_partrec : tactic unit := do t ← tactic.target,
+  match t with
+  | `(partrec %%r) := skip
+  | _              := failed
+  end
+
+meta def goal_is_computable : tactic unit := do t ← tactic.target,
+  match t with
+  | `(computable %%r) := skip
+  | _                 := failed
+  end
 
 meta def goal_is_rpartrec : tactic unit := do t ← tactic.target,
   match t with
@@ -155,6 +216,8 @@ meta def goal_is_rcomputable₂ : tactic unit := do t ← tactic.target,
 
 meta def rcomputability_tactics (md : transparency := semireducible) : list (tactic string) :=
 [ propositional_goal >> apply_assumption >> pure "apply_assumption",
+  goal_is_partrec >> `[refine rpartrec.partrec_of_rpart _] >> pure "refine rpartrec.partrec_of_rpart _",
+  goal_is_computable >> `[refine rcomputable.computable_of_rcomp _] >> pure "refine rcomputable.computable_of_rcomp _",
   apply_rules [``(rcomputability)] 50 { md := md } >> pure "apply_rules rcomputability",
   `[refine rcomputable.to_unary₁ _]  >> pure "refine rcomputable.to_unary₁ _",
   `[refine rcomputable.to_unary₂ _]  >> pure "refine rcomputable.to_unary₂ _",
@@ -191,7 +254,7 @@ end tactic
 open encodable
 
 variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*}
-  [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ]
+  [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ] {o : σ →. τ}
 
 example (f : ℕ →. ℕ) (p : ℕ → ℕ →. bool) (h : p partrec₂_in f) :
   (λ x : ℕ, (nat.rfind (p x)).map (λ y, (y, (y, 0, x)))) partrec_in f :=
@@ -201,5 +264,6 @@ example {f : α → ℕ → option σ} {g : β →. τ}(hf : f computable₂_in 
   (λ (a : α), ↑(λ (n : ℕ), (f a n).is_some) : α → ℕ →. bool) partrec₂_in g :=
 by { unfold_coes, simp[pfun.lift],
      rcomputability }
+
 
 #check @rcomputable.id

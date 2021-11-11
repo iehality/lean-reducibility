@@ -8,14 +8,23 @@ def Tree' : ℕ → Type
 | 0       := bool
 | (n + 1) := list (Tree' n)
 
+instance : ∀ {k : ℕ}, has_to_string (Tree' k)
+| 0       := ⟨λ b, match b with | tt := "∞" | ff := "0" end⟩
+| (k + 1) := @list.has_to_string (Tree' k) (@Tree'.has_to_string k)
+
 def Tree (n : ℕ) := Tree' (n + 1)
+
+instance {k : ℕ} : has_to_string (Tree k) := @Tree'.has_to_string (k + 1)
 
 instance {k} : has_append (Tree k) := ⟨list.append⟩
 instance {k} : has_mem (Tree' k) (Tree k) := ⟨list.mem⟩
 instance {k} : has_mem (Tree' k) (Tree' (k + 1)) := ⟨list.mem⟩
+
 instance : ∀ {k}, inhabited (Tree' k)
 | 0       := ⟨tt⟩
 | (k + 1) := ⟨[]⟩ 
+
+instance {k} : inhabited (Tree k) := Tree'.inhabited
 
 instance : ∀ n, decidable_eq (Tree' n)
 | 0       := bool.decidable_eq
@@ -27,7 +36,10 @@ instance : ∀ n, primcodable (Tree' n)
 
 instance (n) : primcodable (Tree n) := Tree'.primcodable (n + 1)
 
-def ancestor {n} (η : Tree n) := { μ : Tree n // μ ⊂ᵢ η }
+def ancestor {n} (η : Tree n) := {μ : Tree n // μ ⊂ᵢ η}
+
+instance {k} (η : Tree k) : primcodable (ancestor η) :=
+primcodable.subtype (list.primrec.is_initial.comp primrec.id (primrec.const η))
 
 instance {n} {η : Tree n} : has_coe (ancestor η) (Tree n) :=
 ⟨subtype.val⟩
@@ -48,6 +60,10 @@ instance {n} {η : Tree n} : linear_order (ancestor η) :=
     have h₂ := (list.is_initial_iff_suffix.mp μ₂.property).1,
     exact list.suffix_or_suffix_of_suffix h₁ h₂ },
   decidable_le := λ μ₁ μ₂, list.decidable_suffix μ₁.val μ₂.val }
+
+def ancestor.index {k : ℕ} {η : Tree k} (μ : ancestor η) : ℕ := μ.val.length
+
+def ancestor.at {k : ℕ} (η : Tree k) (i : ℕ) (h : i < η.length) : ancestor η := ⟨η↾*i, list.is_initial_initial η i h⟩
 
 def Tree.ancestors {n} (η : Tree n) : list (ancestor η) :=
 (list.range_r η.length).pmap (λ m (h : m < η.length), (⟨η↾*m, list.is_initial_of_lt_length h⟩ : ancestor η))
@@ -174,7 +190,6 @@ by { have : (ancestor_univ' η).card = (ancestor_univ η).card,
 
 end ancestor
 
-
 def out {n} : Π {η : Tree n}, ancestor η → Tree' n
 | []       ⟨μ, μ_p⟩ := by exfalso; simp* at*
 | (ν :: η) ⟨μ, μ_p⟩ := if h : μ ⊂ᵢ η then out ⟨μ, h⟩ else ν
@@ -234,6 +249,18 @@ suffix_out_eq (by simp) h
 
 @[simp] lemma out_cons {k} {η : Tree k} {x} (h : η ⊂ᵢ x :: η) : out ⟨η, h⟩ = x := by simp[out_eq_iff]
 
+lemma ancestor_initial_index {k} {η : Tree k} (μ : ancestor η) : η↾*μ.index = μ.val := 
+begin
+  rcases μ with ⟨l, μ, a, rfl⟩, simp[ancestor.index],
+  rw [show μ ++ a :: l = μ ++ [a] ++ l, by simp, list.initial_append]
+end
+
+lemma ancestor_initial_index_succ {k} {η : Tree k} (μ : ancestor η) : η↾*(μ.index + 1) = out μ :: μ.val := 
+begin
+  rcases μ with ⟨l, μ, a, rfl⟩, simp[ancestor.index],
+  rw [show list.length l + 1 = (a :: l).length, by simp, list.initial_append],
+  simp[out_eq_iff'],
+end
 
 structure Path (n : ℕ) :=
 (path : ℕ → Tree n)
@@ -560,14 +587,6 @@ lemma weight_aux_injective : ∀ {k}, function.injective (@Tree'.weight_aux k)
 | 0       ff tt eqn := by simp[Tree'.weight_aux] at eqn; contradiction
 | 0       ff ff eqn := by simp[Tree'.weight_aux] at eqn
 | (k + 1) μ₁ μ₂ eqn := list.weight_of_injective (@weight_aux_injective k) eqn
-
-lemma ancestors_or_refl_initial_of_initial {n} {μ₁ μ₂ : Tree n} (lt : μ₁ ⊂ᵢ μ₂) :
-  μ₁.ancestors_or_refl ⊂ᵢ μ₂.ancestors_or_refl :=
-begin
-  rcases lt with ⟨l, x, rfl⟩, induction l with a l IH,
-  { simp[Tree.ancestors_or_refl] },
-  { simp, refine IH.trans (by simp[Tree.ancestors_or_refl]) }
-end
 
 def Tree.weight : Π {k}, Tree k → ℕ
 | 0       μ        := μ.weight_aux

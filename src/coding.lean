@@ -687,10 +687,8 @@ univn α σ s (λ x, none : ℕ → option ℕ) e
 def univ0 (α σ) [primcodable α] [primcodable σ] (e : ℕ) : α →. σ :=
 univ α σ (λ x, none : ℕ → option ℕ) e
 
-notation `⟦`e`⟧ᵪ⁰`:max` [`s`]` := univn0 ℕ bool s e
-notation `⟦`e`⟧ₙ⁰`:max` [`s`]` := univn0 ℕ ℕ s e
-notation `⟦`e`⟧ᵪ⁰`:max := univ0 ℕ bool e
-notation `⟦`e`⟧ₙ⁰`:max := univ0 ℕ ℕ e
+notation `⟦`e`⟧⁰`:max` [`s`]` := univn0 _ _ s e
+notation `⟦`e`⟧⁰`:max := univ0 _ _ e
 
 def wert (α σ) [primcodable α] [primcodable σ] (p : β → option τ) (e : ℕ) : set α :=
 {x | (⟦e⟧*p x : part σ).dom}

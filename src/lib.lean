@@ -10,6 +10,9 @@ section
 
 @[simp, reducible] def prod.unpaired3 {α β γ δ} (f : α → β → γ → δ) : α × β × γ → δ := λ p, f p.1 p.2.1 p.2.2
 
+@[simp, reducible] def prod.unpaired4 {α β γ δ ε} (f : α → β → γ → δ → ε) : α × β × γ × δ → ε :=
+λ p, f p.1 p.2.1 p.2.2.1 p.2.2.2
+
 def coe_ropt {α σ} (f : α → σ) : α →. σ := λ x, part.some (f x)
 
 prefix `↑ᵣ`:max := coe_ropt
@@ -229,6 +232,10 @@ begin
     exact this _ },
   omega
 end
+
+@[simp] lemma initial_append {α} (l₁ l₂ : list α) :
+  (l₁ ++ l₂)↾*l₂.length = l₂ :=
+by simp[list.initial]
 
 lemma initial_rnth_some_iff  {α} {l : list α} {n m : ℕ} {a} :
   (l↾*m).rnth n = some a ↔ l.rnth n = some a ∧ n < m :=
@@ -493,6 +500,28 @@ instance is_initial_decidable [decidable_eq α] : ∀ (l₁ l₂ : list α), dec
     (λ h, is_true (h.trans (l₂.is_initial_cons _)))
     (λ h, if eqn : l₁ = l₂ then is_true (by simp[eqn])
       else is_false (by { simp[is_initial_cons_iff], exact not_or eqn h }))
+
+#check list.rec_on
+
+def is_initial_fn [decidable_eq α] (l₁ : list α) : list α → bool
+| [] := ff
+| (x :: l) := is_initial_fn l || (l₁ = l)
+
+section
+open primrec
+
+lemma primrec.is_initial [primcodable α] [decidable_eq α] : primrec_rel ((⊂ᵢ) : list α → list α → Prop) :=
+begin
+  let f : list α → list α → bool := λ l₀ l : list α, list.rec_on l ff (λ hd tl IH, IH || (l₀ = tl)),
+  let h : list α × list α → α × list α × bool → bool := λ l p, p.2.2 || to_bool  (l.1 = p.2.1),
+  have ph : primrec₂ h,
+    from primrec.bor.comp (snd.comp $ snd.comp snd) (primrec.eq.comp (fst.comp fst) (fst.comp $ snd.comp snd)),
+  have : primrec₂ f, from (primrec.list_rec primrec.snd (primrec.const ff) ph),
+  exact this.of_eq (λ l₀ l, by { induction l with x l IH, { simp[f] }, { simp[f, is_initial_cons_iff], 
+    by_cases C : l₀ = l; simp[C], { simp[f] at IH, simp[IH] } } })
+end
+
+end
 
 lemma is_initial_of_lt_length {l : list α} {n : ℕ} (h : n < l.length) : l↾*n ⊂ᵢ l :=
 begin
@@ -790,7 +819,6 @@ end option
 class omega_ordering (α : Type u) :=
 (ordering : α → ℕ)
 (inj : function.injective ordering)
-#check omega_ordering.ordering
 
 namespace omega_ordering
 
@@ -814,6 +842,9 @@ lemma le_iff {α} [omega_ordering α] {a b : α} :
 lemma lt_iff {α} [omega_ordering α] {a b : α} :
   a < b ↔ (omega_ordering.ordering a) < (omega_ordering.ordering b) := by refl
 
+lemma min_iff {α} [omega_ordering α] {a b : α} :
+  min a b = if (omega_ordering.ordering a) ≤ (omega_ordering.ordering b) then a else b := rfl
+
 def Min {α : Type u} (o : omega_ordering α) : list α → option α
 | []       := none
 | (a :: l) := if h : (Min l).is_some then some (min a (option.get h)) else a
@@ -824,6 +855,11 @@ lemma min_some_of_pos {α : Type u} (o : omega_ordering α) : ∀ (l : list α) 
 
 def Min_le {α : Type u} (o : omega_ordering α) (l : list α) (h : 0 < l.length) : α :=
 option.get (min_some_of_pos o l h)
+
+lemma Min_le_eq {α : Type u} (o : omega_ordering α) {l₁ l₂ : list α}
+  (h₁ : 0 < l₁.length) (h₂ : 0 < l₂.length) :
+  l₁ = l₂ → Min_le o l₁ h₁ = Min_le o l₂ h₂ := 
+by { rintros rfl; refl }
 
 variables {α : Type u} {o : omega_ordering α}
 

@@ -37,7 +37,7 @@ def principal_derivative
   (η : Tree (k + 1)) {μ : Tree k} (υ : ancestor μ → Tree (k + 1)) : option (ancestor μ) :=
 ((pi_derivative η υ).nth 0).cases_on' (initial_derivative η υ) some
 
-def lambda : ∀ {μ : Tree k} (υ : ancestor μ → Tree (k + 1)), Tree (k + 1)
+def lambda : Π {μ : Tree k} (υ : ancestor μ → Tree (k + 1)), Tree (k + 1)
 | []       _ := []
 | (x :: μ) υ := let ih := lambda (ancestor.extend_fn υ μ (by simp)) in 
     if υ ⟨μ, by simp⟩ = ih ∨
@@ -46,7 +46,8 @@ def lambda : ∀ {μ : Tree k} (υ : ancestor μ → Tree (k + 1)), Tree (k + 1)
 
 def assignment {μ : Tree k} (υ : ancestor μ → Tree (k + 1)) : Tree (k + 1) × ℕ :=
 (S.priority (k + 1)).Min_le
-  ((lambda υ, 0) :: ((lambda υ).ancestors.filter (λ η, (out η).is_pi)).map (λ η, (η.val, (derivative η.val υ).length))) (by simp)
+  ((lambda υ, 0) :: 
+    ((lambda υ).ancestors.filter (λ η, (out η).is_pi)).map (λ η, (η.val, (derivative η.val υ).length))) (by simp)
 
 def up {μ : Tree k} (υ : ancestor μ → Tree (k + 1)) : Tree (k + 1) :=
 (assignment S υ).1
