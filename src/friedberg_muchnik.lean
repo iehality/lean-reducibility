@@ -503,8 +503,7 @@ begin
   contradiction
 end
 
-
-theorem not_I₁_le_I₀ : ¬I₁ ≤ₜ I₀ := λ hyp,
+theorem not_I₁_le_I₀ : I₁ ≰ₜ I₀ := λ hyp,
 begin
   have : ∃ e, ⟦e⟧ᵪ^(chr I₀) = chr I₁, from rpartrec.exists_index.mp (classical_iff.mp hyp),
   rcases this with ⟨e, lmm_e⟩,
@@ -524,7 +523,7 @@ begin
     contradiction }
 end
 
-theorem not_I₀_le_I₁ : ¬I₀ ≤ₜ I₁ := λ hyp,
+theorem not_I₀_le_I₁ : I₀ ≰ₜ I₁ := λ hyp,
 begin
   have : ∃ e, ⟦e⟧ᵪ^(chr I₁) = chr I₀, from rpartrec.exists_index.mp (classical_iff.mp hyp),
   rcases this with ⟨e, lmm_e⟩,
@@ -544,7 +543,7 @@ begin
     contradiction }
 end
 
-theorem incomparable_re_sets : ∃ I₀ I₁ : set ℕ, r.e. I₀ ∧ r.e. I₁ ∧ ¬I₁ ≤ₜ I₀ ∧ ¬I₀ ≤ₜ I₁ :=
+theorem incomparable_re_sets : ∃ I₀ I₁ : set ℕ, r.e. I₀ ∧ r.e. I₁ ∧ I₁ ≰ₜ I₀ ∧ I₀ ≰ₜ I₁ :=
 ⟨I₀, I₁, I₀_re, I₁_re, not_I₁_le_I₀, not_I₀_le_I₁⟩
 
 end friedberg_muchnik

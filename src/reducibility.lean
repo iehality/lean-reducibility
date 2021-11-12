@@ -95,15 +95,17 @@ theorem rre_in_0_iff_re {α} [primcodable α] {A : set α} :
   A re_in! chr (∅ : set ℕ) ↔ r.e. A :=
 ⟨rre_pred.re0, partrec.to_rpart⟩
 
-def t_reducible {α β} [primcodable α] [primcodable β] (A : set α) (B : set β)  : Prop := 
+def t_reducible {α β} [primcodable α] [primcodable β] (A : set α) (B : set β) : Prop := 
 ∃ [D0 : decidable_pred A] [D1 : decidable_pred B],
 by exactI (λ x, to_bool (A x)) computable_in! (λ x, to_bool (B x)) 
 
 infix ` ≤ₜ `:1000 := t_reducible
 
-notation A` ≰ₜ `B:1000 := ¬A ≤ₜ B
+@[reducible] def t_irreducible {α β} [primcodable α] [primcodable β] (A : set α) (B : set β) : Prop := ¬A ≤ₜ B
 
-def t_reducible_lt {α β} [primcodable α] [primcodable β] (A : set α) (B : set β) : Prop :=
+infix ` ≰ₜ ` :1000 := t_irreducible
+
+@[reducible] def t_reducible_lt {α β} [primcodable α] [primcodable β] (A : set α) (B : set β) : Prop :=
 A ≤ₜ B ∧ ¬B ≤ₜ A
 
 infix ` <ₜ `:1000 := t_reducible_lt

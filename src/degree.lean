@@ -1,4 +1,4 @@
-import reducibility Kleene_Post
+import reducibility friedberg_muchnik
 open encodable denumerable part
 
 local attribute [instance, priority 0] classical.prop_decidable
@@ -51,7 +51,7 @@ instance : has_le 𝐃 :=
  λ p₁ p₂ q₁ q₂ hp hq, propext 
  ⟨λ hpq, (hp.2.trans hpq).trans hq.1, λ hpq, (hp.1.trans hpq).trans hq.2⟩⟩
 
-instance : has_lt 𝐃 := ⟨λ d₀ d₁, d₀ ≤ d₁ ∧ ¬ d₁ ≤ d₀⟩
+instance : has_lt 𝐃 := ⟨λ d₀ d₁, d₀ ≤ d₁ ∧ ¬d₁ ≤ d₀⟩
 
 instance : has_zero 𝐃 := ⟨deg (∅ : set ℕ)⟩
 
@@ -122,39 +122,8 @@ by { have : d⁺ ≤ d, rw ←h,
 
 instance : nontrivial 𝐃 := ⟨⟨0, 0⁺, djump_neq 0⟩⟩
 
-def incomparable (d₀ d₁ : 𝐃) := ¬d₀ ≤ d₁ ∧ ¬d₁ ≤ d₀
-
-infix ` ∥ `:1200 := incomparable
-
-theorem Kleene_Post : ∃ d₀ d₁ : 𝐃, d₀ ≤ 0⁺ ∧ d₁ ≤ 0⁺ ∧ d₀ ∥ d₁ :=
-by { rcases Kleene_Post.Kleene_Post with ⟨I₀, I₁, h⟩,
-     refine ⟨deg I₀, deg I₁, _⟩,
-     simp [has_zero.zero], exact h }
-
-theorem intermediate_degree_in_0' : ∃ d : 𝐃, 0 < d ∧ d < 0⁺ :=
-begin
-  rcases Kleene_Post with ⟨d₀, d₁, hd₀, hd₁, incomp₀, incomp₁⟩,
-  have : 0 < d₀ ∨ 0 < d₁,
-  { by_contra C, 
-    have : ¬0 < d₀ ∧ ¬0 < d₁, exact not_or_distrib.mp C,
-    simp [has_lt.lt] at this, 
-    have : d₀ ≤ d₁, from this.1.trans (by simp),
-    contradiction },  
-  by_contra C, simp at C,
-  cases this,
-  { have := C _ this,
-    simp [has_lt.lt] at this,
-    have : 0⁺ ≤ d₀ := this hd₀,
-    have : d₁ ≤ d₀ := hd₁.trans this,
-    contradiction },
-  { have := C _ this,
-    simp [has_lt.lt] at this,
-    have : 0⁺ ≤ d₁ := this hd₁,
-    have : d₀ ≤ d₁ := hd₀.trans this,
-    contradiction }
-end
-
-theorem Friedberg_Muchnik' : ∃ d₀ d₁ : 𝐑, d₀ ∥ d₁ :=
-by sorry
+theorem friedberg_muchnik : ∃ d₀ d₁ : 𝐑, ¬d₀ ≤ d₁ ∧ ¬d₁ ≤ d₀ :=
+by rcases friedberg_muchnik.incomparable_re_sets with ⟨I₀, I₁, re₀, re₁, nle₀, nle₁⟩;
+   refine ⟨⟨deg I₀, I₀, re₀, rfl⟩, ⟨deg I₁, I₁, re₁, rfl⟩, nle₁, nle₀⟩
 
 end turing_degree
