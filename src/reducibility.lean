@@ -671,7 +671,7 @@ prefix `𝚫⁰`:max := delta_pred
 @[simp] lemma pie_pred0_iff {A : set ℕ} : 𝚷⁰0 A ↔ computable_pred A := by simp[pie_pred]
 
 @[simp] lemma sigma_pred0_iff {A : set ℕ} : 𝚺⁰0 A ↔ computable_pred A := by simp[sigma_pred]
-#check option.cases_on
+
 lemma pie_pred2_iff {A : set ℕ} {n : ℕ} :
   𝚷⁰(n + 2) A ↔ ∃ B : set ℕ, 𝚷⁰n B ∧ A = {x | ∀ y, ∃ z, (x.mkpair y).mkpair z ∈ B} :=
 by { simp[sigma_pred, pie_pred], split,

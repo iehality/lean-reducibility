@@ -461,7 +461,7 @@ begin
       (rcomputable₂.list_cons.comp (pair fst.to_unary₂ (list_length.comp (fst.comp snd.to_unary₂)))
         (snd.comp snd.to_unary₂)))) },
   exact this.of_eq (λ l n, by { 
-    induction l with n l IH; simp[F, lindex, list.filter],
+    induction l with x l IH; simp[F, lindex, list.filter],
     { have : @list.rec α (λ _, list (α × ℕ)) [] (λ (a : α) (l : list α), list.cons (a, l.length)) (x :: l) = 
         (x, l.length) :: lindex l, from rfl,
       simp[show @list.rec α (λ _, list (α × ℕ)) [] (λ (a : α) (l : list α), list.cons (a, l.length)) (x :: l) = 
@@ -471,17 +471,42 @@ begin
              show l↾*n = l, from list.initial_elim (le_of_lt C),
              F, lindex] at IH ⊢, exact IH },
       { have : (x :: l)↾*n = l↾*n, from list.initial_cons (not_lt.mp C),
-        rw this, exact IH } }
-   })
+        rw this, exact IH } } })
 end
 
 @[rcomputability]
-theorem graph_rcomp [decidable_eq β] (f : α → β)  : graph f computable_in (f : α →. β) :=
+lemma list_weight_of [inhabited α] {wt : α → ℕ} {o : σ →. τ}
+  (h : wt computable_in o) : list.weight_of wt computable_in o :=
+begin
+  let F : list α → ℕ := λ l, list.rec_on l 0 (λ a l IH, nat.mkpair (wt a) IH + 1),
+  have : F computable_in o,
+  { refine rcomputable.list_rec id (const 0) _,
+    exact rcomputable₂.nat_add.comp
+      (rcomputable₂.comp rpartrec.some (comp h fst.to_unary₂) (snd.comp snd.to_unary₂))
+      (const 1) },
+  exact this.of_eq (λ l, by { induction l with x l IH; simp[F, list.weight_of], { simp[F] at IH, simp[IH] } })
+end
+
+@[rcomputability]
+theorem list_chr [decidable_eq α] [inhabited α] {o : σ →. τ} :
+  (list.chr : list α → α → bool) computable₂_in o :=
+begin
+  let F : list α → α → bool := λ l a, l.filter (λ x, x = a) ≠ [],
+  have : F computable₂_in o,
+  { simp[F],
+    refine (dom_fintype bnot).comp₂
+      ((rcomputable₂.to_bool_eq _).comp
+        (rcomputable.list_filter ((rcomputable₂.to_bool_eq _).comp snd snd.to_unary₁) fst) (const [])) },
+  exact this.of_eq (λ l a, by simp[F, list.filter_eq_nil, list.chr])
+end
+
+@[rcomputability]
+theorem graph_rcomp [decidable_eq β] (f : α → β) : graph f computable_in (f : α →. β) :=
   have c₀ : (λ x, to_bool (x.1 = x.2) : β × β → bool) computable_in (f : α →. β) := primrec.eq.to_rcomp,
   have c₂ : (λ x, (f x.1, x.2) : α × β → β × β) computable_in (f : α →. β) := rcomputable.pair 
   (rcomputable.refl.comp rcomputable.fst) rcomputable.snd,
 c₀.comp c₂
-/--/
+
 @[rcomputability]
 theorem subseq_rcomputable [decidable_eq α] [inhabited α] (f : ℕ → α) :
   list.subseq f computable_in! f :=

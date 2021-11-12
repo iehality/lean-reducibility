@@ -398,15 +398,6 @@ def chr {α} [decidable_eq α] (l : list α) (a : α) : bool := a ∈ l
 
 @[simp] lemma chr_app_iff {α} [decidable_eq α] (l : list α) (a : α) : l.chr a ↔ a ∈ l := by simp[chr]
 
-lemma chr_get_elem {α} [decidable_eq α] (l : list α) : l.chr = (λ a, (l.get_elem (λ x, x = a)).is_some) :=
-begin
-  ext a, cases C : l.get_elem (λ x, x = a); simp,
-  { simp[get_elem_iff_none, list.mem_iff_nth] at C ⊢, intros x eqn,
-    have := C x a eqn, contradiction },
-  { simp[get_elem_eq_some_iff] at C, rcases C with ⟨s, eqn, rfl, _⟩,
-    exact nth_mem eqn }
-end
-
 @[simp] lemma append_cons_neq (a : α) (l₁ l₂ : list α) : l₁ ++ a :: l₂ ≠ l₂ := λ h,
 begin
   have : (l₁ ++ a :: l₂).length = l₂.length, simp[h],
@@ -414,6 +405,7 @@ begin
 end
 
 @[simp] lemma cons_neq (a : α) (l : list α) : a :: l ≠ l := append_cons_neq a [] l
+
 @[simp] lemma cons_neq' (a : α) (l : list α) : l ≠ a :: l := ne.symm (cons_neq a l)
 
 @[simp] lemma not_suffix_cons (l : list α) (a : α) : ¬ a :: l <:+ l :=

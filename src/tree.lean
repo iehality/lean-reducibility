@@ -106,7 +106,7 @@ funext (by simp[extend])
 @[simp] lemma ancestors_cons {n} (η : Tree n) (x) :
   Tree.ancestors (x :: η) = ⟨η, by simp⟩ :: η.ancestors.map (extend (by simp)) :=
 by { simp[Tree.ancestors, list.map_pmap], apply list.pmap_congr, simp,
-     intros m eqn₁ eqn₂, simp [list.initial_cons eqn₂, extend] }
+     intros m eqn₁ eqn₂, simp [list.initial_cons (le_of_lt eqn₂), extend] }
 
 @[simp] lemma ancestors'_nil {n} : @Tree.ancestors' n [] = [] := rfl
 
@@ -569,8 +569,8 @@ end
 end Tree'.proper
 
 def Tree'.weight_aux : ∀ {k}, Tree' k → ℕ
-| 0       tt := 0
-| 0       ff := 1
+| 0       ff := 0
+| 0       tt := 1
 | (k + 1) μ  := list.weight_of (@Tree'.weight_aux k) μ
 
 variables {k : ℕ}

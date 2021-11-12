@@ -58,22 +58,27 @@ lemma rcomputable₂.nat_min : (min : ℕ → ℕ → ℕ) computable₂_in o :=
 
 lemma rcomputable₂.nat_max : (max : ℕ → ℕ → ℕ) computable₂_in o := primrec.nat_max.to_rcomp
 
+lemma rcomputable₂.nat_mkpair : (nat.mkpair : ℕ → ℕ → ℕ) computable₂_in o := primrec₂.mkpair.to_rcomp
+
+lemma rcomputable.nat_unpaired : (nat.unpair : ℕ → ℕ × ℕ) computable_in o := primrec.unpair.to_rcomp
+
+lemma rcomputable.nat_div2 : (nat.div2 : ℕ → ℕ) computable_in o := primrec.nat_div2.to_rcomp
+
 lemma rcomputable.nat_bodd : nat.bodd computable_in o := primrec.nat_bodd.to_rcomp
 
 lemma rcomputable.dom_fintype [fintype α] (f : α → β) : f computable_in o := (primrec.dom_fintype f).to_rcomp
 
-lemma rcomputable.bnot : bnot computable_in o := primrec.bnot.to_rcomp
+protected lemma rcomputable.bnot : bnot computable_in o := primrec.bnot.to_rcomp
 
-lemma rcomputable.band : band computable₂_in o := primrec.band.to_rcomp
+protected lemma rcomputable.band : band computable₂_in o := primrec.band.to_rcomp
 
-lemma rcomputable.bor : bor computable₂_in o := primrec.bor.to_rcomp
+protected lemma rcomputable.bor : bor computable₂_in o := primrec.bor.to_rcomp
 
 @[protected]
 lemma rcomputable.ite {c : α → Prop} [decidable_pred c] {f g : α → β}
   (hc : (λ x, to_bool (c x)) computable_in o) (hf : f computable_in o) (hg : g computable_in o):
   (λ a, if c a then f a else g a) computable_in o :=
 (rcomputable.cond hc hf hg).of_eq (λ x, by by_cases C : c x; simp[C])
-
 
 lemma rcomputable₂.list_cons : (list.cons : α → list α → list α) computable₂_in o := primrec.list_cons.to_rcomp
 
@@ -116,8 +121,6 @@ lemma rcomputable.computable_of_rcomp {f : α → β} (hf : f computable_in (λ 
 
 lemma rpartrec.partrec_of_rpart {f : α →. β} (hf : f partrec_in (λ n, none : ℕ →. ℕ)) : 
   partrec f := rpartrec.le_part_part hf partrec.none
-#check nat.elim
-
 
 end
 
@@ -169,6 +172,9 @@ attribute [rcomputability]
   rcomputable₂.nat_mul
   rcomputable₂.nat_min
   rcomputable₂.nat_max
+  rcomputable₂.nat_mkpair
+  rcomputable.nat_unpaired
+  rcomputable.nat_div2
   rcomputable.bnot
   rcomputable.band
   rcomputable.bor
@@ -283,4 +289,4 @@ by { unfold_coes, simp[pfun.lift],
      rcomputability }
 
 
-#check @rcomputable.id
+
