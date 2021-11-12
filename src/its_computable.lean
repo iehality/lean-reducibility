@@ -4,7 +4,12 @@ open encodable denumerable
 
 attribute [simp] set.set_of_app_iff
 
+variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
+  [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ] [primcodable μ]
+  {o : σ →. τ}
+
 variables {n : ℕ} (S : strategy n) {k : ℕ}
+
 namespace strategy.aprrox_aux
 
 end strategy.aprrox_aux
@@ -20,6 +25,22 @@ ancestor η ≃ fin η.length :=
 
 instance primcodable.ancestor_arrow {α : Type*} [primcodable α] {k} (η : Tree k) : primcodable (ancestor η → α) :=
 primcodable.of_equiv (fin η.length → α) (equiv.arrow_congr (ancestor.equiv_fin η) (by refl))
+
+@[rcomputability]
+lemma rcomputable.is_pi {k} : @Tree'.is_pi k computable_in o :=
+begin
+  induction k with k IH,
+  { exact rcomputable.id.of_eq (λ b, by cases b; simp) },
+  { let F : Tree' (k + 1) → bool := λ μ, list.cases_on μ ff (λ η _, !@Tree'.is_pi k η),
+    have : F computable_in o,
+    { refine (rcomputable.list_rec (rcomputable.id') (rcomputable.const ff)
+      ((rcomputable.dom_fintype bnot).comp (IH.comp (rcomputable.fst.comp rcomputable.snd)))) },
+    exact this.of_eq (λ μ, by { induction μ with ν μ IH; simp[F, Tree'.is_sigma] }) }
+end
+
+@[rcomputability]
+lemma rcomputable.is_sigma {k} : @Tree'.is_sigma k computable_in o :=
+(rcomputable.dom_fintype bnot).comp rcomputable.is_pi
 
 def ancestor.extend_fn'_enc (α : Type*) [inhabited α] [primcodable α] (η : Tree k) (x : Tree' k) (n : ℕ) : ℕ := 
   let f := (decode (ancestor (x :: η) → α) n).iget in
@@ -42,8 +63,6 @@ def lambda : Π (μ : Tree k) (υ : list (Tree (k + 1))), Tree (k + 1)
     option.cases_on (υ.nth μ.length) []
     (λ uμ, if uμ = ih ∨ (x.is_pi ∧ pi_derivative uμ μ υ = [])
     then (x :: μ) :: uμ else ih)
-
-#check @Tree'.is_pi
 
 def assignment (μ : Tree k) (υ : list (Tree (k + 1))) : Tree (k + 1) × ℕ :=
 (S.priority (k + 1)).Min_le
@@ -103,38 +122,90 @@ lemma up_eq {μ : Tree k} (υ : ancestor μ → Tree (k + 1)) (υ' : list (Tree 
   up S μ υ' = approx.up S υ :=
 congr_arg prod.fst (assignment_eq S υ υ' h)
 
-lemma computable.derivative : computable
-  (prod.unpaired3 (derivative : Tree (k + 1) → Tree k → list (Tree (k + 1)) → list ℕ)) :=
+open rcomputable
+
+lemma rcomputable.derivative :
+  (prod.unpaired3 (derivative : Tree (k + 1) → Tree k → list (Tree (k + 1)) → list ℕ)) computable_in o :=
 begin
-  refine rcomputable.computable_of_rcomp (rcomputable.list_filter _ _),
+  refine rcomputable.list_filter _ _,
   { refine (rcomputable₂.to_bool_eq (option (Tree (k + 1)))).comp₂ _ _,
     { exact rcomputable₂.list_nth.comp₂ (rcomputable.to_unary₁ rcomputable.snd.to_unary₂) rcomputable.id'.to_unary₂ },
     { exact rcomputable.to_unary₁ rcomputable.option_some.to_unary₁ } },
   { exact rcomputable.list_range_r.comp (rcomputable.list_length.comp rcomputable.fst.to_unary₂) }
 end
 
-lemma computable.pi_derivative : computable
-  (prod.unpaired3 (pi_derivative : Tree (k + 1) → Tree k → list (Tree (k + 1)) → list ℕ)) :=
+lemma rcomputable.pi_derivative : 
+  (prod.unpaired3 (pi_derivative : Tree (k + 1) → Tree k → list (Tree (k + 1)) → list ℕ)) computable_in o :=
 begin
-  refine rcomputable.computable_of_rcomp (rcomputable.list_filter _ _),
-  {  }
+  refine rcomputable.list_filter _ rcomputable.derivative,
+  { simp, exact rcomputable.is_sigma.comp₂
+    (rcomputable.rcomputable.list_initial.comp₂ (rcomputable.to_unary₁ rcomputable.fst.to_unary₂)
+    rcomputable.succ.to_unary₂) }
 end
+
+@[rcomputability]
+lemma rcomputable.lambda : 
+  (lambda : Tree k → list (Tree (k + 1)) → Tree (k + 1)) computable₂_in o :=
+begin
+  let F : Tree k → list (Tree (k + 1)) → Tree (k + 1) :=
+    λ μ υ, list.rec_on μ []
+      (λ x μ ih, option.cases_on (υ.nth μ.length) []
+        (λ uμ, if uμ = ih ∨ (x.is_pi ∧ pi_derivative uμ μ υ = []) then (x :: μ) :: uμ else ih)),
+  have : F computable₂_in o,
+  { simp[F],
+    refine rcomputable.list_rec (rpartrec.some.to_unary₁) (rcomputable.const list.nil)
+      (rcomputable.option_rec
+        (rcomputable₂.list_nth.comp rcomputable.snd.to_unary₁
+          (rcomputable.list_length.comp (rcomputable.fst.comp rcomputable.snd.to_unary₂)))
+        (rcomputable.const list.nil)
+      (rcomputable.ite _ _ _)),
+    { simp, refine rcomputable.bor.comp _
+        (rcomputable.band.comp (rcomputable.is_pi.comp (rcomputable.fst.comp rcomputable.snd.to_unary₁)) _),
+      { refine (rcomputable₂.to_bool_eq _).comp rcomputable.snd
+        (rcomputable.snd.comp (rcomputable.snd.comp rcomputable.snd.to_unary₁)) },
+      { refine (rcomputable₂.to_bool_eq _).comp
+          (rcomputable.pi_derivative.unpaired3 rcomputable.snd
+            (rcomputable.fst.comp (rcomputable.snd.comp rcomputable.snd.to_unary₁))
+            (rcomputable.snd.comp rcomputable.fst.to_unary₁)) (rcomputable.const []) } },
+    { exact rcomputable₂.list_cons.comp
+        (rcomputable₂.list_cons.comp (rcomputable.fst.comp rcomputable.snd.to_unary₁)
+        (rcomputable.fst.comp (rcomputable.snd.comp rcomputable.snd.to_unary₁)))
+        rcomputable.snd },
+    { exact rcomputable.snd.comp (rcomputable.snd.comp rcomputable.snd.to_unary₁) } },
+  exact this.of_eq (λ μ υ, by {
+    induction μ with x μ IH; simp[F, lambda],
+    { cases C : υ.nth μ.length with ν; simp[C],
+      { simp[F, lambda] at IH, simp[IH] } } })
+end
+
+lemma rcomputable.assignment_enc : 
+  (assignment S : Tree k → list (Tree (k + 1)) → Tree (k + 1) × ℕ) computable₂_in o :=
+(omega_ordering_Min_le (S.priority (k + 1)) _ _ (S.effective _).to_rcomp
+  (rcomputable₂.list_cons.comp (pair (rcomputable.lambda.comp fst snd) (const 0))
+    (list_map
+      (pair (rcomputable.list_initial.comp (rcomputable.lambda.comp fst.to_unary₁ snd.to_unary₁) snd)
+        (list_length.comp (rcomputable.derivative.unpaired3
+          (rcomputable.list_initial.comp (rcomputable.lambda.comp fst.to_unary₁ snd.to_unary₁) snd)
+          (fst.to_unary₁) (snd.to_unary₁))))
+      (list_filter
+        (by {simp, exact is_sigma.comp₂ 
+          (rcomputable.list_initial.comp₂ (rcomputable.lambda.comp fst snd).to_unary₁ succ.to_unary₂) })
+        (list_range_r.comp (list_length.comp (rcomputable.lambda.comp fst snd)))))))
+
+lemma rcomputable.up_enc : 
+  (up S : Tree k → list (Tree (k + 1)) → Tree (k + 1)) computable₂_in o :=
+fst.comp (rcomputable.assignment_enc S)
 
 end approx_enc
 
+def up'_enc : Tree k → list (Tree (k + 1))
+| []       := []
+| (_ :: η) := up'_enc η ++ [approx_enc.up S η (up'_enc η)]
 
-lemma computable.is_pi {k} : computable (@Tree'.is_pi k) :=
+lemma rcomputable.up :
+  (up[S] : Tree k → Tree (k + 1)) computable_in o :=
 begin
-  induction k with k IH,
-  { exact computable.id.of_eq (λ b, by cases b; simp) },
-  { let F : Tree' (k + 1) → bool := λ μ, list.cases_on μ ff (λ η _, !@Tree'.is_pi k η),
-    have : computable F,
-    { refine rcomputable.computable_of_rcomp (rcomputable.list_rec (rcomputable.id') (rcomputable.const ff)
-      ((rcomputable.dom_fintype bnot).comp (IH.to_rcomp.comp (rcomputable.fst.comp rcomputable.snd)))) },
-    exact this.of_eq (λ μ, by { induction μ with ν μ IH; simp[F, Tree'.is_sigma] }) }
-end
 
-lemma computable.is_sigma {k} : computable (@Tree'.is_sigma k) :=
-(primrec.dom_fintype bnot).to_comp.comp computable.is_pi
+end
 
 end strategy

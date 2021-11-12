@@ -365,12 +365,6 @@ theorem list_foldr' [inhabited α] {f : α → β → β} {o : σ →. τ} (hf :
   list.foldr f computable₂_in o :=
 rcomputable₂.trans₂ (foldr' (prod.unpaired f)).to₂ hf
 
-theorem unpaired3 {f : β → γ → δ → σ} {g : α → β} {h : α → γ} {i : α → δ} {o : τ →. μ}
-  (hf : (prod.unpaired3 f) computable_in o)
-  (hg : g computable_in o) (hh : h computable_in o) (hi : i computable_in o) :
-  (λ a : α, f (g a) (h a) (i a)) computable_in o :=
-hf.comp (hg.pair (hh.pair hi))
-
 @[rcomputability]
 theorem list_foldr [inhabited β] {f : α → β → γ → γ} {g : α → γ} {h : α → list β} {o : σ →. τ}
   (hf : (prod.unpaired3 f) computable_in o) (hg : g computable_in o) (hh : h computable_in o) :
@@ -450,12 +444,44 @@ begin
 end
 
 @[rcomputability]
+lemma omega_ordering_Min_le [inhabited α] (r : omega_ordering α) (f : β → list α) (h : ∀ x, (f x).length > 0) {o : σ →. τ}
+  (hr : r.ordering computable_in o) (hf : f computable_in o) :
+  (λ x, r.Min_le (f x) (h x)) computable_in o :=
+rcomputable.option_get ((omega_ordering_Min r hr).comp hf)
+
+@[rcomputability]
+lemma rcomputable.list_initial [inhabited α] {o : σ →. τ} : ((↾*) : list α → ℕ → list α) computable₂_in o :=
+begin
+  let lindex : list α → list (α × ℕ) := λ l, list.rec_on l [] (λ a l IH, (a, l.length) :: IH),
+  let F : list α → ℕ → list α := λ l n, ((lindex l).filter (λ p : α × ℕ, p.2 < n)).map prod.fst,
+  have : F computable₂_in o,
+  { refine list_map (fst.to_unary₂)
+      (list_filter (rcomputable₂.to_bool_nat_lt.comp (snd.to_unary₂) (snd.to_unary₁))
+      (list_rec fst (const [])
+      (rcomputable₂.list_cons.comp (pair fst.to_unary₂ (list_length.comp (fst.comp snd.to_unary₂)))
+        (snd.comp snd.to_unary₂)))) },
+  exact this.of_eq (λ l n, by { 
+    induction l with n l IH; simp[F, lindex, list.filter],
+    { have : @list.rec α (λ _, list (α × ℕ)) [] (λ (a : α) (l : list α), list.cons (a, l.length)) (x :: l) = 
+        (x, l.length) :: lindex l, from rfl,
+      simp[show @list.rec α (λ _, list (α × ℕ)) [] (λ (a : α) (l : list α), list.cons (a, l.length)) (x :: l) = 
+        (x, l.length) :: lindex l, from rfl, list.filter],
+      by_cases C : l.length < n; simp[C],
+      { simp[show (x :: l)↾*n = x :: l, from list.initial_elim (nat.succ_le_iff.mpr C),
+             show l↾*n = l, from list.initial_elim (le_of_lt C),
+             F, lindex] at IH ⊢, exact IH },
+      { have : (x :: l)↾*n = l↾*n, from list.initial_cons (not_lt.mp C),
+        rw this, exact IH } }
+   })
+end
+
+@[rcomputability]
 theorem graph_rcomp [decidable_eq β] (f : α → β)  : graph f computable_in (f : α →. β) :=
   have c₀ : (λ x, to_bool (x.1 = x.2) : β × β → bool) computable_in (f : α →. β) := primrec.eq.to_rcomp,
   have c₂ : (λ x, (f x.1, x.2) : α × β → β × β) computable_in (f : α →. β) := rcomputable.pair 
   (rcomputable.refl.comp rcomputable.fst) rcomputable.snd,
 c₀.comp c₂
-
+/--/
 @[rcomputability]
 theorem subseq_rcomputable [decidable_eq α] [inhabited α] (f : ℕ → α) :
   list.subseq f computable_in! f :=

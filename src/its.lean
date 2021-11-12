@@ -1,4 +1,4 @@
-import lib tree
+import lib tree rpartrec
 
 open encodable denumerable
 
@@ -6,10 +6,13 @@ attribute [simp] set.set_of_app_iff
 
 structure strategy (n : ℕ) :=
 (priority (k : ℕ) : omega_ordering (Tree k × ℕ))
+(effective : ∀ k, computable (priority k).ordering)
 
 namespace strategy
 
-protected def default (n : ℕ) : strategy n := ⟨λ k, omega_ordering.default _⟩
+protected def default (n : ℕ) : strategy n :=
+{ priority := (λ k, omega_ordering.default (Tree k × ℕ)),
+  effective := λ k, computable.encode }
 
 instance (n) : inhabited (strategy n) := ⟨strategy.default n⟩
 

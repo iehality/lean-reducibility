@@ -289,7 +289,7 @@ end
 
 @[simp] lemma initial_nil {n} : (nil : list α)↾*n = nil := by simp[list.initial]
 
-lemma initial_cons {l : list α} {d n} (h : n < l.length) : (d :: l)↾*n = l↾*n :=
+lemma initial_cons {l : list α} {d n} (h : n ≤ l.length) : (d :: l)↾*n = l↾*n :=
 by { simp[list.initial, show l.length + 1 - n = l.length - n + 1, by omega] }
 
 @[simp] lemma initial_cons_self {l : list α} {d} : (d :: l)↾*l.length = l :=
@@ -603,7 +603,7 @@ begin
   { simp, exact option.not_mem_none a },
   { have C : n < l.length ∨ n = l.length ∨ l.length < n, exact trichotomous _ _,
     cases C,
-    { simp[rnth_cons C, initial_cons C, IH], split,
+    { simp[rnth_cons C, initial_cons (le_of_lt C), IH], split,
       { intros h, exact h.trans (list.suffix_cons a' l) },
       { intros h, have := list.suffix_cons_iff.mp h,
         cases this,

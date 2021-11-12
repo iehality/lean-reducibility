@@ -363,7 +363,7 @@ end rcomputable
 
 namespace rpartrec₂
 
-theorem of_eq {f g : α → β →. σ} {h : β →. τ} (hf : f partrec₂_in h) (H : ∀ n m, f n m = g n m) : g partrec₂_in h :=
+theorem of_eq {f g : α → β →. γ} {h : σ →. τ} (hf : f partrec₂_in h) (H : ∀ n m, f n m = g n m) : g partrec₂_in h :=
 (funext (λ n, funext (H n)) : f = g) ▸ hf
 
 theorem unpaired {f : α → β →. σ} {o : τ →. μ} : (prod.unpaired f) partrec_in o ↔ f partrec₂_in o :=
@@ -475,6 +475,10 @@ end rcomputable
 namespace rcomputable₂
 open rcomputable
 variables {ν : Type*} [primcodable ν]
+
+theorem of_eq {f g : α → β → γ} {h : σ →. τ} (hf : f computable₂_in h) (H : ∀ n m, f n m = g n m) :
+  g computable₂_in h :=
+(funext (λ n, funext (H n)) : f = g) ▸ hf
 
 @[trans] theorem trans₂ {f : α → β → σ} {g : γ → δ → τ} {h : μ →. ν} :
   f computable₂_in! (prod.unpaired g) → g computable₂_in h → f computable₂_in h :=

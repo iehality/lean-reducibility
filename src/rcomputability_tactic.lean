@@ -5,11 +5,17 @@ import tactic.show_term
 import rpartrec
 
 section
-variables {α : Type*} {β : Type*} {γ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
-  [primcodable α] [primcodable β] [primcodable γ] [primcodable σ] [primcodable τ] [primcodable μ]
+variables {α : Type*} {β : Type*} {γ : Type*} {δ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
+  [primcodable α] [primcodable β] [primcodable γ] [primcodable δ] [primcodable σ] [primcodable τ] [primcodable μ]
   {o : σ →. τ}
 
 #check option.get_or_else
+
+theorem rcomputable.unpaired3 {f : β → γ → δ → σ} {g : α → β} {h : α → γ} {i : α → δ} {o : τ →. μ}
+  (hf : (prod.unpaired3 f) computable_in o)
+  (hg : g computable_in o) (hh : h computable_in o) (hi : i computable_in o) :
+  (λ a : α, f (g a) (h a) (i a)) computable_in o :=
+hf.comp (hg.pair (hh.pair hi))
 
 lemma rcomputable.option_get_or_else {f : α → option β} {g : α → β} {o : σ →. τ}
   (hf : f computable_in o) (hg : g computable_in o) : (λ x, option.get_or_else (f x) (g x)) computable_in o :=
@@ -56,6 +62,12 @@ lemma rcomputable.nat_bodd : nat.bodd computable_in o := primrec.nat_bodd.to_rco
 
 lemma rcomputable.dom_fintype [fintype α] (f : α → β) : f computable_in o := (primrec.dom_fintype f).to_rcomp
 
+lemma rcomputable.bnot : bnot computable_in o := primrec.bnot.to_rcomp
+
+lemma rcomputable.band : band computable₂_in o := primrec.band.to_rcomp
+
+lemma rcomputable.bor : bor computable₂_in o := primrec.bor.to_rcomp
+
 @[protected]
 lemma rcomputable.ite {c : α → Prop} [decidable_pred c] {f g : α → β}
   (hc : (λ x, to_bool (c x)) computable_in o) (hf : f computable_in o) (hg : g computable_in o):
@@ -70,6 +82,8 @@ lemma rcomputable₂.list_nth : (list.nth : list α → ℕ → option α) compu
 lemma rcomputable₂.list_append : ((++) : list α → list α → list α) computable₂_in o := primrec.list_append.to_rcomp
 
 lemma rcomputable.list_length : (list.length : list α → ℕ) computable_in o := primrec.list_length.to_rcomp
+
+#check @list.rec
 
 protected lemma rcomputable.of_nat (α : Type*) [denumerable α] : (denumerable.of_nat α) computable_in o :=
 (primrec.of_nat α).to_rcomp
@@ -155,6 +169,9 @@ attribute [rcomputability]
   rcomputable₂.nat_mul
   rcomputable₂.nat_min
   rcomputable₂.nat_max
+  rcomputable.bnot
+  rcomputable.band
+  rcomputable.bor
 
   rpartrec.refl
   rpartrec.of_option
