@@ -47,6 +47,17 @@ protected def id : code := pair left right
 def curry (c : code) (n : ℕ) : code :=
 comp c (pair (code.const n) code.id)
 
+def ctrans (c : code) : code → code
+| oracle       := c
+| zero         := zero
+| succ         := succ
+| left         := left
+| right        := right
+| (pair cf cg) := pair (ctrans cf) (ctrans cg)
+| (comp cf cg) := comp (ctrans cf) (ctrans cg)
+| (prec cf cg) := prec (ctrans cf) (ctrans cg)
+| (rfind' cf)  := rfind' (ctrans cf)
+
 def encode_code : code → ℕ
 | oracle       := 0
 | zero         := 1
@@ -58,8 +69,6 @@ def encode_code : code → ℕ
 | (prec cf cg) := (bit1 $ bit0 (mkpair (encode_code cf) (encode_code cg))) + 5
 | (rfind' cf)  := (bit1 $ bit1 (encode_code cf)) + 5
 
-lemma guygk (n) : n ≤ n+9 := nat.le.intro rfl
-
 def of_nat_code : ℕ → code
 | 0 := oracle
 | 1 := zero
@@ -68,8 +77,7 @@ def of_nat_code : ℕ → code
 | 4 := right
 | (e+5) :=
   have div8 : e.div2.div2 ≤ e :=
-    by { simp[nat.div2_val], 
-         exact le_trans (nat.div_le_self (e/2) 2) (nat.div_le_self e 2) },
+    by { simp[nat.div2_val], exact le_trans (nat.div_le_self (e/2) 2) (nat.div_le_self e 2) },
   have e.div2.div2 < e + 5 := nat.lt_succ_iff.mpr (le_trans div8 (nat.le.intro rfl)),
   have e.div2.div2.unpair.1 < e + 5 := nat.lt_succ_iff.mpr
     (le_trans (le_trans (nat.unpair_left_le _) div8) (nat.le.intro rfl)),
@@ -128,10 +136,7 @@ private lemma of_nat_code_encode : ∀ c, of_nat_code (encode_code c) = c
 | (rfind' cf)  := by { simp[encode_code, of_nat_code],
     exact of_nat_code_encode cf }
 
-instance : denumerable code :=
-mk' ⟨encode_code, of_nat_code,
-  of_nat_code_encode,
-  encode_of_nat_code⟩
+instance : denumerable code := mk' ⟨encode_code, of_nat_code, of_nat_code_encode, encode_of_nat_code⟩
 
 def evaln : ℕ → (ℕ → option ℕ) → code → ℕ → option ℕ
 | 0     f _            := λ _, none
@@ -493,6 +498,9 @@ by { have : ∃ s, y ∈ evaln s f c x := evaln_complete.mp h, rcases this with 
 @[simp] theorem eval_curry (f c n x) : eval f (curry c n) x = eval f c (mkpair n x) :=
 by simp! [(<*>)]
 
+--@[simp] theorem eval_ctrans (f c₁ c₂ x) : eval (eval f c₁) c₂ x = eval f (ctrans c₁ c₂) x :=
+--by simp! [(<*>)]
+
 @[simp] theorem evaln_curry (s f c n x) :
   evaln s f (curry c n) x = evaln s f c (n.mkpair x) :=
 begin
@@ -685,28 +693,29 @@ def univn0 (α σ) [primcodable α] [primcodable σ] (s : ℕ) (e : ℕ) : α �
 univn α σ s (λ x, none : ℕ → option ℕ) e
 
 def univ0 (α σ) [primcodable α] [primcodable σ] (e : ℕ) : α →. σ :=
-univ α σ (λ x, none : ℕ → option ℕ) e
+univ α σ (λ x, some 0 : ℕ → option ℕ) e
 
 notation `⟦`e`⟧⁰`:max` [`s`]` := univn0 _ _ s e
 notation `⟦`e`⟧⁰`:max := univ0 _ _ e
 
-def wert (α σ) [primcodable α] [primcodable σ] (p : β → option τ) (e : ℕ) : set α :=
+def re_set (α σ) [primcodable α] [primcodable σ] (p : β → option τ) (e : ℕ) : set α :=
 {x | (⟦e⟧*p x : part σ).dom}
 
-def wert0 (α σ) [primcodable α] [primcodable σ] (e : ℕ) : set α :=
+def re_set0 (α σ) [primcodable α] [primcodable σ] (e : ℕ) : set α :=
 {x | (univ0 α σ e x : part σ).dom}
 
-notation `W⟦`e`⟧^`f:max := wert _ _ ↑ₒf e
+notation `W⟦`e`⟧^`f:max := re_set _ _ ↑ₒf e
 
-notation `W⟦`e`⟧ᵪ^`f:max := wert ℕ bool ↑ₒf e
-notation `W⟦`e`⟧ₙ^`f:max := wert ℕ ℕ ↑ₒf e
-notation `W⟦`e`⟧ᵪ⁰`:max := wert0 ℕ bool e
-notation `W⟦`e`⟧ₙ⁰`:max := wert0 ℕ ℕ e
+notation `W⟦`e`⟧ᵪ^`f:max := re_set ℕ bool ↑ₒf e
+notation `W⟦`e`⟧ₙ^`f:max := re_set ℕ ℕ ↑ₒf e
+notation `W⟦`e`⟧ᵪ⁰`:max := re_set0 ℕ bool e
+notation `W⟦`e`⟧ₙ⁰`:max := re_set0 ℕ ℕ e
 
 def curry {α} [primcodable α] (e : ℕ) (n : α) : ℕ := encode (code.curry (of_nat _ e) (encode n))
 
-@[simp] theorem eval_curry (f : γ → option τ) (e n x) :
-  univ α σ f (curry e n) x = univ (β × α) σ f e (n, x) :=
+-- smn定理
+@[simp] theorem eval_curry (f : γ → option τ) (e : ℕ) (n : β) (x : α) :
+  (⟦curry e n⟧*f x : part σ) = (⟦e⟧*f (n, x) : part σ) :=
 by { simp[curry, univ] }
 
 namespace rpartrec
@@ -791,3 +800,6 @@ by { rcases eval_inclusion h with ⟨s, hs⟩, refine ⟨s, λ g hfg, hs _⟩,
      simp, exact hfg }
 
 end rpartrec
+
+theorem rcomputable.curry {α} [primcodable α] {σ : Type*} {τ : Type*} [primcodable σ] [primcodable τ]
+  {o : σ →. τ} : (@curry α _) computable₂_in o := rpartrec.curry_prim.to_rcomp
