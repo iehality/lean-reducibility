@@ -1,7 +1,7 @@
 import reducibility friedberg_muchnik
 open encodable denumerable part
 
-local attribute [instance, priority 0] classical.prop_decidable
+attribute [instance, priority 0] classical.prop_decidable
 
 theorem equivalence_of_t_reducible_equiv (α) [primcodable α] :
   equivalence (@t_reducible_equiv α α _ _) :=

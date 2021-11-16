@@ -338,13 +338,13 @@ begin
 end
 
 lemma rre_pred_iff_exists_index {A : set α} {f : β → σ} :
-  A re_in! f ↔ ∃ e : ℕ, A = wert α ℕ ↑ₒf e :=
+  A re_in! f ↔ ∃ e : ℕ, A = re_set α ℕ ↑ₒf e :=
 ⟨λ h, begin
     rcases rre_pred_iff'.mp h with ⟨q, partrec, h⟩,
     rcases exists_index.mp partrec with ⟨e, rfl⟩,
     refine ⟨e, set.ext h⟩ 
   end,
-  by {rintros ⟨e, rfl⟩, refine rre_pred_iff'.mpr ⟨⟦e⟧^f, univ_partrec_in, λ x, by simp[wert]⟩ }⟩
+  by {rintros ⟨e, rfl⟩, refine rre_pred_iff'.mpr ⟨⟦e⟧^f, univ_partrec_in, λ x, by simp[re_set]⟩ }⟩
 
 lemma rre_pred.rre {f : α →. σ} {g : β →. τ} {A : set γ} :
   A re_in f → f partrec_in g → A re_in g :=
@@ -607,7 +607,7 @@ end
 theorem Rec_equiv_Jump3 (A : set ℕ) : Rec A ≤ₜ A′′′ :=
 begin
   have : Rec A = {e : ℕ | ∃ i, ∀ x, ∃ s, (⟦i⟧ᵪ^(chr A) [s] x = some tt ↔ (⟦e⟧ₙ^(chr A) [s] x).is_some)},
-  { simp[Rec, wert], ext e, simp, sorry }, sorry
+  { simp[Rec, re_set], ext e, simp, sorry }, sorry
 end
 
 lemma rre_enumeration_iff {A : set α} {f : β → σ} (h : ∃ a, a ∈ A) :
@@ -753,6 +753,10 @@ lemma pie_pred_iff {p : ℕ → ℕ → Prop} {n : ℕ}
 lemma sigma_pred_iff {p : ℕ → ℕ → Prop} {n : ℕ}
   (h : 𝚷⁰n {x | p x.unpair.1 x.unpair.2}) : 𝚺⁰(n + 1) {x | ∃ y, p x y} :=
   by simp[sigma_pred]; refine ⟨{x : ℕ | p (nat.unpair x).fst (nat.unpair x).snd}, h, by simp⟩
+
+lemma pie_pred_bforall {p : ℕ → ℕ → Prop} {n : ℕ} {b : ℕ}
+  (h : 𝚺⁰n {x | p x.unpair.1 x.unpair.2}) : 𝚺⁰n {x | ∀ y < b, p x y} :=
+  by {  }
 
 lemma sigma_pred.exists {n : ℕ} {A : set ℕ} (h : 𝚺⁰(n + 1) A) :
   𝚺⁰(n + 1) {x | ∃ y, (x.mkpair y) ∈ A} :=

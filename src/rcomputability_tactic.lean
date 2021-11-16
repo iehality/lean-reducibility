@@ -5,19 +5,20 @@ import tactic.show_term
 import rpartrec
 
 section
-variables {α : Type*} {β : Type*} {γ : Type*} {δ : Type*} {σ : Type*} {τ : Type*} {μ : Type*}
-  [primcodable α] [primcodable β] [primcodable γ] [primcodable δ] [primcodable σ] [primcodable τ] [primcodable μ]
-  {o : σ →. τ}
+variables {α : Type*} {β : Type*} {γ : Type*} {δ : Type*} {σ : Type*} {τ : Type*} {μ : Type*} {o_dom : Type*} {o_cod : Type*}
+  [primcodable α] [primcodable β] [primcodable γ] [primcodable δ] [primcodable σ] [primcodable τ] [primcodable μ] [primcodable o_dom] [primcodable o_cod]
+  {o : o_dom →. o_cod}
+open rcomputable rcomputable₂
 
 #check option.get_or_else
 
-theorem rcomputable.unpaired3 {f : β → γ → δ → σ} {g : α → β} {h : α → γ} {i : α → δ} {o : τ →. μ}
+theorem rcomputable.unpaired3 {f : β → γ → δ → σ} {g : α → β} {h : α → γ} {i : α → δ}
   (hf : (prod.unpaired3 f) computable_in o)
   (hg : g computable_in o) (hh : h computable_in o) (hi : i computable_in o) :
   (λ a : α, f (g a) (h a) (i a)) computable_in o :=
 hf.comp (hg.pair (hh.pair hi))
 
-lemma rcomputable.option_get_or_else {f : α → option β} {g : α → β} {o : σ →. τ}
+lemma rcomputable.option_get_or_else {f : α → option β} {g : α → β} 
   (hf : f computable_in o) (hg : g computable_in o) : (λ x, option.get_or_else (f x) (g x)) computable_in o :=
 rcomputable₂.comp (computable.option_get_or_else computable.fst computable.snd).to_rcomp hf hg
 
@@ -39,6 +40,10 @@ primrec.option_orelse.to_rcomp
 
 lemma rcomputable₂.to_bool_eq (α : Type*) [primcodable α] [decidable_eq α] :
   (λ x y : α, to_bool (x = y)) computable₂_in o := primrec.eq.to_rcomp
+
+lemma rcomputable.to_bool_eq (β : Type*) [primcodable β] [decidable_eq β]
+  {f : α → β} {g : α → β} (hf : f computable_in o) (hg : g computable_in o) :
+  (λ a : α, to_bool (f a = g a)) computable_in o := (rcomputable₂.to_bool_eq β).comp hf hg
 
 lemma rcomputable₂.to_bool_nat_lt : (λ m n : ℕ, to_bool (m < n)) computable₂_in o := primrec.nat_lt.to_rcomp
 
@@ -163,6 +168,7 @@ attribute [rcomputability]
   rcomputable.list_length
   rcomputable.list_range_r
   rcomputable₂.to_bool_eq
+  rcomputable.to_bool_eq
   rcomputable₂.to_bool_nat_lt
   rcomputable₂.to_bool_nat_le
   rcomputable₂.pair

@@ -806,6 +806,10 @@ variables {α : Type u}
 @[simp] theorem some_inj'' {a b : α} : ↑a = some b ↔ a = b := by unfold_coes; simp
 @[simp] theorem some_inj''' {a b : α} : some a = ↑b ↔ a = b := by unfold_coes; simp
 
+@[simp] lemma coe_is_some (x : α) : (x : option α).is_some = tt := rfl
+
+@[simp] lemma coe_is_none (x : α) : (x : option α).is_none = ff := rfl
+
 end option
 
 class omega_ordering (α : Type u) :=

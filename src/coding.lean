@@ -752,6 +752,13 @@ theorem univn_mono {e} {p : β → option τ} {s₀ s₁ : ℕ} {x : α} {y : σ
 by { simp [univn], intros z h eqn_z,
      refine ⟨z, code.evaln_mono eqn h, eqn_z⟩ }
 
+theorem univn_dom_mono {e} {p : β → option τ} {s₀ s₁ : ℕ} {x : α}
+  (eqn : s₀ ≤ s₁) : (⟦e⟧*p [s₀] x : option σ).is_some → (⟦e⟧*p [s₁] x : option σ).is_some :=
+begin
+  cases C : (⟦e⟧*p [s₀] x : option σ) with y; simp,
+  simp[univn_mono eqn C]
+end
+
 theorem univn_mono_eq {e} {p : β → option τ} {s₀ s₁ : ℕ} {x : α} {y₀ y₁ : σ}
   (h₀ : ⟦e⟧*p [s₀] x = some y₀) (h₁ : ⟦e⟧*p [s₁] x = some y₁) : y₀ = y₁ :=
 begin
