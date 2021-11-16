@@ -973,14 +973,6 @@ def eq_under {α : Sort*} (n : ℕ) (f g : ℕ → α) : Prop := ∀ x < n, f x 
 
 notation f ` =[<` n `]` g := eq_under n f g
 
-lemma part.opt_exists {α} (p : part α) : ∃ o : option α, (o : part α) = p :=
-by { by_cases p.dom, refine ⟨p.get h, by { unfold_coes, simp [part.of_option]}⟩,
-     exact ⟨none, by { unfold_coes, simp [part.of_option, part.eq_none_iff'.mpr h] }⟩ }
-
-noncomputable def part.to_opt {α} (p : part α) : option α := classical.some (part.opt_exists p)
-
-@[simp] lemma part.to_opt_eq {α} (p : part α) : (p.to_opt : part α) = p := classical.some_spec p.opt_exists
-
 def list.of_list {α : Type*} : ∀ l : list α, (fin (l.length) → α)
 | []        := finitary.nil
 | (a :: as) := as.of_list ::ᶠ a
