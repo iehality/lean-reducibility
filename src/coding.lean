@@ -138,122 +138,123 @@ private lemma of_nat_code_encode : ∀ c, of_nat_code (encode_code c) = c
 
 instance : denumerable code := mk' ⟨encode_code, of_nat_code, of_nat_code_encode, encode_of_nat_code⟩
 
-def evaln : ℕ → (ℕ → option ℕ) → code → ℕ → option ℕ
-| 0     f _            := λ _, none
-| (s+1) f oracle       := λ n, guard (n ≤ s) >> f n
-| (s+1) f zero         := λ n, guard (n ≤ s) >> pure 0
-| (s+1) f succ         := λ n, guard (n ≤ s) >> pure (nat.succ n)
-| (s+1) f left         := λ n, guard (n ≤ s) >> pure n.unpair.1
-| (s+1) f right        := λ n, guard (n ≤ s) >> pure n.unpair.2
-| (s+1) f (pair cf cg) := λ n, guard (n ≤ s) >>
-    mkpair <$> evaln (s+1) f cf n <*> evaln (s+1) f cg n
-| (s+1) f (comp cf cg) := λ n, guard (n ≤ s) >>
-    do x ← evaln (s+1) f cg n, evaln (s+1) f cf x
-| (s+1) f (prec cf cg) := λ n, guard (n ≤ s) >>
+def evaln : ∀ (e : ℕ) (f : ℕ →. ℕ) [∀ x, decidable (f x).dom], code → ℕ → option ℕ
+| 0     f _ _            := λ _, none
+| (s+1) f _ oracle       := λ n, guard (n ≤ s) >> by exactI (f n).to_option
+| (s+1) f _ zero         := λ n, guard (n ≤ s) >> pure 0
+| (s+1) f _ succ         := λ n, guard (n ≤ s) >> pure (nat.succ n)
+| (s+1) f _ left         := λ n, guard (n ≤ s) >> pure n.unpair.1
+| (s+1) f _ right        := λ n, guard (n ≤ s) >> pure n.unpair.2
+| (s+1) f D (pair cf cg) := λ n, guard (n ≤ s) >>
+    by exactI mkpair <$> evaln (s+1) f cf n <*> evaln (s+1) f cg n
+| (s+1) f D (comp cf cg) := λ n, guard (n ≤ s) >>
+    do x ← by exactI evaln (s+1) f cg n, by exactI evaln (s+1) f cf x
+| (s+1) f D (prec cf cg) := λ n, guard (n ≤ s) >>
     n.unpaired (λ a n,
-    n.cases (evaln (s+1) f cf a) $ λ y, do
-    i ← evaln s f (prec cf cg) (mkpair a y),
-    evaln (s+1) f cg (mkpair a (mkpair y i)))
-| (s+1) f (rfind' cf)  := λ n, guard (n ≤ s) >>
+    n.cases (by exactI evaln (s+1) f cf a) $ λ y, do
+    i ← by exactI evaln s f (prec cf cg) (mkpair a y),
+    by exactI evaln (s+1) f cg (mkpair a (mkpair y i)))
+| (s+1) f D (rfind' cf)  := λ n, guard (n ≤ s) >>
     n.unpaired (λ a m, do
-    x ← evaln (s+1) f cf (mkpair a m),
+    x ← by exactI evaln (s+1) f cf (mkpair a m),
     if x = 0 then pure m else
-    evaln s f (rfind' cf) (mkpair a (m+1)))
+    by exactI evaln s f (rfind' cf) (mkpair a (m+1)))
 -- evaln s f c x = { c }ᶠₛ (x)
 
-@[simp] theorem evaln_0 {f c n} : evaln 0 f c n = none :=
+@[simp] theorem evaln_0 {f : ℕ →. ℕ} [∀ x, decidable (f x).dom] {c n} : evaln 0 f c n = none :=
 by induction c; simp [evaln]
 
-theorem evaln_inclusion : ∀ {s c} {f g : ℕ → option ℕ},
-  (∀ x y, x < s → f x = some y → g x = some y) → 
-  ∀ {x y}, evaln s f c x = some y →  evaln s g c x = some y
-| 0 c _ _ := by simp[evaln]
-| (s+1) oracle f g := λ h n y, 
+theorem evaln_inclusion : ∀ {s c} {f g : ℕ →. ℕ} [∀ x, decidable (f x).dom] [∀ x, decidable (g x).dom],
+by exactI  (∀ x y, x < s → y ∈ f x → y ∈ g x) → 
+  ∀ {x y}, evaln s f c x = some y → evaln s g c x = some y
+| 0     c            _ _ _  _  := by simp[evaln]
+| (s+1) oracle       f g _  _  := λ h n y, 
     by { simp[evaln], have : n ≤ s ∨ ¬ n ≤ s, omega,
          cases this; simp[(>>), this], exact h _ _ (nat.lt_succ_iff.mpr this),
          intros _ c, exfalso, exact option.not_mem_none _ c }
-| (s+1) zero         f g := by simp[evaln]
-| (s+1) succ         f g := by simp[evaln]
-| (s+1) left         f g := by simp[evaln]
-| (s+1) right        f g := by simp[evaln]
-| (s+1) (pair cf cg) f g := λ h n y,
-    have IH₀ : _ := @evaln_inclusion (s+1) cf _ _ h,
-    have IH₁ : _ := @evaln_inclusion (s+1) cg _ _ h,
+| (s+1) zero         f g _  _  := by simp[evaln]
+| (s+1) succ         f g _  _  := by simp[evaln]
+| (s+1) left         f g _  _  := by simp[evaln]
+| (s+1) right        f g _  _  := by simp[evaln]
+| (s+1) (pair cf cg) f g Df Dg := λ h n y,
+    have IH₀ : _ := @evaln_inclusion (s+1) cf f g Df Dg h,
+    have IH₁ : _ := @evaln_inclusion (s+1) cg f g Df Dg h,
     by { simp[evaln, (>>)], assume e hf,
-         have : ∃ y, evaln (s + 1) f cf n = some y, 
-         { cases evaln (s + 1) f cf n; simp, simp[(<*>), hf] at hf ⊢, exact hf },
+         have : ∃ y, by exactI evaln (s + 1) f cf n = some y, 
+         { cases (by exactI evaln (s + 1) f cf n); simp, { simp[(<*>), hf] at hf ⊢, exact hf } },
          rcases this with ⟨y0, hy0⟩, have IH₀' := IH₀ hy0,
-          have : ∃ y, evaln (s + 1) f cg n = some y, 
-         { cases evaln (s + 1) f cg n; simp, simp[(<*>), hf] at hf ⊢, exact hf },
+          have : ∃ y, by exactI evaln (s + 1) f cg n = some y, 
+         { cases (by exactI evaln (s + 1) f cg n); simp, { simp[(<*>), hf] at hf ⊢, exact hf } },
          rcases this with ⟨y1, hy1⟩, have IH₁' := IH₁ hy1,
          simp[hy0, hy1, IH₀', IH₁'] at hf ⊢, exact ⟨e, hf⟩ }
-| (s+1) (comp cf cg) f g := λ h n y,
-    have IH₀ : _ := @evaln_inclusion (s+1) cf _ _ h,
-    have IH₁ : _ := @evaln_inclusion (s+1) cg _ _ h,
+| (s+1) (comp cf cg) f g Df Dg := λ h n y,
+    have IH₀ : _ := @evaln_inclusion (s+1) cf f g Df Dg h,
+    have IH₁ : _ := @evaln_inclusion (s+1) cg f g Df Dg h,
     by { simp[evaln, (>>)], assume e z hz hy,
          refine ⟨e, z, IH₁ hz, IH₀ hy⟩ }
-| (s+1) (prec cf cg) f g := λ h n y,
-    have l0 : ∀ x y, x < s → f x = some y → g x = some y :=
+| (s+1) (prec cf cg) f g Df Dg := λ h n y,
+    have l0 : ∀ x y, x < s → y ∈ f x → y ∈ g x :=
       λ x y e, h x y (nat.lt.step e),
-    have IH₀ : _ := @evaln_inclusion s (cf.prec cg) _ _ l0,
-    have IH₁ : _ := @evaln_inclusion (s+1) cf _ _ h,
-    have IH₂ : _ := @evaln_inclusion (s+1) cg _ _ h,
+    have IH₀ : _ := @evaln_inclusion s (cf.prec cg) f g Df Dg l0,
+    have IH₁ : _ := @evaln_inclusion (s+1) cf f g Df Dg h,
+    have IH₂ : _ := @evaln_inclusion (s+1) cg f g Df Dg h,
     by { simp[evaln, (>>)], assume e hf,
          cases n.unpair.snd with n0; simp at hf ⊢, exact ⟨e, IH₁ hf⟩,
          rcases hf with ⟨z, hz0, hz1⟩,
          refine ⟨e, z, IH₀ hz0, IH₂ hz1⟩ }
-| (s+1) (rfind' cf)  f g := λ h n y, 
-    have l0 : ∀ x y, x < s → f x = some y → g x = some y :=
+| (s+1) (rfind' cf)  f g Df Dg := λ h n y, 
+    have l0 : ∀ x y, x < s → y ∈ f x → y ∈ g x :=
       λ x y e, h x y (nat.lt.step e),
-    have IH₀ : _ := @evaln_inclusion (s+1) cf _ _ h, 
-    have IH₁ : _ := @evaln_inclusion s cf.rfind' _ _ l0,
+    have IH₀ : _ := @evaln_inclusion (s+1) cf f g Df Dg h, 
+    have IH₁ : _ := @evaln_inclusion s cf.rfind' f g Df Dg l0,
     by { simp[evaln, (>>)], assume e z ez ey,
          refine ⟨e, z, IH₀ ez, _⟩,
          cases z with z0; simp at ey ⊢, exact ey, exact IH₁ ey }
 
-theorem evaln_use : ∀ {s c} {f g : ℕ → option ℕ},
-  (∀ x, x < s → f x = g x) → evaln s f c = evaln s g c
-| 0     c            _ _  := by simp[evaln]
-| (s+1) oracle       _ _  := λ h, funext $ λ n, 
-    by { simp[evaln], have : n ≤ s ∨ ¬ n ≤ s, omega,
-         cases this; simp[(>>), this], exact h _ (nat.lt_succ_iff.mpr this), refl }
-| (s+1) zero         f g := by simp[evaln]
-| (s+1) succ         f g := by simp[evaln]
-| (s+1) left         f g := by simp[evaln]
-| (s+1) right        f g := by simp[evaln]
-| (s+1) (pair cf cg) f g := λ h,
-    have IH₀ : _ := @evaln_use (s+1) cf _ _ h,
-    have IH₁ : _ := @evaln_use (s+1) cg _ _ h,
+theorem evaln_use : ∀ {s c} {f g : ℕ →. ℕ} [∀ x, decidable (f x).dom] [∀ x, decidable (g x).dom],
+  by exactI (∀ x, x < s → f x = g x) → evaln s f c = evaln s g c
+| 0     c            _ _ _  _  := by simp[evaln]
+| (s+1) oracle       f g _  _  := λ h, funext $ λ n, 
+    by { simp[evaln], have : n ≤ s ∨ ¬n ≤ s, omega,
+         cases this; simp[(>>), this], exact h n (nat.lt_succ_iff.mpr this), refl }
+| (s+1) zero         f g _  _ := by simp[evaln]
+| (s+1) succ         f g _  _ := by simp[evaln]
+| (s+1) left         f g _  _ := by simp[evaln]
+| (s+1) right        f g _  _ := by simp[evaln]
+| (s+1) (pair cf cg) f g Df Dg := λ h,
+    have IH₀ : _ := @evaln_use (s+1) cf f g Df Dg h,
+    have IH₁ : _ := @evaln_use (s+1) cg f g Df Dg h,
     funext $ λ n, 
     by { simp[evaln], have : n ≤ s ∨ ¬ n ≤ s, omega, cases this;
          simp[(>>), this, IH₀, IH₁] }
-| (s+1) (comp cf cg) f g := λ h,
-    have IH₀ : _ := @evaln_use (s+1) cf _ _ h,
-    have IH₁ : _ := @evaln_use (s+1) cg _ _ h,
+| (s+1) (comp cf cg) f g Df Dg := λ h,
+    have IH₀ : _ := @evaln_use (s+1) cf f g Df Dg h,
+    have IH₁ : _ := @evaln_use (s+1) cg f g Df Dg h,
     funext $ λ n, 
     by { simp[evaln], have : n ≤ s ∨ ¬ n ≤ s, omega, cases this;
          simp[(>>), this, IH₀, IH₁] }
-| (s+1) (prec cf cg) f g := λ h,
+| (s+1) (prec cf cg) f g Df Dg := λ h,
     have l0 : ∀ (x : ℕ), x < s → f x = g x := λ x e, h x (nat.lt.step e),
-    have IH₀ : _ := @evaln_use s (cf.prec cg) _ _ l0,
-    have IH₁ : _ := @evaln_use (s+1) cf _ _ h,
-    have IH₂ : _ := @evaln_use (s+1) cg _ _ h,
+    have IH₀ : _ := @evaln_use s (cf.prec cg) f g Df Dg l0,
+    have IH₁ : _ := @evaln_use (s+1) cf f g Df Dg h,
+    have IH₂ : _ := @evaln_use (s+1) cg f g Df Dg h,
     funext $ λ n, 
     by { simp[evaln], have : n ≤ s ∨ ¬ n ≤ s, omega, cases this;
          simp[(>>), this, IH₀, IH₁, IH₂] }
-| (s+1) (rfind' cf)  f g := λ h, 
+| (s+1) (rfind' cf)  f g Df Dg := λ h, 
     have l0 : ∀ (x : ℕ), x < s → f x = g x := λ x e, h x (nat.lt.step e),
-    have IH₀ : _ := @evaln_use (s+1) cf _ _ h,
-    have IH₁ : _ := @evaln_use s cf.rfind' _ _ l0,
+    have IH₀ : _ := @evaln_use (s+1) cf f g Df Dg h,
+    have IH₁ : _ := @evaln_use s cf.rfind' f g Df Dg l0,
     funext $ λ n, 
     by { simp[evaln], have : n ≤ s ∨ ¬ n ≤ s, omega, cases this;
          simp[(>>), this, IH₀, IH₁] }
 
-theorem evaln_use' {s} {f g : ℕ → option ℕ} (h : ∀ x, x < s → f x = g x) :
+theorem evaln_use' {s} {f g : ℕ →. ℕ} [∀ x, decidable (f x).dom] [∀ x, decidable (g x).dom]
+  (h : ∀ x, x < s → f x = g x) :
   evaln s f = evaln s g := 
 funext $ λ c, evaln_use h
 
-theorem evaln_bound {f} : ∀ {k c n x}, x ∈ evaln k f c n → n < k
+theorem evaln_bound {f : ℕ →. ℕ} [∀ x, decidable (f x).dom] : ∀ {k c n x}, x ∈ evaln k f c n → n < k
 | 0     c n x h := by simp [evaln] at h; cases h
 | (k+1) c n x h := begin
   suffices : ∀ {o : option ℕ}, x ∈ guard (n ≤ k) >> o → n < k + 1,
@@ -261,62 +262,62 @@ theorem evaln_bound {f} : ∀ {k c n x}, x ∈ evaln k f c n → n < k
   simpa [(>>)] using nat.lt_succ_of_le
 end
 
-theorem evaln_bound_none {f k c n} (h : k ≤ n) : evaln k f c n = none :=
+theorem evaln_bound_none {f : ℕ →. ℕ} [∀ x, decidable (f x).dom] {k c n} (h : k ≤ n) : evaln k f c n = none :=
 by { cases e : evaln k f c n with v; simp,
      have := evaln_bound e, exact nat.lt_le_antisymm this h }
 
-theorem evaln_mono : ∀ {s₁ s₂ c f n x},
-  s₁ ≤ s₂ → evaln s₁ f c n = some x → evaln s₂ f c n = some x
-| 0      _      _            _ _ _ := λ _ h, by simp [evaln] at h; cases h
-| (s₀+1) 0      _            _ _ _ := λ e h, by exfalso; exact nat.not_succ_le_zero s₀ e
-| (s₀+1) (s₁+1) oracle       f n x := λ hs,
+theorem evaln_mono : ∀ {s₁ s₂ : ℕ} {c : code} {f : ℕ →. ℕ} [∀ x, decidable (f x).dom] {n x : ℕ},
+  by exactI s₁ ≤ s₂ → evaln s₁ f c n = some x → evaln s₂ f c n = some x
+| 0      _      _            _ _ _ _ := λ _ h, by simp [evaln] at h; cases h
+| (s₀+1) 0      _            _ _ _ _ := λ e h, by exfalso; exact nat.not_succ_le_zero s₀ e
+| (s₀+1) (s₁+1) oracle       f _ n x := λ hs,
     by { simp[evaln], have : n ≤ s₀ ∨ ¬ n ≤ s₀, omega,
          cases this; simp[(>>), this], exact λ e, ⟨by omega, e⟩,
          intros _ c, exfalso, exact option.not_mem_none _ c }
-| (s₀+1) (s₁+1) zero         f n x := λ hs, 
+| (s₀+1) (s₁+1) zero         f _ n x := λ hs, 
     by simp[evaln, (>>)]; exact λ _ e, ⟨by omega, e⟩
-| (s₀+1) (s₁+1) succ         f n x := λ hs, 
+| (s₀+1) (s₁+1) succ         f _ n x := λ hs, 
     by simp[evaln, (>>)]; exact λ _ e, ⟨by omega, e⟩
-| (s₀+1) (s₁+1) left         f n x := λ hs, 
+| (s₀+1) (s₁+1) left         f _ n x := λ hs, 
     by simp[evaln, (>>)]; exact λ _ e, ⟨by omega, e⟩
-| (s₀+1) (s₁+1) right        f n x := λ hs, 
+| (s₀+1) (s₁+1) right        f _ n x := λ hs, 
     by simp[evaln, (>>)]; exact λ _ e, ⟨by omega, e⟩
-| (s₀+1) (s₁+1) (pair cf cg) f n x := λ hs,
-    have IH₀ : _ := λ n y, @evaln_mono (s₀+1) (s₁+1) cf f n y hs,
-    have IH₁ : _ := λ n y, @evaln_mono (s₀+1) (s₁+1) cg f n y hs,
+| (s₀+1) (s₁+1) (pair cf cg) f D n x := λ hs,
+    have IH₀ : _ := λ n y, @evaln_mono (s₀+1) (s₁+1) cf f D n y hs,
+    have IH₁ : _ := λ n y, @evaln_mono (s₀+1) (s₁+1) cg f D n y hs,
     by { simp[evaln, (>>)], assume e0 ex,
-         have : ∃ y, evaln (s₀ + 1) f cf n = some y,
-         { cases evaln (s₀ + 1) f cf n; simp[(<*>)] at ex ⊢, exact ex },
+         have : ∃ y, by exactI evaln (s₀ + 1) f cf n = some y,
+         { cases (by exactI evaln (s₀ + 1) f cf n); simp[(<*>)] at ex ⊢, { exact ex } },
          rcases this with ⟨y₀, hy₀⟩,
-         have : ∃ y, evaln (s₀ + 1) f cg n = some y,
-         { cases evaln (s₀ + 1) f cg n; simp[(<*>)] at ex ⊢, exact ex },         
+         have : ∃ y, by exactI evaln (s₀ + 1) f cg n = some y,
+         { cases (by exactI evaln (s₀ + 1) f cg n); simp[(<*>)] at ex ⊢, exact ex },         
          rcases this with ⟨y₁, hy₁⟩,
          simp[hy₀, hy₁, IH₀ _ _ hy₀, IH₁ _ _ hy₁] at ex ⊢,
          exact ⟨le_trans e0 (nat.le_of_succ_le_succ hs), ex⟩ }
-| (s₀+1) (s₁+1) (comp cf cg) f n x := λ hs,        
-    have IH₀ : _ := λ n y, @evaln_mono (s₀+1) (s₁+1) cf f n y hs,
-    have IH₁ : _ := λ n y, @evaln_mono (s₀+1) (s₁+1) cg f n y hs,
+| (s₀+1) (s₁+1) (comp cf cg) f D n x := λ hs,        
+    have IH₀ : _ := λ n y, @evaln_mono (s₀+1) (s₁+1) cf f D n y hs,
+    have IH₁ : _ := λ n y, @evaln_mono (s₀+1) (s₁+1) cg f D n y hs,
     by { simp[evaln, (>>)], assume e0 y ey ex,
          refine ⟨le_trans e0 (nat.le_of_succ_le_succ hs), y, IH₁ _ _ ey, IH₀ _ _ ex⟩ }
-| (s₀+1) (s₁+1) (prec cf cg) f n x := λ hs,
-    have IH₀ : _ := λ n y, @evaln_mono s₀ s₁ (cf.prec cg) f n y (nat.le_of_succ_le_succ hs),
-    have IH₁ : _ := λ n y, @evaln_mono (s₀+1) (s₁+1) cf f n y hs,
-    have IH₂ : _ := λ n y, @evaln_mono (s₀+1) (s₁+1) cg f n y hs,
+| (s₀+1) (s₁+1) (prec cf cg) f D n x := λ hs,
+    have IH₀ : _ := λ n y, @evaln_mono s₀ s₁ (cf.prec cg) f D n y (nat.le_of_succ_le_succ hs),
+    have IH₁ : _ := λ n y, @evaln_mono (s₀+1) (s₁+1) cf f D n y hs,
+    have IH₂ : _ := λ n y, @evaln_mono (s₀+1) (s₁+1) cg f D n y hs,
     by { simp[evaln, (>>)],
          cases n.unpair.snd with n0; simp,
          assume e0 ex,
          exact ⟨le_trans e0 (nat.le_of_succ_le_succ hs), IH₁ _ _ ex⟩,
          assume e0 y ey ex,
          refine ⟨le_trans e0 (nat.le_of_succ_le_succ hs), y, IH₀ _ _ ey, IH₂ _ _ ex⟩ }
-| (s₀+1) (s₁+1) (rfind' cf)  f n x := λ hs,
-    have IH₀ : _ := λ n y, @evaln_mono (s₀+1) (s₁+1) cf f n y hs,
-    have IH₁ : _ := λ n y, @evaln_mono s₀ s₁ cf.rfind' f n y (nat.le_of_succ_le_succ hs),
+| (s₀+1) (s₁+1) (rfind' cf)  f D n x := λ hs,
+    have IH₀ : _ := λ n y, @evaln_mono (s₀+1) (s₁+1) cf f D n y hs,
+    have IH₁ : _ := λ n y, @evaln_mono s₀ s₁ cf.rfind' f D n y (nat.le_of_succ_le_succ hs),
     by { simp[evaln, (>>), pure],
          assume e0 y ey ex,
          refine ⟨by omega, y, IH₀ _ _ ey, _⟩,
          cases y with y0; simp at ex ⊢, exact ex, exact IH₁ _ _ ex }
 
-def eval (f : ℕ → option ℕ) : code → ℕ →. ℕ 
+def eval (f : ℕ →. ℕ) : code → ℕ →. ℕ 
 | oracle       := λ n, f n
 | zero         := pure 0
 | succ         := nat.succ
@@ -330,7 +331,7 @@ def eval (f : ℕ → option ℕ) : code → ℕ →. ℕ
     (nat.rfind (λ n, (λ m, m = 0) <$>
       eval cf (mkpair a (n + m)))).map (+ m))
 
-theorem evaln_sound {f} : ∀ {s c n x},
+theorem evaln_sound {f : ℕ →. ℕ} [∀ x, decidable (f x).dom] : ∀ {s c n x},
   x ∈ evaln s f c n → x ∈ eval f c n
 | 0     _ _ _ h := by simp [evaln] at h; cases h
 | (s + 1) oracle n x h := by { simp [eval, evaln, (>>)] at h ⊢, exact h.2 }
@@ -384,7 +385,7 @@ theorem evaln_sound {f} : ∀ {s c n x},
         rw this, exact hc1 (nat.lt_of_succ_lt_succ eb) } }
   end
 
-theorem evaln_complete {f : ℕ → option ℕ} {c n x} :
+theorem evaln_complete {f : ℕ →. ℕ} [∀ x, decidable (f x).dom] {c n x} :
   x ∈ eval (λ x, f x) c n ↔ ∃ k, x ∈ evaln k f c n := ⟨λ h,
 begin
   suffices : ∃ k, x ∈ evaln (k+1) f c n,
@@ -448,7 +449,7 @@ begin
             evaln_mono (nat.succ_le_succ $ le_max_right _ _) hk₂ } },
 end, λ ⟨k, h⟩, evaln_sound h⟩
 
-theorem evaln_complete_dec {c f} [D : decidable_pred (eval f c).dom] : ∀ m, ∃ s₀,
+theorem evaln_complete_dec {c : code} {f : ℕ →. ℕ} [∀ x, decidable (f x).dom] [D : decidable_pred (eval f c).dom] : ∀ m, ∃ s₀,
   ∀ n a, n < m → eval f c n = some a → evaln s₀ f c n = some a := λ m,
 begin
   induction m with m0 ih, simp,
@@ -475,12 +476,13 @@ begin
         from evaln_mono (le_max_right s₀ s₁) hs₁ } }
 end
 
-theorem eval_inclusion {c x y} {f : ℕ → option ℕ} (h : y ∈ eval f c x) : ∃ s, ∀ {g : ℕ → option ℕ},
-  (∀ x y, x < s → f x = some y → g x = some y) → y ∈ eval g c x :=
+theorem eval_inclusion {c x y} {f : ℕ →. ℕ} [∀ x, decidable (f x).dom] (h : y ∈ eval f c x) :
+  ∃ s, ∀ {g : ℕ →.ℕ} [∀ x, decidable (g x).dom],
+  (∀ x y, x < s → y ∈ f x → y ∈ g x) → y ∈ eval g c x :=
 by { have : ∃ s, y ∈ evaln s f c x := evaln_complete.mp h, rcases this with ⟨s, hs⟩,
-     refine ⟨s, λ g h, evaln_complete.mpr ⟨s, evaln_inclusion h hs⟩⟩ }
+     refine ⟨s, λ g D h, by exactI evaln_complete.mpr ⟨s, evaln_inclusion h hs⟩⟩ }
 
-@[simp] theorem evaln_const (s f) :
+@[simp] theorem evaln_const (s : ℕ) (f : ℕ →. ℕ) [∀ x, decidable (f x).dom] :
   ∀ n m, evaln (s+1) f (code.const n) m = guard (n ≤ s+1) >> guard (m ≤ s) >> option.some n
 | 0     m := by { simp[code.const, evaln, (>>), pure], }
 | (n+1) m := have IH : _ := evaln_const n m, 
@@ -489,19 +491,20 @@ by { have : ∃ s, y ∈ evaln s f c x := evaln_complete.mp h, rcases this with 
     by_cases e2 : m ≤ s; simp[e1, e2, failure, alternative.failure],
     refine ⟨n, ⟨⟨(le_add_right e1), (), rfl⟩, rfl⟩, e1, rfl⟩ }
 
-@[simp] theorem eval_const (f) : ∀ n m, eval f (code.const n) m = part.some n
+@[simp] theorem eval_const (f : ℕ →. ℕ) : ∀ n m, eval f (code.const n) m = part.some n
 | 0     m := rfl
 | (n+1) m := by simp! *
 
-@[simp] theorem eval_id (f n) : eval f code.id n = part.some n := by simp! [(<*>)]
+@[simp] theorem eval_id (f : ℕ →. ℕ) (n) : eval f code.id n = part.some n := by simp! [(<*>)]
 
-@[simp] theorem eval_curry (f c n x) : eval f (curry c n) x = eval f c (mkpair n x) :=
+@[simp] theorem eval_curry (f : ℕ →. ℕ) (c n x) :
+  eval f (curry c n) x = eval f c (mkpair n x) :=
 by simp! [(<*>)]
 
 --@[simp] theorem eval_ctrans (f c₁ c₂ x) : eval (eval f c₁) c₂ x = eval f (ctrans c₁ c₂) x :=
 --by simp! [(<*>)]
 
-@[simp] theorem evaln_curry (s f c n x) :
+@[simp] theorem evaln_curry (s : ℕ) (f : ℕ →. ℕ) [∀ x, decidable (f x).dom] (c : code) (n x : ℕ) :
   evaln s f (curry c n) x = evaln s f c (n.mkpair x) :=
 begin
   cases s, simp,
@@ -580,49 +583,12 @@ begin
   exact this.comp primrec.unpair.to_rcomp
 end
 
-theorem exists_code {f g : ℕ →. ℕ} [D : decidable_pred (λ x, x ∈ g.dom)] :
-  nat.rpartrec g f ↔ ∃ c, eval (g.eval_opt) c = f := ⟨λ h,
+theorem exists_code {f g : ℕ →. ℕ} [D : ∀ x, decidable (g x).dom] :
+  nat.rpartrec g f ↔ ∃ c, eval g c = f := ⟨λ h,
 begin
   induction h,
   case nat.rpartrec.oracle 
-  { exact ⟨oracle, by { simp[eval], funext n, exact of_to_option (g n) }⟩ },  
-  case nat.rpartrec.zero   { exact ⟨zero, rfl⟩ },
-  case nat.rpartrec.succ   { exact ⟨succ, rfl⟩ },
-  case nat.rpartrec.left   { exact ⟨left, rfl⟩ },
-  case nat.rpartrec.right  { exact ⟨right, rfl⟩ },
-  case nat.rpartrec.pair : f₀ f₁ pf₀ pf₁ hf₀ hf₁
-  { rcases hf₀ with ⟨e₀, rfl⟩, rcases hf₁ with ⟨e₁, rfl⟩,
-    exact ⟨pair e₀ e₁, rfl⟩ },
-  case nat.rpartrec.comp : f₀ f₁ pf₀ pf₁ hf₀ hf₁
-  { rcases hf₀ with ⟨e₀, rfl⟩, rcases hf₁ with ⟨e₁, rfl⟩,
-    exact ⟨comp e₀ e₁, rfl⟩ },
-  case nat.rpartrec.prec : f₀ f₁ pf₀ pf₁ hf₀ hf₁
-  { rcases hf₀ with ⟨e₀, rfl⟩, rcases hf₁ with ⟨e₁, rfl⟩,
-    exact ⟨prec e₀ e₁, rfl⟩ },
-  case nat.rpartrec.rfind : f₀ pf₀ hf₀
-  { rcases hf₀ with ⟨e₀, rfl⟩, 
-    refine ⟨comp (rfind' e₀) (pair nat.rpartrec.code.id zero), _⟩,
-    simp [eval, (<*>), pure, pfun.pure, part.map_id'],  },
-end,λ h, begin
-  rcases h with ⟨c, rfl⟩, induction c,
-  case nat.rpartrec.code.oracle 
-  { simp[eval], unfold_coes, simp, exact nat.rpartrec.oracle },
-  case nat.rpartrec.code.zero { exact nat.rpartrec.zero },
-  case nat.rpartrec.code.succ { exact nat.rpartrec.succ },
-  case nat.rpartrec.code.left { exact nat.rpartrec.left },
-  case nat.rpartrec.code.right { exact nat.rpartrec.right },
-  case nat.rpartrec.code.pair : cf cg pf pg { exact pf.pair pg },
-  case nat.rpartrec.code.comp : cf cg pf pg { exact pf.comp pg },
-  case nat.rpartrec.code.prec : cf cg pf pg { exact pf.prec pg },
-  case nat.rpartrec.code.rfind' : cf pf { exact nat.rpartrec.trans rpartrec_rfind' pf },
-end⟩
-
-theorem exists_code_opt {f : ℕ →. ℕ} {g : ℕ → option ℕ} :
-  nat.rpartrec ↑ʳg f ↔ ∃ c, eval g c = f := ⟨λ h,
-begin
-  induction h,
-  case nat.rpartrec.oracle 
-  { exact ⟨oracle, rfl⟩ },  
+  { exact ⟨oracle, by { simp[eval] }⟩ },  
   case nat.rpartrec.zero   { exact ⟨zero, rfl⟩ },
   case nat.rpartrec.succ   { exact ⟨succ, rfl⟩ },
   case nat.rpartrec.left   { exact ⟨left, rfl⟩ },
@@ -660,45 +626,47 @@ open nat.rpartrec
 variables {α : Type*} {σ : Type*} {β : Type*} {τ : Type*} {γ : Type*} {μ : Type*} 
 variables [primcodable α] [primcodable σ] [primcodable β] [primcodable τ] [primcodable γ] [primcodable μ]
 
-def univn (α σ) [primcodable α] [primcodable σ] (s : ℕ) (f : β → option τ) (e : ℕ) :
-  α → option σ := (λ a,
-(code.evaln s 
-  (λ n, (decode β n).bind (λ a, (f a).map encode ))
-  (of_nat code e) (encode a))
-.bind (λ x, (decode σ x)))
+def pfun_to_nat (f : β →. τ) : ℕ →. ℕ := λ n, part.bind(decode β n) (λ a, (f a).map encode)
+
+instance decidable_pfun_to_nat_dom
+  (f : β →. τ) [D : ∀ x, decidable (f x).dom] : ∀ x, decidable (pfun_to_nat f x).dom :=
+by { intros n,
+    cases C₁ : decode β n with x; simp[pfun_to_nat, C₁], { simp[part.none], exact decidable.false },
+    { exact D x } }
+
+def univn (α σ) [primcodable α] [primcodable σ] (s : ℕ) (f : β →. τ) [D : ∀ x, decidable (f x).dom] (e : ℕ) :
+  α → option σ :=
+(λ a, (code.evaln s (pfun_to_nat f) (of_nat code e) (encode a)).bind (λ x, (decode σ x)))
 
 notation `⟦`e`⟧*`f:max` [`s`]` := univn _ _ s f e
-notation `⟦`e`⟧^`f:max` [`s`]` := univn _ _ s ↑ₒf e
+notation `⟦`e`⟧^`f:max` [`s`]` := univn _ _ s ↑ᵣf e
 
-def univ (α σ) [primcodable α] [primcodable σ] (f : β → option τ) (e : ℕ) : α →. σ := (λ a,
-(code.eval
-  (λ n, (decode β n).bind (λ a, (f a).map encode))
-  (of_nat code e) (encode a))
-.bind (λ x, (decode σ x)))
+def univ (α σ) [primcodable α] [primcodable σ] (f : β →. τ) (e : ℕ) : α →. σ := (λ a,
+(code.eval (pfun_to_nat f) (of_nat code e) (encode a)).bind (λ x, (decode σ x)))
 
 notation `⟦`e`⟧*`f:max := univ _ _ f e
-notation `⟦`e`⟧^`f:max := univ _ _ ↑ₒf e
+notation `⟦`e`⟧^`f:max := univ _ _ ↑ᵣf e
 
 notation `⟦`e`⟧ᵪ*`f:max` [`s`]` := univn ℕ bool s f e
 notation `⟦`e`⟧ₙ*`f:max` [`s`]` := univn ℕ ℕ s f e
 notation `⟦`e`⟧ᵪ*`f:max := univ ℕ bool f e
 notation `⟦`e`⟧ₙ*`f:max := univ ℕ ℕ f e
 
-notation `⟦`e`⟧ᵪ^`f:max` [`s`]` := univn ℕ bool s ↑ₒf e
-notation `⟦`e`⟧ₙ^`f:max` [`s`]` := univn ℕ ℕ s ↑ₒf e
-notation `⟦`e`⟧ᵪ^`f:max := univ ℕ bool ↑ₒf e
-notation `⟦`e`⟧ₙ^`f:max := univ ℕ ℕ ↑ₒf e
+notation `⟦`e`⟧ᵪ^`f:max` [`s`]` := univn ℕ bool s ↑ᵣf e
+notation `⟦`e`⟧ₙ^`f:max` [`s`]` := univn ℕ ℕ s ↑ᵣf e
+notation `⟦`e`⟧ᵪ^`f:max := univ ℕ bool ↑ᵣf e
+notation `⟦`e`⟧ₙ^`f:max := univ ℕ ℕ ↑ᵣf e
 
 def univn0 (α σ) [primcodable α] [primcodable σ] (s : ℕ) (e : ℕ) : α → option σ :=
-univn α σ s (λ x, none : ℕ → option ℕ) e
+univn α σ s partrec_fun e
 
 def univ0 (α σ) [primcodable α] [primcodable σ] (e : ℕ) : α →. σ :=
-univ α σ (λ x, some 0 : ℕ → option ℕ) e
+univ α σ partrec_fun e
 
 notation `⟦`e`⟧⁰`:max` [`s`]` := univn0 _ _ s e
 notation `⟦`e`⟧⁰`:max := univ0 _ _ e
 
-def re_set (α σ) [primcodable α] [primcodable σ] (p : β → option τ) (e : ℕ) : set α :=
+def re_set (α σ) [primcodable α] [primcodable σ] (p : β →. τ) (e : ℕ) : set α :=
 {x | (⟦e⟧*p x : part σ).dom}
 
 def re_set0 (α σ) [primcodable α] [primcodable σ] (e : ℕ) : set α :=
@@ -714,9 +682,9 @@ notation `W⟦`e`⟧ₙ⁰`:max := re_set0 ℕ ℕ e
 def curry {α} [primcodable α] (e : ℕ) (n : α) : ℕ := encode (code.curry (of_nat _ e) (encode n))
 
 -- smn定理
-@[simp] theorem eval_curry (f : γ → option τ) (e : ℕ) (n : β) (x : α) :
+@[simp] theorem eval_curry (f : γ →. τ) (e : ℕ) (n : β) (x : α) :
   (⟦curry e n⟧*f x : part σ) = (⟦e⟧*f (n, x) : part σ) :=
-by { simp[curry, univ] }
+by simp[curry, univ]
 
 namespace rpartrec
 
@@ -726,40 +694,48 @@ theorem curry_prim {α} [primcodable α] : primrec₂ (@curry α _) :=
 
 open primrec
 
-theorem univn_sound {e} {p : β → option τ} {x : α} {y : σ} {s : ℕ} :
-  ⟦e⟧*p [s] x = some y → ⟦e⟧*p x = some y := 
-by { simp[univn, univ, part.eq_some_iff], 
-     exact λ s h e, ⟨s, code.evaln_sound h, e⟩ }
+theorem univn_sound {e} {p : β →. τ} [∀ x, decidable (p x).dom] {x : α} {y : σ} {s : ℕ} :
+  y ∈ (⟦e⟧*p [s] x : option σ) → y ∈ (⟦e⟧*p x : part σ) :=
+begin
+  simp[univn, univ], intros s' h eqn, 
+  exact ⟨s', code.evaln_sound h, eqn⟩
+end
 
-theorem univn_complete {p : β → option τ} {e x} {n : α} :
+theorem univn_complete {p : β →. τ} [D : ∀ x, decidable (p x).dom] {e x} {n : α} :
   x ∈ (⟦e⟧*p n : part σ) ↔ ∃ s, ⟦e⟧*p [s] n = some x :=
-by { simp[univn, univ, part.eq_some_iff], split,
-     { rintros ⟨a, ha, ea⟩,
-       rcases code.evaln_complete.mp ha with ⟨s, hs⟩,
-       refine ⟨s, a, hs, ea⟩ },
-     { rintros ⟨s, a, ha, ea⟩,
-       have := code.evaln_complete.mpr ⟨s, ha⟩,
-       refine ⟨a, this, ea⟩ } }
+begin
+  simp[univn, univ], split,
+  { rintros ⟨a, ha, ea⟩,
+    have : ∀ x, decidable (part.bind (decode β x) (λ a, part.map encode (p a))).dom,
+      from decidable_pfun_to_nat_dom _,
+    rcases by exactI code.evaln_complete.mp ha with ⟨s, hs⟩,
+    refine ⟨s, a, cast (by congr) hs, ea⟩ },
+  { rintros ⟨s, a, ha, ea⟩,
+    have := code.evaln_complete.mpr ⟨s, ha⟩,
+    refine ⟨a, this, ea⟩ }
+end
 
-theorem univn_dom_complete {p : β → option τ} {e} {n : α} :
+theorem univn_dom_complete {p : β →. τ} [∀ x, decidable (p x).dom] {e} {n : α} :
   (⟦e⟧*p n : part σ).dom ↔ ∃ s, (⟦e⟧*p [s] n : option σ).is_some :=
-by { simp[part.dom_iff_mem, option.is_some_iff_exists], split,
-     { rintros ⟨y, h⟩, rcases univn_complete.mp h with ⟨s, h⟩, refine ⟨s, y, h⟩ },
-     { rintros ⟨s, y, h⟩, have := univn_complete.mpr ⟨s, h⟩, refine ⟨y, this⟩ } }
+begin
+  simp[part.dom_iff_mem, option.is_some_iff_exists], split,
+  { rintros ⟨y, h⟩, rcases univn_complete.mp h with ⟨s, h⟩, refine ⟨s, y, h⟩ },
+  { rintros ⟨s, y, h⟩, have := univn_complete.mpr ⟨s, h⟩, refine ⟨y, this⟩ }
+end
 
-theorem univn_mono {e} {p : β → option τ} {s₀ s₁ : ℕ} {x : α} {y : σ}
+theorem univn_mono {e} {p : β →. τ} [∀ x, decidable (p x).dom] {s₀ s₁ : ℕ} {x : α} {y : σ}
   (eqn : s₀ ≤ s₁) : ⟦e⟧*p [s₀] x = some y → ⟦e⟧*p [s₁] x = some y :=
 by { simp [univn], intros z h eqn_z,
      refine ⟨z, code.evaln_mono eqn h, eqn_z⟩ }
 
-theorem univn_dom_mono {e} {p : β → option τ} {s₀ s₁ : ℕ} {x : α}
+theorem univn_dom_mono {e} {p : β →. τ} [∀ x, decidable (p x).dom] {s₀ s₁ : ℕ} {x : α}
   (eqn : s₀ ≤ s₁) : (⟦e⟧*p [s₀] x : option σ).is_some → (⟦e⟧*p [s₁] x : option σ).is_some :=
 begin
   cases C : (⟦e⟧*p [s₀] x : option σ) with y; simp,
   simp[univn_mono eqn C]
 end
 
-theorem univn_mono_eq {e} {p : β → option τ} {s₀ s₁ : ℕ} {x : α} {y₀ y₁ : σ}
+theorem univn_mono_eq {e} {p : β →. τ} [∀ x, decidable (p x).dom] {s₀ s₁ : ℕ} {x : α} {y₀ y₁ : σ}
   (h₀ : ⟦e⟧*p [s₀] x = some y₀) (h₁ : ⟦e⟧*p [s₁] x = some y₁) : y₀ = y₁ :=
 begin
   have : s₀ ≤ s₁ ∨ s₁ ≤ s₀, from le_total _ _,
@@ -768,22 +744,23 @@ begin
   { have := univn_mono this h₁, simp [this] at h₀, exact eq.symm h₀ }
 end 
 
-theorem univn_use {s e} {p q : ℕ → option β}
+theorem univn_use {s e} {p q : ℕ →. β} [∀ x, decidable (p x).dom] [∀ x, decidable (q x).dom]
   (h : ∀ x, x < s → p x = q x) : (⟦e⟧*p [s] : α → option σ) = ⟦e⟧*q [s] :=
 begin
   simp [univn],
   suffices :
-    code.evaln s (λ n, option.map encode (p n)) (of_nat code e) =
-    code.evaln s (λ n, option.map encode (q n)) (of_nat code e),
+    code.evaln s (pfun_to_nat p) (of_nat code e) =
+    code.evaln s (pfun_to_nat q) (of_nat code e),
   { funext, rw this },
-  apply code.evaln_use, intros u eqn, congr, exact h _ eqn
+  apply code.evaln_use, intros u eqn, simp[pfun_to_nat], congr, exact h _ eqn
 end
 
 theorem univn_tot_use {s e} {f g : ℕ → β}
   (h : ∀ x, x < s → f x = g x) : (⟦e⟧^f [s] : α → option σ) = ⟦e⟧^g [s] :=
 univn_use (λ x lt, by simp[h x lt])
 
-theorem univn_mono_use {e} {p q : ℕ → option τ} {s₀ s₁ : ℕ} {x : α} {y : σ}
+theorem univn_mono_use
+  {e} {p q : ℕ →. τ} [∀ x, decidable (p x).dom] [∀ x, decidable (q x).dom] {s₀ s₁ : ℕ} {x : α} {y : σ}
   (h : ∀ x < s₀, p x = q x) (eqn : s₀ ≤ s₁) : ⟦e⟧*p [s₀] x = some y → ⟦e⟧*q [s₁] x = some y := λ eq_y,
   have (⟦e⟧*p [s₀] x : option σ) = ⟦e⟧*q [s₀] x, from congr_fun (univn_use h) x,  
 univn_mono eqn (by simp[←this, eq_y])
@@ -792,19 +769,21 @@ theorem univn_tot_mono_use {e} {f g : ℕ → τ} {s₀ s₁ : ℕ} {x : α} {y 
   (h : ∀ x < s₀, f x = g x) (eqn : s₀ ≤ s₁) : ⟦e⟧^f [s₀] x = some y → ⟦e⟧^g [s₁] x = some y :=
 univn_mono_use (by simp; exact h) eqn
 
-theorem eval_inclusion {e} {x : α} {y : σ} {p : ℕ → option τ}
-  (h : y ∈ (⟦e⟧*p x : part σ)) : ∃ s, ∀ {q : ℕ → option τ},
-  (∀ x y, x < s → p x = some y → q x = some y) → y ∈ (⟦e⟧*q x : part σ) := 
+theorem eval_inclusion {e} {x : α} {y : σ} {p : ℕ →. τ} [∀ x, decidable (p x).dom]
+  (h : y ∈ (⟦e⟧*p x : part σ)) : ∃ s, ∀ {q : ℕ →. τ} [∀ x, decidable (q x).dom],
+  (∀ x y, x < s → y ∈ p x → y ∈ q x) → y ∈ (⟦e⟧*q x : part σ) := 
 by { simp [part.eq_some_iff, univ] at h ⊢, rcases h with ⟨a, h, e⟩,
      rcases nat.rpartrec.code.eval_inclusion h with ⟨s, hs⟩,
-     refine ⟨s, λ g h, ⟨a, hs (λ x y e ey, _), e⟩⟩, simp at ey, rcases ey with ⟨a, ea, ey⟩,
-     have := h _ _ e ea, simp[this, ey] }
+     refine ⟨s, λ q D h, ⟨a, by exactI hs (λ x y e ey,
+       (by {show y ∈ pfun_to_nat q x,
+            simp[pfun_to_nat] at ey ⊢, rcases ey with ⟨z, mem_p, eq⟩,
+            refine ⟨z, h _ _ e mem_p, eq⟩, })), e⟩⟩ }
 
 theorem eval_inclusion_tot {e} {x : α} {y : σ}
   {f : ℕ → τ} (h : y ∈ (⟦e⟧^f x : part σ)) : ∃ s, ∀ {g : ℕ → τ},
   (∀ x y, x < s → f x = y → g x = y) → y ∈ (⟦e⟧^g x : part σ) := 
 by { rcases eval_inclusion h with ⟨s, hs⟩, refine ⟨s, λ g hfg, hs _⟩,
-     simp, exact hfg }
+     simp, intros x y lt eq_y, exact eq.symm (hfg x y lt (eq.symm eq_y)) }
 
 end rpartrec
 

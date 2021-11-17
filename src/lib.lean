@@ -973,6 +973,14 @@ def eq_under {α : Sort*} (n : ℕ) (f g : ℕ → α) : Prop := ∀ x < n, f x 
 
 notation f ` =[<` n `]` g := eq_under n f g
 
+lemma part.to_option_some {α : Type*} {o : part α} [decidable o.dom] (h : o.dom) :
+  o.to_option = some (o.get h) := dif_pos h
+
+@[simp] lemma part.to_option_inj {α : Type*} {o₁ o₂ : part α} [decidable o₁.dom] [decidable o₂.dom] :
+  o₁.to_option = o₂.to_option ↔ o₁ = o₂ := ⟨λ h, part.ext (λ a,
+  by { have : a ∈ o₁.to_option ↔ a ∈ o₂.to_option, simp only [h],
+       simp at this, exact this }), λ h, by { congr, exact h } ⟩
+
 def list.of_list {α : Type*} : ∀ l : list α, (fin (l.length) → α)
 | []        := finitary.nil
 | (a :: as) := as.of_list ::ᶠ a

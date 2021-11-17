@@ -121,11 +121,11 @@ theorem rcomputable.option_rec {f : α → option β} {g : α → γ} {h : α �
   @rcomputable _ _ γ _ _ _ _ _ (λ a, option.rec (g a) (h a) (f a)) o :=
 rcomputable.option_cases hf hg hh
 
-lemma rcomputable.computable_of_rcomp {f : α → β} (hf : f computable_in (λ n, none : ℕ →. ℕ)) : 
-  computable f := rpartrec.le_part_part hf partrec.none
+lemma rcomputable.computable_of_rcomp {f : α → β} (hf : f computable_in partrec_fun) : 
+  computable f := rpartrec.le_part_part hf partrec.partrec_fun
 
-lemma rpartrec.partrec_of_rpart {f : α →. β} (hf : f partrec_in (λ n, none : ℕ →. ℕ)) : 
-  partrec f := rpartrec.le_part_part hf partrec.none
+lemma rpartrec.partrec_of_rpart {f : α →. β} (hf : f partrec_in partrec_fun) : 
+  partrec f := rpartrec.le_part_part hf partrec.partrec_fun
 
 end
 
@@ -194,6 +194,7 @@ attribute [rcomputability]
   rpartrec.map
   rpartrec.rfind
   rpartrec.rfind_opt
+  partrec.partrec_fun
 
 open tactic.interactive («have»)
 open tactic (get_local infer_type)

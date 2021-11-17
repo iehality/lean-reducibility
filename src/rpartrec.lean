@@ -538,3 +538,12 @@ begin
     exact em },
   exact ⟨l, mh⟩
 end
+
+instance decidable.to_part_dom {α : Type*} {β : Type*} (f : α → β) :
+  ∀ n, decidable ((↑ᵣf) n).dom := λ _, decidable.true
+
+def partrec_fun : ℕ →. ℕ := λ _, part.some 0
+
+lemma partrec.partrec_fun : partrec partrec_fun := computable.const _
+
+instance decidable.partrec_fun_dom : ∀ n, decidable (partrec_fun n).dom := λ _, decidable.true
