@@ -538,3 +538,10 @@ begin
     exact em },
   exact ⟨l, mh⟩
 end
+
+instance decidable.to_part_dom {α : Type*} {β : Type*} (f : α → β) :
+  ∀ n, decidable ((↑ᵣf) n).dom := λ _, decidable.true
+
+def computable_fun : ℕ → ℕ := λ _, 0
+
+lemma computable.computable_fun : computable computable_fun := computable.const _

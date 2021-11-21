@@ -35,8 +35,7 @@ inductive code : Type
 end nat.rpartrec
 
 namespace nat.rpartrec.code
-open nat (mkpair unpair)
-open nat.rpartrec (code)
+open nat (mkpair unpair) nat.rpartrec (code)
 
 protected def const : ℕ → code
 | 0     := zero
@@ -137,6 +136,8 @@ private lemma of_nat_code_encode : ∀ c, of_nat_code (encode_code c) = c
     exact of_nat_code_encode cf }
 
 instance : denumerable code := mk' ⟨encode_code, of_nat_code, of_nat_code_encode, encode_of_nat_code⟩
+
+
 
 def evaln : ℕ → (ℕ → option ℕ) → code → ℕ → option ℕ
 | 0     f _            := λ _, none

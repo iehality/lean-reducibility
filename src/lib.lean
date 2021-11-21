@@ -13,6 +13,9 @@ section
 @[simp, reducible] def prod.unpaired4 {α β γ δ ε} (f : α → β → γ → δ → ε) : α × β × γ × δ → ε :=
 λ p, f p.1 p.2.1 p.2.2.1 p.2.2.2
 
+@[simp, reducible] def prod.unpaired5 {α β γ δ ε ζ} (f : α → β → γ → δ → ζ → ε) : α × β × γ × δ × ζ → ε :=
+λ p, f p.1 p.2.1 p.2.2.1 p.2.2.2.1  p.2.2.2.2
+
 def coe_ropt {α σ} (f : α → σ) : α →. σ := λ x, part.some (f x)
 
 prefix `↑ᵣ`:max := coe_ropt
@@ -847,7 +850,7 @@ def Min {α : Type u} (o : omega_ordering α) : list α → option α
 
 lemma min_some_of_pos {α : Type u} (o : omega_ordering α) : ∀ (l : list α) (h : 0 < l.length), (o.Min l).is_some
 | []       h := by exfalso; simp at h; contradiction
-| (a :: l) h := by { simp[Min],  cases C : o.Min l; simp[C], unfold_coes, simp }
+| (a :: l) h := by { simp[Min],  cases C : o.Min l; simp[C] }
 
 def Min_le {α : Type u} (o : omega_ordering α) (l : list α) (h : 0 < l.length) : α :=
 option.get (min_some_of_pos o l h)
@@ -978,9 +981,19 @@ def list.of_list {α : Type*} : ∀ l : list α, (fin (l.length) → α)
 | (a :: as) := as.of_list ::ᶠ a
 
 
+namespace part
 
-namespace function
+def le_nat (m : part ℕ) (n : ℕ) : Prop := ∃ m' ∈ m, m' ≤ n
 
-#check set.infinite_image_iff
+infix ` ≼ `:50 := part.le_nat
 
-end function
+end part
+
+namespace pfun
+
+def complement {α : Type*} {β : Type*} (p : α →. β) [∀ a, decidable (p a).dom] (a : α) : option β := (p a).to_option
+
+@[simp] lemma complement.app {α : Type*} {β : Type*} (p : α →. β) [∀ a, decidable (p a).dom] (a : α) :
+  (p.complement a : part β) = p a := by { simp[complement], exact part.of_to_option _ }
+
+end pfun

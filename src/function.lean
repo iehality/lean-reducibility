@@ -554,13 +554,20 @@ rfind_fin0 hp hf hf
 end rcomputable
 
 open nat.rpartrec primrec
+variables {α : Type*} {σ : Type*} {β : Type*} {τ : Type*} {γ : Type*} {μ : Type*} {ν : Type*} {o_dom : Type*} {o_cod : Type*}
+  [primcodable α] [primcodable σ] [primcodable β] [primcodable τ] [primcodable γ] [primcodable μ] [primcodable ν] [primcodable o_dom] [primcodable o_cod]
+  {o : o_dom →. o_cod}
+
+axiom rcomputable.code_rec {f : α → code} {fo : α → σ} {fz : α → σ} {fs : α → σ} {fl : α → σ} {fr : α → σ}
+  {fp : α → code → code → σ → σ → σ} {fc : α → code → code → σ → σ → σ} {fpr : α → code → code → σ → σ → σ} {frf : α → code → σ → σ}
+  (hfo : fo computable_in o) (hfz : fz computable_in o) (hfs : fs computable_in o) (hfl : fl computable_in o) (hfr : fr computable_in o)
+  (hfp : prod.unpaired5 fp computable_in o) (hfc : prod.unpaired5 fc computable_in o) (hfpr : prod.unpaired5 fpr computable_in o)
+  (hfrf : prod.unpaired3 frf computable_in o) :
+  @rcomputable α _ σ _ _ _ _ _ (λ a, code.rec_on (f a) (fo a) (fz a) (fs a) (fl a) (fr a) (fp a) (fc a) (fpr a) (frf a)) o
 
 -- !!!! AXIOM !!!!
 axiom primrec.evaln_to_fn :
   primrec (λ x : ℕ × list (ℕ × ℕ) × code × ℕ, code.evaln x.1 x.2.1.to_fn x.2.2.1 x.2.2.2)
-
-variables {α : Type*} {σ : Type*} {β : Type*} {τ : Type*} {γ : Type*} {μ : Type*} {ν : Type*}
-variables [primcodable α] [primcodable σ] [primcodable β] [primcodable τ] [primcodable γ] [primcodable μ] [primcodable ν]
 
 theorem computable.evaln_to_fn
   {s : α → ℕ} {l : α → list (ℕ × ℕ)} {c : α → code} {n : α → ℕ}
@@ -840,12 +847,23 @@ rpartrec.univ_tot _ _ (primrec.const e).to_rcomp rcomputable.refl rcomputable.id
 
 namespace rpartrec
 
+section
+
+lemma in_complement (p : α →. β) [∀ a, decidable (p a).dom] : p partrec_in! p.complement :=
+(rpartrec.coe.comp rpartrec.refl).of_eq (λ a, by simp)
+
+end
+
 @[rcomputability]
-protected theorem cond {c : α → bool} {f : α →. σ} {g : α →. σ} {h : β →. τ}
-  (hc : c computable_in h) (hf : f partrec_in h) (hg : g partrec_in h) :
-  (λ a, cond (c a) (f a) (g a)) partrec_in h :=
+protected theorem cond {c : α → bool} {f : α →. σ} {g : α →. σ} {h : β → τ}
+  (hc : c computable_in! h) (hf : f partrec_in! h) (hg : g partrec_in! h) :
+  (λ a, cond (c a) (f a) (g a)) partrec_in! h :=
 begin
-  sorry
+  rcases exists_index.1 hf with ⟨e, eqn_e⟩,
+  rcases exists_index.1 hg with ⟨i, eqn_i⟩,
+  have := rpartrec.univ_tot α σ (rcomputable.cond hc (rcomputable.const e) (rcomputable.const i))
+    rcomputable.refl rcomputable.id,
+  exact (this.of_eq $ λ a, by cases eqn : c a; simp[eqn, eqn_e, eqn_i])
 end
 
 theorem bool_to_part (c : α → bool):
@@ -931,12 +949,12 @@ notation `Φ⟦` e `⟧⁰` ` [` s `]` := usen0 _ e s
 
 @[rcomputability]
 theorem rcomputable.usen_tot (σ) [primcodable σ]
-  {f : β → τ} {i : γ → ℕ} {s : γ → ℕ} {a : γ → α} {o : μ →. ν}
-  (hf : f computable_in o) (hi : i computable_in o) (hs : s computable_in o) (ha : a computable_in o) :
-  (λ x, usen σ ↑ₒf (i x) (s x) (a x)) computable_in o :=
+  {f : β → τ} {i : γ → ℕ} {s : γ → ℕ} {a : γ → α} {o : μ → ν}
+  (hf : f computable_in! o) (hi : i computable_in! o) (hs : s computable_in! o) (ha : a computable_in! o) :
+  (λ x, usen σ ↑ₒf (i x) (s x) (a x)) computable_in! o :=
 begin
   suffices :
-    (λ x, usen_pfun σ ↑ₒf (i x) (s x) (a x)) partrec_in o,
+    (λ x, usen_pfun σ ↑ₒf (i x) (s x) (a x)) partrec_in! o,
   from (this.of_eq $ λ n, by simp [usen]),
   refine rpartrec.cond _ _ _,
   { refine primrec.option_is_some.to_rcomp.comp (rcomputable.univn_tot _ _ hi hf hs ha) },
