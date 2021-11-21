@@ -356,6 +356,12 @@ def to_fn {α σ} [decidable_eq α] (c : list (α × σ)) (a : α) : option σ :
 (c.get_elem (λ x : α × σ, x.fst = a)).map prod.snd
 -- to_fn c a = ε b. ⟨a, b⟩ ∈ c
 
+def to_pfn {α σ} [decidable_eq α] (c : list (α × σ)) (a : α) : part σ :=
+c.to_fn a
+
+instance decidable.to_pfn_dom {α σ} [decidable_eq α] (c : list (α × σ)) (a : α) : decidable (c.to_pfn a).dom :=
+by { cases C : c.to_fn a with y; simp[to_pfn, C, part.none, part.some], { exact decidable.false }, { exact decidable.true } }
+
 def to_set {α} [decidable_eq α] (a : α) (c : list (α × bool)) : bool := c.to_fn a = some tt
 -- to_set c a ↔ ⟨a, tt⟩ ∈ c
 
@@ -847,7 +853,7 @@ def Min {α : Type u} (o : omega_ordering α) : list α → option α
 
 lemma min_some_of_pos {α : Type u} (o : omega_ordering α) : ∀ (l : list α) (h : 0 < l.length), (o.Min l).is_some
 | []       h := by exfalso; simp at h; contradiction
-| (a :: l) h := by { simp[Min],  cases C : o.Min l; simp[C], unfold_coes, simp }
+| (a :: l) h := by { simp[Min],  cases C : o.Min l; simp[C] }
 
 def Min_le {α : Type u} (o : omega_ordering α) (l : list α) (h : 0 < l.length) : α :=
 option.get (min_some_of_pos o l h)
@@ -980,6 +986,14 @@ lemma part.to_option_some {α : Type*} {o : part α} [decidable o.dom] (h : o.do
   o₁.to_option = o₂.to_option ↔ o₁ = o₂ := ⟨λ h, part.ext (λ a,
   by { have : a ∈ o₁.to_option ↔ a ∈ o₂.to_option, simp only [h],
        simp at this, exact this }), λ h, by { congr, exact h } ⟩
+
+@[simp] lemma part.of_option_eq_none {α : Type*} {o : option α} :
+  (o : part α) = none ↔ o = option.none :=
+by { cases o; simp }
+
+@[simp] lemma part.of_option_eq_some {α : Type*} {o : option α} {a : α} :
+  (o : part α) = some a ↔ o = option.some a :=
+by { cases o; simp }
 
 def list.of_list {α : Type*} : ∀ l : list α, (fin (l.length) → α)
 | []        := finitary.nil

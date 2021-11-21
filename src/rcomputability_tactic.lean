@@ -10,8 +10,6 @@ variables {α : Type*} {β : Type*} {γ : Type*} {δ : Type*} {σ : Type*} {τ :
   {o : o_dom →. o_cod}
 open rcomputable rcomputable₂
 
-#check option.get_or_else
-
 theorem rcomputable.unpaired3 {f : β → γ → δ → σ} {g : α → β} {h : α → γ} {i : α → δ}
   (hf : (prod.unpaired3 f) computable_in o)
   (hg : g computable_in o) (hh : h computable_in o) (hi : i computable_in o) :
