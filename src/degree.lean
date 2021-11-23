@@ -1,7 +1,13 @@
 import reducibility friedberg_muchnik
 open encodable denumerable part
 
+-- Degrees of Unsolvability
+
 attribute [instance, priority 0] classical.prop_decidable
+
+@[notation_class] class has_jump (α : Type*) := (jump : α → α)
+
+postfix `⁺`:(max+1) := has_jump.jump
 
 theorem equivalence_of_t_reducible_equiv (α) [primcodable α] :
   equivalence (@t_reducible_equiv α α _ _) :=
@@ -51,66 +57,93 @@ instance : has_le 𝐃 :=
  λ p₁ p₂ q₁ q₂ hp hq, propext 
  ⟨λ hpq, (hp.2.trans hpq).trans hq.1, λ hpq, (hp.1.trans hpq).trans hq.2⟩⟩
 
-instance : has_lt 𝐃 := ⟨λ d₀ d₁, d₀ ≤ d₁ ∧ ¬d₁ ≤ d₀⟩
+@[simp] lemma of_le_of {A B} : deg A ≤ deg B ↔ A ≤ₜ B := by refl
 
-instance : has_zero 𝐃 := ⟨deg (∅ : set ℕ)⟩
+instance : semilattice_sup_bot 𝐃 :=
+{ le := (≤),
+  sup := λ a b, turing_degree.lift_on₂ a b (λ A B, deg (Join₂ A B)) (λ A₁ B₁ A₂ B₂ hA hB,
+   by { simp, split,
+        { have lmm₁ : A₁ ≤ₜ Join₂ A₂ B₂, from hA.1.trans (le_Join₂_left _ _).to_turing,
+          have lmm₂ : B₁ ≤ₜ Join₂ A₂ B₂, from hB.1.trans (le_Join₂_right _ _).to_turing,
+          refine Join₂_le A₁ B₁ _ lmm₁ lmm₂ },
+        { have lmm₁ : A₂ ≤ₜ Join₂ A₁ B₁, from hA.2.trans (le_Join₂_left _ _).to_turing,
+          have lmm₂ : B₂ ≤ₜ Join₂ A₁ B₁, from hB.2.trans (le_Join₂_right _ _).to_turing,
+          refine Join₂_le A₂ B₂ _ lmm₁ lmm₂ } }),
+  bot := deg ∅,
+  le_refl := λ d, by induction d using turing_degree.ind_on; simp,
+  le_trans := λ a b c,
+  by { induction a using turing_degree.ind_on,
+       induction b using turing_degree.ind_on,
+       induction c using turing_degree.ind_on,
+       exact t_reducible.trans },
+  le_antisymm := λ a b,
+  by { induction a using turing_degree.ind_on,
+       induction b using turing_degree.ind_on,
+       intros hp hq,
+       simp only [*, t_reducible_equiv, of_le_of, of_eq_of, true_and] at * },
+  le_sup_left := λ a b,
+  by { induction a using turing_degree.ind_on,
+       induction b using turing_degree.ind_on,
+       simp[has_sup.sup], exact (le_Join₂_left _ _).to_turing },
+  le_sup_right := λ a b,
+  by { induction a using turing_degree.ind_on,
+       induction b using turing_degree.ind_on,
+       simp[has_sup.sup], exact (le_Join₂_right _ _).to_turing },
+  sup_le := λ a b c,
+  by { induction a using turing_degree.ind_on,
+       induction b using turing_degree.ind_on,
+       induction c using turing_degree.ind_on,
+       simp[has_sup.sup], exact Join₂_le a b c },
+  bot_le := λ a, by { induction a using turing_degree.ind_on, simp, exact computable_le _ computable_0 } }
 
-instance : inhabited 𝐃 := ⟨0⟩
+lemma of_sup_of {A B} : deg A ⊔ deg B = deg (Join₂ A B) := rfl
+
+instance : inhabited 𝐃 := ⟨⊥⟩
 
 def djump : 𝐃 → 𝐃 :=
 λ d, turing_degree.lift_on d (λ d, deg d′)
 (λ A B ⟨ab, ba⟩, by { simp, exact 
  ⟨(le_le_Jump ab).to_many_one.to_turing, (le_le_Jump ba).to_many_one.to_turing⟩ })
 
-notation d`⁺`:1200 := djump d
+instance : has_jump 𝐃 := ⟨djump⟩
 
 def djump_itr (d : 𝐃) : ℕ → 𝐃
 | 0     := d
 | (n+1) := (djump_itr n)⁺
 
-@[simp] lemma of_le_of {A B} : deg A ≤ deg B ↔ A ≤ₜ B := by refl
+@[simp] lemma of_jump {A} : (deg A)⁺ = deg A′ := rfl
+
+def re_degree := {d // ∃ R : set ℕ, r.e. R ∧ d = deg R}
+
+notation `𝐑` := re_degree
+
+instance : has_coe 𝐑 𝐃 := ⟨subtype.val⟩
+
+instance : semilattice_sup_bot 𝐑 :=
+  { le := λ a b, (a : 𝐃) ≤ (b : 𝐃),
+    sup := λ a b, ⟨(a : 𝐃) ⊔ (b : 𝐃),
+      by { rcases a with ⟨a, A, reA, rfl⟩, rcases b with ⟨b, B, reB, rfl⟩,
+           refine ⟨Join₂ A B, re_Join_of_re_re reA reB, by simp[of_sup_of]⟩ }⟩,
+    bot := ⟨⊥, ∅, re_pred_0, rfl⟩,
+    le_refl := by simp,
+    le_trans := λ ⟨a, _⟩ ⟨b, _⟩ ⟨c, _⟩, by {simp, exact le_trans },
+    le_antisymm := λ ⟨a, _⟩ ⟨b, _⟩, by { simp, exact le_antisymm },
+    bot_le := λ ⟨a, _⟩, by simp,
+    le_sup_left := λ ⟨a, _⟩ ⟨b, _⟩, by simp,
+    le_sup_right := λ ⟨a, _⟩ ⟨b, _⟩, by simp,
+    sup_le := λ ⟨a, _⟩ ⟨b, _⟩ ⟨c, _⟩, by { simp[-sup_le_iff], exact sup_le } }
+
+instance : semilattice_sup_top 𝐑 :=
+  { top := ⟨⊥⁺, (∅ : set ℕ)′, re_pred_Jump_0, rfl⟩,
+    le_top := λ ⟨a, R, reR, rfl⟩, by { simp[has_top.top, show ⊥⁺ = deg ∅′, by refl],
+    exact (re_many_one_reducible_to_0'.mp reR).to_turing },
+    ..re_degree.semilattice_sup_bot }
+
+def High := {d : 𝐑 | (d : 𝐃)⁺ = ⊥⁺⁺}
+
+def Low  := {d : 𝐑 | (d : 𝐃)⁺ = ⊥⁺}
 
 @[simp] lemma of_lt_of {A B} : deg A < deg B ↔ A <ₜ B := by refl
-
-@[simp] lemma of_jump {A} : (deg A)⁺ = deg A′ := by refl
-
-@[simp] theorem zero_minimum (d : 𝐃) : 0 ≤ d :=
-by { induction d using turing_degree.ind_on, simp [has_zero.zero],
-     exact computable_le d computable_0 }
-
-def RE_degree := {d | ∃ R : set ℕ, r.e. R ∧ d = deg R}
-
-notation `𝐑` := RE_degree
-
-def High := {d | d ∈ 𝐑 ∧ d⁺ = 0⁺⁺}
-
-def Low  := {d | d ∈ 𝐑 ∧ d⁺ = 0⁺}
-
-private lemma le_refl (d : 𝐃) : d ≤ d :=
-by induction d using turing_degree.ind_on; simp
-
-private lemma le_antisymm {d₁ d₂ : 𝐃} : d₁ ≤ d₂ → d₂ ≤ d₁ → d₁ = d₂ :=
-begin
-  induction d₁ using turing_degree.ind_on,
-  induction d₂ using turing_degree.ind_on,
-  intros hp hq,
-  simp only [*, t_reducible_equiv, of_le_of, of_eq_of, true_and] at *
-end
-
-private lemma le_trans {d₁ d₂ d₃ : 𝐃} :
-  d₁ ≤ d₂ → d₂ ≤ d₃ → d₁ ≤ d₃ :=
-begin
-  induction d₁ using turing_degree.ind_on,
-  induction d₂ using turing_degree.ind_on,
-  induction d₃ using turing_degree.ind_on,
-  exact t_reducible.trans
-end
-
-instance : partial_order 𝐃 :=
-{ le := (≤),
-  le_refl := le_refl,
-  le_trans := λ _ _ _, le_trans,
-  le_antisymm := λ _ _, le_antisymm }
 
 theorem lt_djump (d : 𝐃) : d < d⁺ :=
 by { induction d using turing_degree.ind_on, simp,
@@ -120,9 +153,14 @@ theorem djump_neq (d : 𝐃) : d ≠ d⁺ := λ h,
 by { have : d⁺ ≤ d, rw ←h,
      exact (lt_djump d).2 this }
 
-instance : nontrivial 𝐃 := ⟨⟨0, 0⁺, djump_neq 0⟩⟩
+instance : nontrivial 𝐃 := ⟨⟨⊥, ⊥⁺, djump_neq ⊥⟩⟩
 
-theorem friedberg_muchnik : ∃ d₀ d₁ : 𝐑, ¬d₀ ≤ d₁ ∧ ¬d₁ ≤ d₀ :=
+lemma jump_order_preserving (a b : 𝐃) (le : a ≤ b) : a⁺ ≤ b⁺ :=
+by { induction a using turing_degree.ind_on,
+     induction b using turing_degree.ind_on,
+     simp at le ⊢, exact (le_le_Jump le).to_turing }
+
+theorem friedberg_muchnik : ∃ a b : 𝐑, ¬a ≤ b ∧ ¬b ≤ a :=
 by rcases friedberg_muchnik.incomparable_re_sets with ⟨I₀, I₁, re₀, re₁, nle₀, nle₁⟩;
    refine ⟨⟨deg I₀, I₀, re₀, rfl⟩, ⟨deg I₁, I₁, re₁, rfl⟩, nle₁, nle₀⟩
 

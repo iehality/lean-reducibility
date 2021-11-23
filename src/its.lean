@@ -1,4 +1,4 @@
-import lib tree rpartrec
+import lib tree reducibility
 
 open encodable denumerable
 
@@ -1088,5 +1088,37 @@ begin
   have : n < (λ[S] (Λ s₂)).weight, from lt_of_lt_of_le this (le_weight_length (S.lambda_proper (proper s₂))),
   refine ⟨s₂, this⟩
 end
+
+structure construction (α : Type*) [primcodable α] :=
+(requirements : ℕ)
+(directing_sentence : fin requirements → α → Tree 0 → bool)
+(action : fin requirements → α → Tree 0 → α)
+(directing_sentence_computable : computable (prod.unpaired3 directing_sentence))
+(action_computable : computable (prod.unpaired3 action))
+(initial : α)
+
+namespace construction
+
+variables {α : Type*} [primcodable α] (C : construction α)
+
+def generator : ℕ → (Tree 0 × α)
+| 0       := ([], C.initial)
+| (s + 1) :=
+    let μ  : Tree 0 := (generator s).1, 
+        G  : α      := (generator s).2 in
+    if C.directing_sentence G μ then (∞ :: μ, C.action G μ) else (𝟘 :: μ, G)
+
+def gen (s : ℕ) : α := (C.generator s).2
+
+def Λ : Path 0 := ⟨λ s, (C.generator s).1, λ s,
+  by { cases C : C.directing_sentence (C.generator s).2 (C.generator s).1; simp[generator, C] }⟩
+
+lemma Λ_thick : C.Λ.thick :=
+⟨by simp[Λ, generator], λ s, by { cases C : C.directing_sentence (C.generator s).2 (C.generator s).1; simp[Λ, generator, C],
+  { refine ⟨_, rfl⟩ }, { refine ⟨_, rfl⟩ } }⟩
+
+
+
+end construction
 
 end strategy

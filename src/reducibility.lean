@@ -33,7 +33,13 @@ decidable.cases_on (classical.dec (p x)) (λ h₁, bool.ff) (λ h₂, bool.tt)
 @[simp] theorem chr_tt_iff {α} (A : set α) (x : α) : chr A x = tt ↔ A x :=
 by simp[chr]; cases (classical.dec (A x)); simp[h]
 
+@[simp] theorem chr_tt_iff_r {α} (A : set α) (x : α) : tt = chr A x ↔ A x :=
+by simp[chr]; cases (classical.dec (A x)); simp[h]
+
 @[simp] theorem chr_ff_iff {α} (A : set α) (x : α) : chr A x = ff ↔ ¬A x :=
+by simp[chr]; cases (classical.dec (A x)); simp[h]
+
+@[simp] theorem chr_ff_iff_r {α} (A : set α) (x : α) : ff = chr A x ↔ ¬A x :=
 by simp[chr]; cases (classical.dec (A x)); simp[h]
 
 theorem chr_iff {α} (A : set α) (x : α) (b : bool) : chr A x = b ↔ (A x ↔ b = tt) :=
@@ -41,6 +47,9 @@ by cases b; simp
 
 @[simp] theorem chr_app_iff {α} (A : set α) (x : α) : chr A x ↔ A x :=
 by simp[chr]; cases (classical.dec (A x)); simp[h]
+
+theorem chr_eq_to_bool {α} (A : set α) (x : α) [decidable (A x)] : chr A x = to_bool (A x) :=
+by simp[chr_iff]
 
 theorem to_bool_chr_eq {α} (A : set α) (x : α) (D : decidable (A x)) :
   to_bool (A x) = chr A x :=
@@ -95,25 +104,29 @@ theorem rre_in_0_iff_re {α} [primcodable α] {A : set α} :
   A re_in! chr (∅ : set ℕ) ↔ r.e. A :=
 ⟨rre_pred.re0, partrec.to_rpart⟩
 
+def rcomputable_pred {α β γ} [primcodable α] [primcodable β] [primcodable γ] (A : set α) (o : β →. γ) : Prop := 
+∃ [D0 : decidable_pred A],
+by exactI (λ x, to_bool (A x)) computable_in o
+
 def t_reducible {α β} [primcodable α] [primcodable β] (A : set α) (B : set β) : Prop := 
 ∃ [D0 : decidable_pred A] [D1 : decidable_pred B],
 by exactI (λ x, to_bool (A x)) computable_in! (λ x, to_bool (B x)) 
 
-infix ` ≤ₜ `:1000 := t_reducible
+infix ` ≤ₜ `:50 := t_reducible
 
 @[reducible] def t_irreducible {α β} [primcodable α] [primcodable β] (A : set α) (B : set β) : Prop := ¬A ≤ₜ B
 
-infix ` ≰ₜ ` :1000 := t_irreducible
+infix ` ≰ₜ ` :50 := t_irreducible
 
 @[reducible] def t_reducible_lt {α β} [primcodable α] [primcodable β] (A : set α) (B : set β) : Prop :=
 A ≤ₜ B ∧ ¬B ≤ₜ A
 
-infix ` <ₜ `:1000 := t_reducible_lt
+infix ` <ₜ `:50 := t_reducible_lt
 
 def t_reducible_equiv {α β} [primcodable α] [primcodable β] (A : set α) (B : set β) : Prop :=
 A ≤ₜ B ∧ B ≤ₜ A
 
-infix ` ≡ₜ `:1000 := t_reducible_equiv
+infix ` ≡ₜ `:50 := t_reducible_equiv
 
 def productive (A : set ℕ) : Prop :=
 ∃ φ : ℕ →. ℕ, partrec φ ∧ ∀ i : ℕ, W⟦i⟧ₙ⁰ ⊆ A → ∃ z, z ∈ φ i ∧ z ∈ A ∧ z ∉ W⟦i⟧ₙ⁰
@@ -162,6 +175,9 @@ theorem many_one_reducible.to_turing {A : set α} {B : set β} [DA : decidable_p
 ⟨DA, DB, by { rcases h with ⟨f, cf, hf⟩,
  exact ((rcomputable.refl.comp (cf.to_rcomp)).of_eq $ λ n, by simp [hf]) }⟩
 
+theorem one_one_reducible.to_turing {A : set α} {B : set β} [DA : decidable_pred A] [DB : decidable_pred B] :
+  A ≤₁ B → A ≤ₜ B := λ h, h.to_many_one.to_turing
+
 theorem reducible_compl (A : set α) [D : decidable_pred A] : Aᶜ ≤ₜ A :=
 have Dc : decidable_pred Aᶜ, from D.compl,
 have e0 : ∀ x, @to_bool (Aᶜ x) (Dc x) = !to_bool (A x), from λ x, bool.to_bool_ext_bnot _ _ _,
@@ -189,6 +205,9 @@ theorem computable_equiv {A : set α} {B : set β} :
 theorem computable_0 : computable_pred (∅ : set α) := 
 ⟨λ x, decidable.false, ((computable.const ff).of_eq $ λ x, rfl)⟩
 
+theorem re_pred_0 : r.e. (∅ : set α) := 
+partrec.none.of_eq (λ x, by {rw[show (∅ : set α) x = false, by refl], symmetry, simp[part.eq_none_iff] })
+
 theorem degree0 (A : set α) :
   computable_pred A ↔ A ≡ₜ (∅ : set β) := 
 ⟨λ ⟨D, h⟩, ⟨computable_le _ ⟨D, h⟩, @computable_le _ _ _ _ _ _ D computable_0⟩,
@@ -203,7 +222,7 @@ theorem degree0' (A : set α) : computable_pred A ↔ A ≡ₜ (∅ : set ℕ) :
 
 def Join (A : ℕ → set ℕ) : set ℕ := {x | x.unpair.1 ∈ A x.unpair.2}
 
-prefix `⨁`:80 := Join
+prefix `⨁`:90 := Join
 
 theorem Join_one_one_reducible (A : ℕ → set ℕ) [D : ∀ n, decidable_pred (A n)] (n) : A n ≤₁ ⨁A :=
 begin
@@ -214,6 +233,38 @@ begin
       rw this, rw h, simp },
   { intros x, simp [Join], refl }
 end
+
+theorem Join_le (A : ℕ → set ℕ) [DA : ∀ n, decidable_pred (A n)] 
+  (B : set ℕ) [DB : decidable_pred B] (hA : (λ x y, to_bool (A x y)) computable₂_in! λ x, to_bool (B x)) : ⨁A ≤ₜ B :=
+⟨λ a, DA (nat.unpair a).2 (nat.unpair a).1, DB, by { simp[Join],
+  refine hA.comp (rcomputable.snd.comp rcomputable.nat_unpaired) (rcomputable.fst.comp rcomputable.nat_unpaired) }⟩
+
+def Join₂ (A B : set ℕ) := ⨁(λ n, if n = 0 then A else if n = 1 then B else {})
+
+theorem le_Join₂_left (A B : set ℕ) [DA : decidable_pred A] [DB : decidable_pred B] : A ≤₁ Join₂ A B :=
+@Join_one_one_reducible (λ n, if n = 0 then A else if n = 1 then B else {})
+  (λ n a, by { cases n; simp, { exact DA a }, cases n; simp, { exact DB a }, { exact decidable.false } }) 0
+
+theorem le_Join₂_right (A B : set ℕ) [DA : decidable_pred A] [DB : decidable_pred B] : B ≤₁ Join₂ A B :=
+@Join_one_one_reducible (λ n, if n = 0 then A else if n = 1 then B else {})
+  (λ n a, by { cases n; simp, { exact DA a }, cases n; simp, { exact DB a }, { exact decidable.false } }) 1
+
+theorem Join₂_le  (A B C : set ℕ) [DA : decidable_pred A] [DB : decidable_pred B] [DC : decidable_pred C]
+  (hA : A ≤ₜ C) (hB : B ≤ₜ C) : Join₂ A B ≤ₜ C :=
+@Join_le (λ n, if n = 0 then A else if n = 1 then B else {})
+  (λ n a, by { cases n; simp, { exact DA a }, cases n; simp, { exact DB a }, { exact decidable.false } })
+  C DC (by { rcases hA with ⟨_, _, cA⟩, rcases hB with ⟨_, _, cB⟩,
+    simp,
+    suffices : (λ (x y : ℕ), if x = 0 then (to_bool (A y)) else if x = 1 then to_bool (B y) else ff) computable₂_in! λ x, to_bool (C x),
+    exact this.of_eq (λ n m, by { cases n; simp, cases n; simp[has_emptyc.emptyc] }),
+    refine rcomputable.ite (rcomputable.to_bool_eq ℕ rcomputable.fst (rcomputable.const 0)) _ _,
+    exact cast (by { congr, funext x, 
+      exact (@bool.to_bool_eq (A x.snd) (A x.snd) (hA_w x.snd) (DA x.snd)).mpr (by refl), 
+      funext x, simp }) (cA.comp rcomputable.snd),
+    refine rcomputable.ite (rcomputable.to_bool_eq ℕ rcomputable.fst (rcomputable.const 1)) _ (rcomputable.const ff),
+    exact cast (by { congr, funext x, 
+      exact (@bool.to_bool_eq (B x.snd) (B x.snd) (hB_w x.snd) (DB x.snd)).mpr (by refl), 
+      funext x, simp }) (cB.comp rcomputable.snd) })
 
 section classical
 local attribute [instance, priority 0] classical.prop_decidable
@@ -449,6 +500,9 @@ theorem rre_iff_one_one_reducible {A B : set ℕ} : A re_in! chr B ↔ A ≤₁ 
 theorem re_many_one_reducible_to_0' {A : set ℕ} : r.e. A ↔ A ≤₁ ∅′ :=
 ⟨λ h, rre_iff_one_one_reducible.mp (h.to_rpart),
  λ h, (rre_iff_one_one_reducible.mpr h).re0 ⟩
+
+theorem re_pred_Jump_0 : r.e. ∅′ :=
+re_many_one_reducible_to_0'.mpr (by refl)
 
 lemma dom_rre (f : α →. σ) : {x | (f x).dom} re_in f :=
 begin
@@ -841,5 +895,46 @@ theorem sigma_complete : ∀ {n : ℕ} {A : set ℕ},
       have : 𝚺⁰(n + 1) (Jump_itr n ∅)′, from IH_sigma.mpr (rre_iff_one_one_reducible.mpr (by refl)),
       refine (sigma_Jump_of_pie this).many_one (rre_iff_one_one_reducible.mp h).to_many_one }
   end
+
+
+lemma computable_pred_iff_chr_computable {A : set ℕ} : computable_pred A ↔ computable (chr A) :=
+begin
+  simp[computable_pred_iff_le, classical_iff],
+  split; intros h, { refine rcomputable.le_comp_comp h ((computable.const ff).of_eq (by { simp[has_emptyc.emptyc] })), },
+  { exact h.to_rcomp }
+end
+
+lemma re_Join_of_re_re {A B : set ℕ} (hA : r.e. A) (hB : r.e. B) : r.e. Join₂ A B :=
+begin
+  simp[Join₂, Join, ←sigma_pred1_iff_re, sigma_pred, computable_pred_iff_chr_computable] at *,
+  rcases hA with ⟨A, hA, rfl⟩,
+  rcases hB with ⟨B, hB, rfl⟩,
+  let C : set ℕ := {n : ℕ |
+    if (nat.unpair n).1.unpair.2 = 0 then nat.mkpair n.unpair.1.unpair.1 n.unpair.2 ∈ A else
+    if (nat.unpair n).1.unpair.2 = 1 then nat.mkpair n.unpair.1.unpair.1 n.unpair.2 ∈ B else false },
+  refine ⟨C, by { simp[C],
+    suffices :
+      computable
+      (λ n, if (nat.unpair n).1.unpair.2 = 0 then chr A (nat.mkpair n.unpair.1.unpair.1 n.unpair.2) else
+            if (nat.unpair n).1.unpair.2 = 1 then chr B (nat.mkpair n.unpair.1.unpair.1 n.unpair.2) else ff),
+    exact this.of_eq (λ n, by { by_cases C₁ : (nat.unpair (nat.unpair n).fst).snd = 0; simp[C₁, set.mem_def, chr_eq_to_bool],
+      by_cases C₂ : (nat.unpair (nat.unpair n).fst).snd = 1; simp[C₂] }),
+    refine rcomputable.computable_of_rcomp (rcomputable.ite
+      (rcomputable.to_bool_eq ℕ
+        (rcomputable.snd.comp (rcomputable.nat_unpaired.comp (rcomputable.fst.comp rcomputable.nat_unpaired)))
+        (rcomputable.const 0))
+      (hA.to_rcomp.comp (rcomputable₂.comp rpartrec.some
+        (rcomputable.fst.comp (rcomputable.nat_unpaired.comp (rcomputable.fst.comp rcomputable.nat_unpaired)))
+        (rcomputable.snd.comp rcomputable.nat_unpaired))) _),
+    refine rcomputable.ite
+      (rcomputable.to_bool_eq ℕ
+        (rcomputable.snd.comp (rcomputable.nat_unpaired.comp (rcomputable.fst.comp rcomputable.nat_unpaired)))
+        (rcomputable.const 1)) (hB.to_rcomp.comp
+      (rcomputable₂.comp rpartrec.some
+        (rcomputable.fst.comp (rcomputable.nat_unpaired.comp (rcomputable.fst.comp rcomputable.nat_unpaired)))
+        (rcomputable.snd.comp rcomputable.nat_unpaired))) (rcomputable.const ff) },
+  by { ext x, simp, cases (nat.unpair x).snd with n; simp,
+    { cases n with n; simp }}⟩,
+end
 
 end classical
