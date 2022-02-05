@@ -137,9 +137,7 @@ private lemma of_nat_code_encode : ∀ c, of_nat_code (encode_code c) = c
 
 instance : denumerable code := mk' ⟨encode_code, of_nat_code, of_nat_code_encode, encode_of_nat_code⟩
 
-
-
-def evaln : ℕ → (ℕ → option ℕ) → code → ℕ → option ℕ
+def evaln : ℕ → (ℕ → ℕ) → code → ℕ → option ℕ
 | 0     f _            := λ _, none
 | (s+1) f oracle       := λ n, guard (n ≤ s) >> f n
 | (s+1) f zero         := λ n, guard (n ≤ s) >> pure 0
@@ -161,16 +159,17 @@ def evaln : ℕ → (ℕ → option ℕ) → code → ℕ → option ℕ
     if x = 0 then pure m else
     evaln s f (rfind' cf) (mkpair a (m+1)))
 -- evaln s f c x = { c }ᶠₛ (x)
+--神託fは全関数
 
 @[simp] theorem evaln_0 {f c n} : evaln 0 f c n = none :=
 by induction c; simp [evaln]
 
-theorem evaln_inclusion : ∀ {s c} {f g : ℕ → option ℕ},
-  (∀ x y, x < s → f x = some y → g x = some y) → 
+theorem evaln_inclusion : ∀ {s c} {f g : ℕ → ℕ},
+  (∀ x y, x < s → f x = y → g x = y) → 
   ∀ {x y}, evaln s f c x = some y →  evaln s g c x = some y
 | 0 c _ _ := by simp[evaln]
 | (s+1) oracle f g := λ h n y, 
-    by { simp[evaln], have : n ≤ s ∨ ¬ n ≤ s, omega,
+    by { simp[evaln], have : n ≤ s ∨ ¬ n ≤ s, from em (n ≤ s),
          cases this; simp[(>>), this], exact h _ _ (nat.lt_succ_iff.mpr this),
          intros _ c, exfalso, exact option.not_mem_none _ c }
 | (s+1) zero         f g := by simp[evaln]
@@ -194,7 +193,7 @@ theorem evaln_inclusion : ∀ {s c} {f g : ℕ → option ℕ},
     by { simp[evaln, (>>)], assume e z hz hy,
          refine ⟨e, z, IH₁ hz, IH₀ hy⟩ }
 | (s+1) (prec cf cg) f g := λ h n y,
-    have l0 : ∀ x y, x < s → f x = some y → g x = some y :=
+    have l0 : ∀ x y, x < s → f x = y → g x = y :=
       λ x y e, h x y (nat.lt.step e),
     have IH₀ : _ := @evaln_inclusion s (cf.prec cg) _ _ l0,
     have IH₁ : _ := @evaln_inclusion (s+1) cf _ _ h,
@@ -204,7 +203,7 @@ theorem evaln_inclusion : ∀ {s c} {f g : ℕ → option ℕ},
          rcases hf with ⟨z, hz0, hz1⟩,
          refine ⟨e, z, IH₀ hz0, IH₂ hz1⟩ }
 | (s+1) (rfind' cf)  f g := λ h n y, 
-    have l0 : ∀ x y, x < s → f x = some y → g x = some y :=
+    have l0 : ∀ x y, x < s → f x = y → g x = y :=
       λ x y e, h x y (nat.lt.step e),
     have IH₀ : _ := @evaln_inclusion (s+1) cf _ _ h, 
     have IH₁ : _ := @evaln_inclusion s cf.rfind' _ _ l0,
@@ -212,11 +211,11 @@ theorem evaln_inclusion : ∀ {s c} {f g : ℕ → option ℕ},
          refine ⟨e, z, IH₀ ez, _⟩,
          cases z with z0; simp at ey ⊢, exact ey, exact IH₁ ey }
 
-theorem evaln_use : ∀ {s c} {f g : ℕ → option ℕ},
+theorem evaln_use : ∀ {s c} {f g : ℕ → ℕ},
   (∀ x, x < s → f x = g x) → evaln s f c = evaln s g c
 | 0     c            _ _  := by simp[evaln]
 | (s+1) oracle       _ _  := λ h, funext $ λ n, 
-    by { simp[evaln], have : n ≤ s ∨ ¬ n ≤ s, omega,
+    by { simp[evaln], have : n ≤ s ∨ ¬ n ≤ s, from em (n ≤ s),
          cases this; simp[(>>), this], exact h _ (nat.lt_succ_iff.mpr this), refl }
 | (s+1) zero         f g := by simp[evaln]
 | (s+1) succ         f g := by simp[evaln]
@@ -226,13 +225,13 @@ theorem evaln_use : ∀ {s c} {f g : ℕ → option ℕ},
     have IH₀ : _ := @evaln_use (s+1) cf _ _ h,
     have IH₁ : _ := @evaln_use (s+1) cg _ _ h,
     funext $ λ n, 
-    by { simp[evaln], have : n ≤ s ∨ ¬ n ≤ s, omega, cases this;
+    by { simp[evaln], have : n ≤ s ∨ ¬ n ≤ s, from em (n ≤ s), cases this;
          simp[(>>), this, IH₀, IH₁] }
 | (s+1) (comp cf cg) f g := λ h,
     have IH₀ : _ := @evaln_use (s+1) cf _ _ h,
     have IH₁ : _ := @evaln_use (s+1) cg _ _ h,
     funext $ λ n, 
-    by { simp[evaln], have : n ≤ s ∨ ¬ n ≤ s, omega, cases this;
+    by { simp[evaln], have : n ≤ s ∨ ¬ n ≤ s, from em (n ≤ s), cases this;
          simp[(>>), this, IH₀, IH₁] }
 | (s+1) (prec cf cg) f g := λ h,
     have l0 : ∀ (x : ℕ), x < s → f x = g x := λ x e, h x (nat.lt.step e),
@@ -240,19 +239,20 @@ theorem evaln_use : ∀ {s c} {f g : ℕ → option ℕ},
     have IH₁ : _ := @evaln_use (s+1) cf _ _ h,
     have IH₂ : _ := @evaln_use (s+1) cg _ _ h,
     funext $ λ n, 
-    by { simp[evaln], have : n ≤ s ∨ ¬ n ≤ s, omega, cases this;
+    by { simp[evaln], have : n ≤ s ∨ ¬ n ≤ s, from em (n ≤ s), cases this;
          simp[(>>), this, IH₀, IH₁, IH₂] }
 | (s+1) (rfind' cf)  f g := λ h, 
     have l0 : ∀ (x : ℕ), x < s → f x = g x := λ x e, h x (nat.lt.step e),
     have IH₀ : _ := @evaln_use (s+1) cf _ _ h,
     have IH₁ : _ := @evaln_use s cf.rfind' _ _ l0,
     funext $ λ n, 
-    by { simp[evaln], have : n ≤ s ∨ ¬ n ≤ s, omega, cases this;
+    by { simp[evaln], have : n ≤ s ∨ ¬ n ≤ s, from em (n ≤ s), cases this;
          simp[(>>), this, IH₀, IH₁] }
 
-theorem evaln_use' {s} {f g : ℕ → option ℕ} (h : ∀ x, x < s → f x = g x) :
+theorem evaln_use' {s} {f g : ℕ → ℕ} (h : ∀ x, x < s → f x = g x) :
   evaln s f = evaln s g := 
 funext $ λ c, evaln_use h
+
 
 theorem evaln_bound {f} : ∀ {k c n x}, x ∈ evaln k f c n → n < k
 | 0     c n x h := by simp [evaln] at h; cases h
@@ -317,7 +317,7 @@ theorem evaln_mono : ∀ {s₁ s₂ c f n x},
          refine ⟨by omega, y, IH₀ _ _ ey, _⟩,
          cases y with y0; simp at ex ⊢, exact ex, exact IH₁ _ _ ex }
 
-def eval (f : ℕ → option ℕ) : code → ℕ →. ℕ 
+def eval (f : ℕ → ℕ) : code → ℕ →. ℕ 
 | oracle       := λ n, f n
 | zero         := pure 0
 | succ         := nat.succ
@@ -334,7 +334,7 @@ def eval (f : ℕ → option ℕ) : code → ℕ →. ℕ
 theorem evaln_sound {f} : ∀ {s c n x},
   x ∈ evaln s f c n → x ∈ eval f c n
 | 0     _ _ _ h := by simp [evaln] at h; cases h
-| (s + 1) oracle n x h := by { simp [eval, evaln, (>>)] at h ⊢, exact h.2 }
+| (s + 1) oracle n x h := by { simp [eval, evaln, (>>)] at h ⊢, exact h.2.symm }
 | (s + 1) zero   n x h := 
     by { simp [eval, evaln, (>>), pure, pfun.pure] at h ⊢, exact eq.symm h.2 }
 | (s + 1) succ   n x h := 
@@ -385,14 +385,14 @@ theorem evaln_sound {f} : ∀ {s c n x},
         rw this, exact hc1 (nat.lt_of_succ_lt_succ eb) } }
   end
 
-theorem evaln_complete {f : ℕ → option ℕ} {c n x} :
+theorem evaln_complete {f : ℕ → ℕ} {c n x} :
   x ∈ eval (λ x, f x) c n ↔ ∃ k, x ∈ evaln k f c n := ⟨λ h,
 begin
   suffices : ∃ k, x ∈ evaln (k+1) f c n,
   { exact let ⟨k, h⟩ := this in ⟨k+1, h⟩ },
     induction c generalizing n x;
     simp [eval, evaln, pure, pfun.pure, (<*>), (>>)] at h ⊢,
-    { exact ⟨⟨n, by refl⟩, h⟩ },
+    { exact ⟨⟨n, by refl⟩, h.symm⟩ },
     { use n, have : min n n.unpair.fst.unpair.fst = n.unpair.fst.unpair.fst,
       { simp, exact le_trans (nat.unpair_left_le _) (nat.unpair_left_le _) }, simp [this,h] },
     { exact ⟨⟨_, le_refl _⟩, h.symm⟩ },
@@ -476,8 +476,8 @@ begin
         from evaln_mono (le_max_right s₀ s₁) hs₁ } }
 end
 
-theorem eval_inclusion {c x y} {f : ℕ → option ℕ} (h : y ∈ eval f c x) : ∃ s, ∀ {g : ℕ → option ℕ},
-  (∀ x y, x < s → f x = some y → g x = some y) → y ∈ eval g c x :=
+theorem eval_inclusion {c x y} {f : ℕ → ℕ} (h : y ∈ eval f c x) : ∃ s, ∀ {g : ℕ → ℕ},
+  (∀ x y, x < s → f x = y → g x = y) → y ∈ eval g c x :=
 by { have : ∃ s, y ∈ evaln s f c x := evaln_complete.mp h, rcases this with ⟨s, hs⟩,
      refine ⟨s, λ g h, evaln_complete.mpr ⟨s, evaln_inclusion h hs⟩⟩ }
 
@@ -581,12 +581,12 @@ begin
   exact this.comp primrec.unpair.to_rcomp
 end
 
-theorem exists_code {f g : ℕ →. ℕ} [D : decidable_pred (λ x, x ∈ g.dom)] :
-  nat.rpartrec g f ↔ ∃ c, eval (g.eval_opt) c = f := ⟨λ h,
+theorem exists_code {f : ℕ →. ℕ} {g : ℕ → ℕ} :
+  nat.rpartrec g f ↔ ∃ c, eval g c = f := ⟨λ h,
 begin
   induction h,
   case nat.rpartrec.oracle 
-  { exact ⟨oracle, by { simp[eval], funext n, exact of_to_option (g n) }⟩ },  
+  { exact ⟨oracle, by { simp[eval] }⟩ },  
   case nat.rpartrec.zero   { exact ⟨zero, rfl⟩ },
   case nat.rpartrec.succ   { exact ⟨succ, rfl⟩ },
   case nat.rpartrec.left   { exact ⟨left, rfl⟩ },
@@ -618,8 +618,8 @@ end,λ h, begin
   case nat.rpartrec.code.rfind' : cf pf { exact nat.rpartrec.trans rpartrec_rfind' pf },
 end⟩
 
-theorem exists_code_opt {f : ℕ →. ℕ} {g : ℕ → option ℕ} :
-  nat.rpartrec ↑ʳg f ↔ ∃ c, eval g c = f := ⟨λ h,
+theorem exists_code_opt {f : ℕ →. ℕ} {g : ℕ → ℕ} :
+  nat.rpartrec g f ↔ ∃ c, eval g c = f := ⟨λ h,
 begin
   induction h,
   case nat.rpartrec.oracle 
@@ -656,39 +656,49 @@ end,λ h, begin
 end⟩
 
 end nat.rpartrec.code
+
+def to_nfn {β : Type*} {τ : Type*} [primcodable β] [primcodable τ] (f : β → τ) : ℕ → ℕ :=
+λ n, encode ((decode β n).map (λ a, encode (f a)))
+
+@[protected, rcomputability]
+lemma rcomputable.to_nfn {β : Type*} {τ : Type*} [primcodable β] [primcodable τ]
+  (f : β → τ) : (to_nfn f) computable_in! f :=
+rcomputable.comp rpartrec.some
+  (rcomputable.decode.option_map (rcomputable.comp rpartrec.some rcomputable.refl).to_unary₂)
+
+lemma rcomputable.to_nfn_symm {β : Type*} {τ : Type*} [primcodable β] [primcodable τ] 
+  (f : β → τ) : f computable_in! (to_nfn f) :=
+by { let f' : β → option τ := λ b, decode τ (to_nfn f $ encode b).pred,
+     have tot : ∀ b, (f' b).is_some, { intros b, simp[f', to_nfn] },
+     let f'' : β → τ := λ x, option.get (tot x),
+     have : f'' computable_in! (to_nfn f),
+     { simp[f'', f'], 
+       exact (rcomputable.option_get $
+         rcomputable.decode.comp $
+         rcomputable.pred.comp $
+         rcomputable.refl.comp rpartrec.some) },
+      exact this.of_eq (λ x, option.get_of_mem _ (by simp[f', to_nfn])) }
+
 open nat.rpartrec 
 
 variables {α : Type*} {σ : Type*} {β : Type*} {τ : Type*} {γ : Type*} {μ : Type*} 
 variables [primcodable α] [primcodable σ] [primcodable β] [primcodable τ] [primcodable γ] [primcodable μ]
 
-def univn (α σ) [primcodable α] [primcodable σ] (s : ℕ) (f : β → option τ) (e : ℕ) :
+def univn (α σ) [primcodable α] [primcodable σ] (s : ℕ) (f : β → τ) (e : ℕ) :
   α → option σ := (λ a,
-(code.evaln s 
-  (λ n, (decode β n).bind (λ a, (f a).map encode ))
-  (of_nat code e) (encode a))
-.bind (λ x, (decode σ x)))
+(code.evaln s (to_nfn f) (of_nat code e) (encode a)).bind (λ x, (decode σ x)))
 
-notation `⟦`e`⟧*`f:max` [`s`]` := univn _ _ s f e
-notation `⟦`e`⟧^`f:max` [`s`]` := univn _ _ s ↑ₒf e
+notation `⟦`e`⟧^`f:max` [`s`]` := univn _ _ s f e
 
-def univ (α σ) [primcodable α] [primcodable σ] (f : β → option τ) (e : ℕ) : α →. σ := (λ a,
-(code.eval
-  (λ n, (decode β n).bind (λ a, (f a).map encode))
-  (of_nat code e) (encode a))
-.bind (λ x, (decode σ x)))
+def univ (α σ) [primcodable α] [primcodable σ] (f : β → τ) (e : ℕ) : α →. σ := (λ a,
+(code.eval (to_nfn f) (of_nat code e) (encode a)).bind (λ x, (decode σ x)))
 
-notation `⟦`e`⟧*`f:max := univ _ _ f e
-notation `⟦`e`⟧^`f:max := univ _ _ ↑ₒf e
+notation `⟦`e`⟧^`f:max := univ _ _ f e
 
-notation `⟦`e`⟧ᵪ*`f:max` [`s`]` := univn ℕ bool s f e
-notation `⟦`e`⟧ₙ*`f:max` [`s`]` := univn ℕ ℕ s f e
-notation `⟦`e`⟧ᵪ*`f:max := univ ℕ bool f e
-notation `⟦`e`⟧ₙ*`f:max := univ ℕ ℕ f e
-
-notation `⟦`e`⟧ᵪ^`f:max` [`s`]` := univn ℕ bool s ↑ₒf e
-notation `⟦`e`⟧ₙ^`f:max` [`s`]` := univn ℕ ℕ s ↑ₒf e
-notation `⟦`e`⟧ᵪ^`f:max := univ ℕ bool ↑ₒf e
-notation `⟦`e`⟧ₙ^`f:max := univ ℕ ℕ ↑ₒf e
+notation `⟦`e`⟧ᵪ^`f:max` [`s`]` := univn ℕ bool s f e
+notation `⟦`e`⟧ₙ^`f:max` [`s`]` := univn ℕ ℕ s f e
+notation `⟦`e`⟧ᵪ^`f:max := univ ℕ bool f e
+notation `⟦`e`⟧ₙ^`f:max := univ ℕ ℕ f e
 
 def univn0 (α σ) [primcodable α] [primcodable σ] (s : ℕ) (e : ℕ) : α → option σ :=
 univn α σ s (λ x, none : ℕ → option ℕ) e
@@ -699,24 +709,24 @@ univ α σ (λ x, some 0 : ℕ → option ℕ) e
 notation `⟦`e`⟧⁰`:max` [`s`]` := univn0 _ _ s e
 notation `⟦`e`⟧⁰`:max := univ0 _ _ e
 
-def re_set (α σ) [primcodable α] [primcodable σ] (p : β → option τ) (e : ℕ) : set α :=
-{x | (⟦e⟧*p x : part σ).dom}
+def re_set (α σ) [primcodable α] [primcodable σ] (f : β → τ) (e : ℕ) : set α :=
+{x | (⟦e⟧^f x : part σ).dom}
 
 def re_set0 (α σ) [primcodable α] [primcodable σ] (e : ℕ) : set α :=
 {x | (univ0 α σ e x : part σ).dom}
 
-notation `W⟦`e`⟧^`f:max := re_set _ _ ↑ₒf e
+notation `W⟦`e`⟧^`f:max := re_set _ _ f e
 
-notation `W⟦`e`⟧ᵪ^`f:max := re_set ℕ bool ↑ₒf e
-notation `W⟦`e`⟧ₙ^`f:max := re_set ℕ ℕ ↑ₒf e
+notation `W⟦`e`⟧ᵪ^`f:max := re_set ℕ bool f e
+notation `W⟦`e`⟧ₙ^`f:max := re_set ℕ ℕ f e
 notation `W⟦`e`⟧ᵪ⁰`:max := re_set0 ℕ bool e
 notation `W⟦`e`⟧ₙ⁰`:max := re_set0 ℕ ℕ e
 
 def curry {α} [primcodable α] (e : ℕ) (n : α) : ℕ := encode (code.curry (of_nat _ e) (encode n))
 
 -- smn定理
-@[simp] theorem eval_curry (f : γ → option τ) (e : ℕ) (n : β) (x : α) :
-  (⟦curry e n⟧*f x : part σ) = (⟦e⟧*f (n, x) : part σ) :=
+@[simp] theorem eval_curry (f : γ → τ) (e : ℕ) (n : β) (x : α) :
+  (⟦curry e n⟧^f x : part σ) = (⟦e⟧^f (n, x) : part σ) :=
 by { simp[curry, univ] }
 
 namespace rpartrec
@@ -727,13 +737,13 @@ theorem curry_prim {α} [primcodable α] : primrec₂ (@curry α _) :=
 
 open primrec
 
-theorem univn_sound {e} {p : β → option τ} {x : α} {y : σ} {s : ℕ} :
-  ⟦e⟧*p [s] x = some y → ⟦e⟧*p x = some y := 
+theorem univn_sound {e} {f : β → τ} {x : α} {y : σ} {s : ℕ} :
+  ⟦e⟧^f [s] x = some y → ⟦e⟧^f x = some y := 
 by { simp[univn, univ, part.eq_some_iff], 
      exact λ s h e, ⟨s, code.evaln_sound h, e⟩ }
 
-theorem univn_complete {p : β → option τ} {e x} {n : α} :
-  x ∈ (⟦e⟧*p n : part σ) ↔ ∃ s, ⟦e⟧*p [s] n = some x :=
+theorem univn_complete {f : β → τ} {e x} {n : α} :
+  x ∈ (⟦e⟧^f n : part σ) ↔ ∃ s, ⟦e⟧^f [s] n = some x :=
 by { simp[univn, univ, part.eq_some_iff], split,
      { rintros ⟨a, ha, ea⟩,
        rcases code.evaln_complete.mp ha with ⟨s, hs⟩,
@@ -742,26 +752,26 @@ by { simp[univn, univ, part.eq_some_iff], split,
        have := code.evaln_complete.mpr ⟨s, ha⟩,
        refine ⟨a, this, ea⟩ } }
 
-theorem univn_dom_complete {p : β → option τ} {e} {n : α} :
-  (⟦e⟧*p n : part σ).dom ↔ ∃ s, (⟦e⟧*p [s] n : option σ).is_some :=
+theorem univn_dom_complete {f : β → τ} {e} {n : α} :
+  (⟦e⟧^f n : part σ).dom ↔ ∃ s, (⟦e⟧^f [s] n : option σ).is_some :=
 by { simp[part.dom_iff_mem, option.is_some_iff_exists], split,
      { rintros ⟨y, h⟩, rcases univn_complete.mp h with ⟨s, h⟩, refine ⟨s, y, h⟩ },
      { rintros ⟨s, y, h⟩, have := univn_complete.mpr ⟨s, h⟩, refine ⟨y, this⟩ } }
 
-theorem univn_mono {e} {p : β → option τ} {s₀ s₁ : ℕ} {x : α} {y : σ}
-  (eqn : s₀ ≤ s₁) : ⟦e⟧*p [s₀] x = some y → ⟦e⟧*p [s₁] x = some y :=
+theorem univn_mono {e} {f : β → τ} {s₀ s₁ : ℕ} {x : α} {y : σ}
+  (eqn : s₀ ≤ s₁) : ⟦e⟧^f [s₀] x = some y → ⟦e⟧^f [s₁] x = some y :=
 by { simp [univn], intros z h eqn_z,
      refine ⟨z, code.evaln_mono eqn h, eqn_z⟩ }
 
-theorem univn_dom_mono {e} {p : β → option τ} {s₀ s₁ : ℕ} {x : α}
-  (eqn : s₀ ≤ s₁) : (⟦e⟧*p [s₀] x : option σ).is_some → (⟦e⟧*p [s₁] x : option σ).is_some :=
+theorem univn_dom_mono {e} {f : β → τ} {s₀ s₁ : ℕ} {x : α}
+  (eqn : s₀ ≤ s₁) : (⟦e⟧^f [s₀] x : option σ).is_some → (⟦e⟧^f [s₁] x : option σ).is_some :=
 begin
-  cases C : (⟦e⟧*p [s₀] x : option σ) with y; simp,
+  cases C : (⟦e⟧^f [s₀] x : option σ) with y; simp,
   simp[univn_mono eqn C]
 end
 
-theorem univn_mono_eq {e} {p : β → option τ} {s₀ s₁ : ℕ} {x : α} {y₀ y₁ : σ}
-  (h₀ : ⟦e⟧*p [s₀] x = some y₀) (h₁ : ⟦e⟧*p [s₁] x = some y₁) : y₀ = y₁ :=
+theorem univn_mono_eq {e} {f : β → τ} {s₀ s₁ : ℕ} {x : α} {y₀ y₁ : σ}
+  (h₀ : ⟦e⟧^f [s₀] x = some y₀) (h₁ : ⟦e⟧^f [s₁] x = some y₁) : y₀ = y₁ :=
 begin
   have : s₀ ≤ s₁ ∨ s₁ ≤ s₀, from le_total _ _,
   cases this,
@@ -769,43 +779,44 @@ begin
   { have := univn_mono this h₁, simp [this] at h₀, exact eq.symm h₀ }
 end 
 
-theorem univn_use {s e} {p q : ℕ → option β}
-  (h : ∀ x, x < s → p x = q x) : (⟦e⟧*p [s] : α → option σ) = ⟦e⟧*q [s] :=
+theorem univn_use {s e} {f g : ℕ → β}
+  (h : ∀ x, x < s → f x = g x) : (⟦e⟧^f [s] : α → option σ) = ⟦e⟧^g [s] :=
 begin
   simp [univn],
   suffices :
-    code.evaln s (λ n, option.map encode (p n)) (of_nat code e) =
-    code.evaln s (λ n, option.map encode (q n)) (of_nat code e),
+    code.evaln s (to_nfn f) (of_nat code e) =
+    code.evaln s (to_nfn g) (of_nat code e),
   { funext, rw this },
-  apply code.evaln_use, intros u eqn, congr, exact h _ eqn
+  apply code.evaln_use, intros u eqn, 
+  simp[to_nfn, h u eqn],
 end
 
 theorem univn_tot_use {s e} {f g : ℕ → β}
   (h : ∀ x, x < s → f x = g x) : (⟦e⟧^f [s] : α → option σ) = ⟦e⟧^g [s] :=
 univn_use (λ x lt, by simp[h x lt])
 
-theorem univn_mono_use {e} {p q : ℕ → option τ} {s₀ s₁ : ℕ} {x : α} {y : σ}
-  (h : ∀ x < s₀, p x = q x) (eqn : s₀ ≤ s₁) : ⟦e⟧*p [s₀] x = some y → ⟦e⟧*q [s₁] x = some y := λ eq_y,
-  have (⟦e⟧*p [s₀] x : option σ) = ⟦e⟧*q [s₀] x, from congr_fun (univn_use h) x,  
+theorem univn_mono_use {e} {f g : ℕ → τ} {s₀ s₁ : ℕ} {x : α} {y : σ}
+  (h : ∀ x < s₀, f x = g x) (eqn : s₀ ≤ s₁) : ⟦e⟧^f [s₀] x = some y → ⟦e⟧^g [s₁] x = some y := λ eq_y,
+  have (⟦e⟧^f [s₀] x : option σ) = ⟦e⟧^g [s₀] x, from congr_fun (univn_use h) x,  
 univn_mono eqn (by simp[←this, eq_y])
 
 theorem univn_tot_mono_use {e} {f g : ℕ → τ} {s₀ s₁ : ℕ} {x : α} {y : σ}
   (h : ∀ x < s₀, f x = g x) (eqn : s₀ ≤ s₁) : ⟦e⟧^f [s₀] x = some y → ⟦e⟧^g [s₁] x = some y :=
-univn_mono_use (by simp; exact h) eqn
+univn_mono_use h eqn
 
-theorem eval_inclusion {e} {x : α} {y : σ} {p : ℕ → option τ}
-  (h : y ∈ (⟦e⟧*p x : part σ)) : ∃ s, ∀ {q : ℕ → option τ},
-  (∀ x y, x < s → p x = some y → q x = some y) → y ∈ (⟦e⟧*q x : part σ) := 
-by { simp [part.eq_some_iff, univ] at h ⊢, rcases h with ⟨a, h, e⟩,
+theorem eval_inclusion {e} {x : α} {y : σ} {f : ℕ → τ}
+  (h : y ∈ (⟦e⟧^f x : part σ)) : ∃ s, ∀ {g : ℕ → τ},
+  (∀ x y, x < s → f x = y → g x = y) → y ∈ (⟦e⟧^g x : part σ) := 
+by { simp [part.eq_some_iff, univ, to_nfn] at h ⊢, rcases h with ⟨a, h, e⟩,
      rcases nat.rpartrec.code.eval_inclusion h with ⟨s, hs⟩,
-     refine ⟨s, λ g h, ⟨a, hs (λ x y e ey, _), e⟩⟩, simp at ey, rcases ey with ⟨a, ea, ey⟩,
-     have := h _ _ e ea, simp[this, ey] }
+     refine ⟨s, λ g h, ⟨a, hs (λ x y e ey, _), e⟩⟩, simp at ey,
+     have := h _ (f x) e rfl, rw this, exact ey }
 
 theorem eval_inclusion_tot {e} {x : α} {y : σ}
   {f : ℕ → τ} (h : y ∈ (⟦e⟧^f x : part σ)) : ∃ s, ∀ {g : ℕ → τ},
   (∀ x y, x < s → f x = y → g x = y) → y ∈ (⟦e⟧^g x : part σ) := 
 by { rcases eval_inclusion h with ⟨s, hs⟩, refine ⟨s, λ g hfg, hs _⟩,
-     simp, exact hfg }
+     exact hfg }
 
 end rpartrec
 

@@ -99,7 +99,7 @@ def rpartrec (f : α →. σ) (g : β →. τ) := nat.rpartrec.reducible
 
 infix ` partrec_in `:80 := rpartrec
 
-def rpartrec_tot (f : α →. σ) (g : β → τ) := f partrec_in ↑ᵣg
+def rpartrec_tot (f : α →. σ) (g : β → τ) := f partrec_in (g : β →. τ)
 
 infix ` partrec_in! `:80 := rpartrec_tot
 
@@ -107,15 +107,15 @@ def rpartrec₂ (f : α → β →. σ) (g : γ →. τ) := (λ x : α × β, f 
 
 infix ` partrec₂_in `:80 := rpartrec₂
 
-def rpartrec₂_tot (f : α → β →. σ) (g : γ → τ) := f partrec₂_in ↑ᵣg
+def rpartrec₂_tot (f : α → β →. σ) (g : γ → τ) := f partrec₂_in (g : γ →. τ)
 
 infix ` partrec₂_in! `:80 := rpartrec₂_tot
 
-def rcomputable (f : α → σ) (g : β →. τ) := ↑ᵣf partrec_in g
+def rcomputable (f : α → σ) (g : β →. τ) := (f : α →. σ) partrec_in g
 
 infix ` computable_in `:80 := rcomputable
 
-def rcomputable_tot (f : α → σ) (g : β → τ) := f computable_in ↑ᵣg
+def rcomputable_tot (f : α → σ) (g : β → τ) := f computable_in (g : β →. τ)
 
 infix ` computable_in! `:80 := rcomputable_tot
 
@@ -123,7 +123,7 @@ def rcomputable₂ (f : α → β → σ) (g : γ →. τ) := (λ x : α × β, 
 
 infix ` computable₂_in `:80 := rcomputable₂
 
-def rcomputable₂_tot (f : α → β → σ) (g : γ → τ) := f computable₂_in ↑ᵣg
+def rcomputable₂_tot (f : α → β → σ) (g : γ → τ) := f computable₂_in (g : γ →. τ)
 
 infix ` computable₂_in! `:80 := rcomputable₂_tot
 
@@ -540,8 +540,9 @@ begin
 end
 
 instance decidable.to_part_dom {α : Type*} {β : Type*} (f : α → β) :
-  ∀ n, decidable ((↑ᵣf) n).dom := λ _, decidable.true
+  ∀ n, decidable ((f : α →. β) n).dom := λ _, decidable.true
 
 def computable_fun : ℕ → ℕ := λ _, 0
 
 lemma computable.computable_fun : computable computable_fun := computable.const _
+

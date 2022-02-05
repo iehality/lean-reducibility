@@ -658,7 +658,8 @@ begin
   cases eqn₂ : λ[S] μ₂ with σ η₂,
   { simp [eqn₁, eqn₂] at ne, contradiction },
   { simp },
-  { exfalso, have := S.noninitial_of_suffix (list.suffix_of_is_initial lt), simp[eqn₁, eqn₂] at this, contradiction },
+  { exfalso, have := S.noninitial_of_suffix (list.suffix_of_is_initial lt),
+    simp[eqn₁, eqn₂] at this, contradiction },
   have le₁ : π <:+ μ₁, from  S.suffix_of_mem_lambda (by simp[eqn₁]),
   have le₂ : σ <:+ μ₂, from  S.suffix_of_mem_lambda (by simp[eqn₂]),
   have le₁' : π <:+ μ₂, from list.suffix_of_is_initial (list.is_suffix.is_initial_of_is_initial le₁ lt),
@@ -1089,19 +1090,21 @@ begin
   refine ⟨s₂, this⟩
 end
 
-structure construction (α : Type*) [primcodable α] :=
-(requirements : ℕ)
-(directing_sentence : fin requirements → α → Tree 0 → bool)
-(action : fin requirements → α → Tree 0 → α)
-(directing_sentence_computable : computable (prod.unpaired3 directing_sentence))
-(action_computable : computable (prod.unpaired3 action))
-(initial : α)
+structure construction
+  (σ : strategy 1) {I : Type*} (α : Π i : I, Type*) [∀ i, has_mass (α i)] (n : ℕ) :=
+(directing_sentence : Tree 0 → (Π i, list (α i)) → (Π i : fin n, Tree (i + 1)) → ℕ → bool)
+(invariance : ∀ (a₁ a₂ : Π i, list (α i)) μ,
+  (∀ i, a₁ i =ᵇ[(λ[σ] μ).weight] a₂ i) → directing_sentence μ a₁ = directing_sentence μ a₂)
+(initial : Π i, α i)
+(action : (Π i, α i) → Tree 0 → Π i, α i)
+(directing_sentence_computable : computable (prod.unpaired directing_sentence))
+(action_computable : computable (prod.unpaired action))
 
 namespace construction
 
 variables {α : Type*} [primcodable α] (C : construction α)
 
-def generator : ℕ → (Tree 0 × α)
+def generator : ℕ → Tree 0 × α
 | 0       := ([], C.initial)
 | (s + 1) :=
     let μ  : Tree 0 := (generator s).1, 

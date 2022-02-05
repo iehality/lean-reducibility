@@ -8,7 +8,7 @@ namespace friedberg_muchnik
 open rcomputable rcomputable₂
 def str : strategy 1 := default _
 
-def generator : ℕ → (Tree 0 × (list ℕ × list ℕ))
+def generator : ℕ → Tree 0 × (list ℕ × list ℕ)
 | 0       := ([], [], [])
 | (s + 1) :=
     let μ  : Tree 0 := (generator s).1, 
@@ -24,7 +24,7 @@ def generator : ℕ → (Tree 0 × (list ℕ × list ℕ))
 
 lemma computable.generator : computable generator :=
 begin
-  let F : ℕ → (Tree 0 × list ℕ × list ℕ) :=
+  let F : ℕ → Tree 0 × list ℕ × list ℕ :=
   nat.elim ([], [], []) (λ s IH,
     let μ  : Tree 0 := IH.1, 
         L₀ : list ℕ := IH.2.1,
@@ -514,12 +514,12 @@ begin
   have : (out ⟨η, lt⟩).is_pi ∨ (out ⟨η, lt⟩).is_sigma, from pi_or_sigma (out ⟨η, lt⟩),
   rcases this with (pi | sigma),
   { have : η.weight ∉ I₁, from nonmem_of_even pi even,
-    have : ff ∈ ⟦e⟧ᵪ^(chr I₀) η.weight, { simp[lmm_e], exact eq.symm ((chr_ff_iff _ _).mpr this) },
+    have : ff ∈ ⟦e⟧ᵪ^(chr I₀) η.weight, { simp[lmm_e], exact this },
     have : ff ∉ ⟦e⟧ᵪ^(chr I₀) η.weight, rw eq_e, from pi_substrategies_of_even pi even,
     contradiction },
   { have : η.weight ∈ I₁ ∧ ff ∈ ⟦e⟧ᵪ^(chr I₀) η.weight, rw eq_e, from sigma_preservation_of_even sigma even,
     rcases this with ⟨mem, nonmem⟩,
-    have : η.weight ∉ I₁, { simp[lmm_e] at nonmem, exact (chr_ff_iff _ _).mp (eq.symm nonmem) },
+    have : η.weight ∉ I₁, { simp[lmm_e] at nonmem, exact nonmem },
     contradiction }
 end
 
@@ -534,12 +534,12 @@ begin
   have : (out ⟨η, lt⟩).is_pi ∨ (out ⟨η, lt⟩).is_sigma, from pi_or_sigma (out ⟨η, lt⟩),
   rcases this with (pi | sigma),
   { have : η.weight ∉ I₀, from nonmem_of_odd pi odd,
-    have : ff ∈ ⟦e⟧ᵪ^(chr I₁) η.weight, { simp[lmm_e], exact eq.symm ((chr_ff_iff _ _).mpr this) },
+    have : ff ∈ ⟦e⟧ᵪ^(chr I₁) η.weight, { simp[lmm_e], exact this },
     have : ff ∉ ⟦e⟧ᵪ^(chr I₁) η.weight, rw eq_e, from pi_substrategies_of_odd pi odd,
     contradiction },
   { have : η.weight ∈ I₀ ∧ ff ∈ ⟦e⟧ᵪ^(chr I₁) η.weight, rw eq_e, from sigma_preservation_of_odd sigma odd,
     rcases this with ⟨mem, nonmem⟩,
-    have : η.weight ∉ I₀, { simp[lmm_e] at nonmem, exact (chr_ff_iff _ _).mp (eq.symm nonmem) },
+    have : η.weight ∉ I₀, { simp[lmm_e] at nonmem, exact nonmem },
     contradiction }
 end
 

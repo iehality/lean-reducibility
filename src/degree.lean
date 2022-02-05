@@ -98,8 +98,6 @@ instance : semilattice_sup_bot 𝐃 :=
 
 lemma of_sup_of {A B} : deg A ⊔ deg B = deg (Join₂ A B) := rfl
 
-instance : inhabited 𝐃 := ⟨⊥⟩
-
 def djump : 𝐃 → 𝐃 :=
 λ d, turing_degree.lift_on d (λ d, deg d′)
 (λ A B ⟨ab, ba⟩, by { simp, exact 
@@ -112,6 +110,16 @@ def djump_itr (d : 𝐃) : ℕ → 𝐃
 | (n+1) := (djump_itr n)⁺
 
 @[simp] lemma of_jump {A} : (deg A)⁺ = deg A′ := rfl
+
+@[simp] lemma of_lt_of {A B} : deg A < deg B ↔ A <ₜ B := by refl
+
+theorem lt_djump (d : 𝐃) : d < d⁺ :=
+by { induction d using turing_degree.ind_on, simp,
+     exact lt_Jump _ } 
+
+theorem djump_neq (d : 𝐃) : d ≠ d⁺ := λ h,
+by { have : d⁺ ≤ d, rw ←h,
+     exact (lt_djump d).2 this }
 
 def re_degree := {d // ∃ R : set ℕ, r.e. R ∧ d = deg R}
 
@@ -126,7 +134,7 @@ instance : semilattice_sup_bot 𝐑 :=
            refine ⟨Join₂ A B, re_Join_of_re_re reA reB, by simp[of_sup_of]⟩ }⟩,
     bot := ⟨⊥, ∅, re_pred_0, rfl⟩,
     le_refl := by simp,
-    le_trans := λ ⟨a, _⟩ ⟨b, _⟩ ⟨c, _⟩, by {simp, exact le_trans },
+    le_trans := λ ⟨a, _⟩ ⟨b, _⟩ ⟨c, _⟩, by { simp, exact le_trans },
     le_antisymm := λ ⟨a, _⟩ ⟨b, _⟩, by { simp, exact le_antisymm },
     bot_le := λ ⟨a, _⟩, by simp,
     le_sup_left := λ ⟨a, _⟩ ⟨b, _⟩, by simp,
@@ -139,21 +147,24 @@ instance : semilattice_sup_top 𝐑 :=
     exact (re_many_one_reducible_to_0'.mp reR).to_turing },
     ..re_degree.semilattice_sup_bot }
 
+@[simp] lemma re_degree.bot_eq_bot : ((⊥ : 𝐑) : 𝐃) = ⊥ := rfl
+
+@[simp] lemma re_degree.top_eq_jump_bot : ((⊤ : 𝐑) : 𝐃) = ⊥⁺ := rfl
+
+lemma re_degree.ext' (a b : 𝐑) : a = b ↔ (a : 𝐃) = (b : 𝐃) :=
+by { rcases a, rcases b, simp }
+
+lemma re_degree.le_iff (a b : 𝐑) : a ≤ b ↔ (a : 𝐃) ≤ (b : 𝐃) := by refl
+
 def High := {d : 𝐑 | (d : 𝐃)⁺ = ⊥⁺⁺}
 
 def Low  := {d : 𝐑 | (d : 𝐃)⁺ = ⊥⁺}
 
-@[simp] lemma of_lt_of {A B} : deg A < deg B ↔ A <ₜ B := by refl
-
-theorem lt_djump (d : 𝐃) : d < d⁺ :=
-by { induction d using turing_degree.ind_on, simp,
-     exact lt_Jump _ } 
-
-theorem djump_neq (d : 𝐃) : d ≠ d⁺ := λ h,
-by { have : d⁺ ≤ d, rw ←h,
-     exact (lt_djump d).2 this }
+theorem bot_ne_top : (⊥ : 𝐑) ≠ ⊤ := by simp[re_degree.ext', djump_neq]
 
 instance : nontrivial 𝐃 := ⟨⟨⊥, ⊥⁺, djump_neq ⊥⟩⟩
+
+instance : nontrivial 𝐑 := ⟨⟨⊥, ⊤, bot_ne_top⟩⟩
 
 lemma jump_order_preserving (a b : 𝐃) (le : a ≤ b) : a⁺ ≤ b⁺ :=
 by { induction a using turing_degree.ind_on,

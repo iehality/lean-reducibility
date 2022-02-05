@@ -997,3 +997,86 @@ def complement {α : Type*} {β : Type*} (p : α →. β) [∀ a, decidable (p a
   (p.complement a : part β) = p a := by { simp[complement], exact part.of_to_option _ }
 
 end pfun
+
+instance has_mem_prod (α : Type*) (α' : Type*) (β : Type*) (β' : Type*) [has_mem α α'] [has_mem β β'] :
+  has_mem (α × β) (α' × β') := ⟨λ p p', p.1 ∈ p'.1 ∧ p.2 ∈ p'.2⟩
+
+section
+variables (α : Type*) (α' : Type*) (β : Type*) (β' : Type*) [has_mem α α'] [has_mem β β']
+
+@[simp] lemma prod_mem_iff (a : α) (A : α') (b : β) (B : β') : (a, b) ∈ (A, B) ↔ a ∈ A ∧ b ∈ B :=
+by simp[has_mem.mem]
+
+end
+
+class has_mass (α : Type*) :=
+(mass : α → ℕ)
+
+prefix `mass `:80 := has_mass.mass
+
+namespace has_mass
+
+instance : has_mass ℕ := ⟨id⟩
+
+instance (α : Type*) [has_mass α] (β : Type*) [has_mass β] : has_mass (α × β) :=
+⟨λ p, max (mass p.1) (mass p.2)⟩
+
+instance (α : Type*) [has_mass α] (β : Type*) [has_mass β] : has_mass (α ⊕ β) :=
+⟨λ p, sum.cases_on p (λ x, mass x) (λ x, mass x)⟩
+
+@[simp] lemma nat_eq (n : ℕ) : mass n = n := rfl
+
+@[simp] lemma prod_eq (α : Type*) [has_mass α] (β : Type*) [has_mass β] (a : α) (b : β) :
+  mass (⟨a, b⟩ : α × β) = max (mass a) (mass b) := rfl
+
+@[simp] lemma sum_eq_left (α : Type*) [has_mass α] (β : Type*) [has_mass β] (a : α) :
+  mass (sum.inl a : α ⊕ β) = mass a := rfl
+
+@[simp] lemma sum_eq_right (α : Type*) [has_mass α] (β : Type*) [has_mass β] (b : β) :
+  mass (sum.inr b : α ⊕ β) = mass b := rfl
+
+end has_mass
+
+class ensemble (α : Type*) :=
+(e : Type*)
+(mem : e → α → Prop)
+
+infix ` ∈' `:60 := ensemble.mem
+
+instance {α : Type*} : ensemble (set α) := { e := α, mem := (∈) }
+
+
+
+instance {α : Type*} : ensemble (list α) := { e := α, mem := (∈) }
+
+@[simp] lemma set_mem_iff_mem {α : Type*} (a) (l : list α) : a ∈' l ↔ a ∈ l := by simp[ensemble.mem]
+
+instance {α : Type*} [ensemble α] {β : Type*} [ensemble β] : ensemble (α × β) :=
+{ e := ensemble.e α × ensemble.e β, mem := λ p P, p.1 ∈' P.1 ∧ p.2 ∈' P.2 }
+
+def bound_eq {α : Type u} [has_mass α] {m : Type u → Type v} [has_mem α (m α)] (u : ℕ) (a b : m α) : Prop :=
+∀ {x}, mass x < u → (x ∈ a ↔ x ∈ b)
+
+notation a ` =ᵇ[`:50 u:50 `] `:0 b:50 := bound_eq u a b
+
+def beq_invr {α : Type u} [has_mass α] {m : Type u → Type v} [has_mem α (m α)]
+  {γ : Type*} (u : ℕ) (f : m α → γ) : Prop :=
+∀ a b : m α, a =ᵇ[u] b → f a = f b
+
+namespace bound_eq
+variables {α : Type u} [has_mass α] {m : Type u → Type v} [has_mem α (m α)]
+
+lemma iff_def (u : ℕ) (a b : m α) : a =ᵇ[u] b ↔ (∀ x : α, mass x < u → (x ∈ a ↔ x ∈ b)) := by refl
+
+@[refl, simp] lemma refl (u : ℕ) (a : m α) : a =ᵇ[u] a := λ x h, by refl
+
+@[symm] lemma symm (u : ℕ) (a b : m α) : a =ᵇ[u] b → b =ᵇ[u] a :=
+λ h x lt, (h lt).symm
+
+@[trans] lemma trans (u : ℕ) (a b c : m α) : a =ᵇ[u] b → b =ᵇ[u] c → a =ᵇ[u] c :=
+λ h₁ h₂ x lt, (h₁ lt).trans (h₂ lt)
+
+@[simp] lemma of_beq_of_le {u v : ℕ} (le : v ≤ u) (a b : m α) : a =ᵇ[u] b → a =ᵇ[v] b :=
+λ h x lt, h (gt_of_ge_of_gt le lt)
+
+end bound_eq
