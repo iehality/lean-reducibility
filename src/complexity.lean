@@ -1,4 +1,4 @@
-import degree
+import degree landau_notation
 
 variables 
   {α : Type*} {β : Type*} {γ : Type*} {δ : Type*} {o_dom : Type*} {o_cod : Type*}
@@ -30,7 +30,7 @@ variables {o : o_dom → o_cod} (Φ : complexity_measure o)
 
 def class_of (f : ℕ → ℕ) (g : ℕ → ℕ) : Prop := ∃ e, index_of g e ∧ ∀ a, Φ e a ≼ f a
 
-def O_class_of (f : ℕ → ℕ) (g : ℕ → ℕ) : Prop := ∃ e, index_of g e ∧ ∃ a₀ n, ∀ a > a₀, Φ e a ≼ n * f a
+def O_class_of (f : ℕ → ℕ) (g : ℕ → ℕ) : Prop := ∃ e, index_of g e ∧ ∃ T ∈ O[f], ↑T = Φ e
 
 def time_complexity.DTIME (o : o_dom → o_cod) (f : ℕ → ℕ) : (ℕ → ℕ) → Prop := O_class_of (time_complexity o) f
 
